@@ -14,11 +14,11 @@ Sonavi 从第一版开始正式、同等支持 Windows 与 macOS：
 
 ## 固定技术与组织边界
 
-- 一个仓库、一套 Electron + electron-vite + Vue 3 + TypeScript 工程、一套 renderer 和核心业务代码，分别构建 Windows 与 macOS。
+- 一个仓库、一套 Electron + electron-vite + Vue 3 + TypeScript + Tailwind CSS + shadcn-vue 工程、一套 renderer 和核心业务代码，分别构建 Windows 与 macOS。
 - Navidrome/Subsonic/OpenSubsonic 客户端、认证、音乐库、搜索、收藏、歌单、AudioEngine、播放队列、歌词、缓存与设置必须共享。
 - 平台差异只进入必要的适配模块，例如 `src/main/platform/` 中的窗口、菜单、快捷键、托盘/Dock、路径与系统生命周期；不得复制页面或在各 Vue 组件散布平台判断。
 - renderer 不使用 Node.js、文件系统、`process` 或原始 `ipcRenderer`。平台信息与业务能力由受限、类型明确、带运行时校验的 preload API 提供。
-- UI 沿用 `Sonavi_UI_v0.1/tokens.css` 的石色、琥珀色与低动画方向；首轮使用原生窗口框架，不绘制伪系统按钮。
+- UI 沿用 `Sonavi_UI_v0.1/tokens.css` 的石色、琥珀色与低动画方向；Tailwind CSS 复用这些 tokens，shadcn-vue 组件源码由项目持有并按 Sonavi 风格调整；首轮使用原生窗口框架，不绘制伪系统按钮。
 - Pinia 管客户端状态，TanStack Vue Query 管服务器查询；只有一个 AudioEngine。P01 只建立接口，不提前实现播放器。
 - 公共 Subsonic/OpenSubsonic 协议优先，不依赖 Navidrome 私有 Web API。
 - 使用 electron-builder 的同一配置构建 Windows x64、macOS x64 与 macOS arm64；不得以一台主机的交叉产物代替对应系统运行验收。

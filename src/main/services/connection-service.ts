@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import type {
   ConnectionTestInput,
   ConnectionTestResult
@@ -6,8 +7,14 @@ import type { CredentialStore, StoredCredentialInput } from './credentials/crede
 import { ConnectionFailure, OpenSubsonicClient } from './opensubsonic/client'
 import { normalizeServerUrl, ServerUrlError } from './opensubsonic/request-url'
 
+export interface ConnectedSession {
+  sessionId: string
+  credential: StoredCredentialInput
+}
+
 export class ConnectionService {
   private sessionCredential: StoredCredentialInput | null = null
+  private sessionId: string | null = null
 
   constructor(
     private readonly client: OpenSubsonicClient,
@@ -25,6 +32,7 @@ export class ConnectionService {
       const probe = await this.client.testConnection(baseUrl, credential.username, credential.password)
 
       this.sessionCredential = credential
+      this.sessionId = randomUUID()
 
       let credentialPersistence: 'encrypted' | 'session-only' | 'not-requested' = 'not-requested'
       if (input.rememberMe) {
@@ -33,7 +41,12 @@ export class ConnectionService {
           : 'session-only'
       }
 
-      return { ok: true, server: probe.server, credentialPersistence }
+      return {
+        ok: true,
+        sessionId: this.sessionId,
+        server: probe.server,
+        credentialPersistence
+      }
     } catch (error) {
       if (error instanceof ServerUrlError) {
         return {
@@ -54,5 +67,10 @@ export class ConnectionService {
         error: { code: 'network', message: '连接检查失败，请稍后重试。', retryable: true }
       }
     }
+  }
+
+  getSession(sessionId: string): ConnectedSession | null {
+    if (this.sessionId !== sessionId || !this.sessionCredential) return null
+    return { sessionId: this.sessionId, credential: { ...this.sessionCredential } }
   }
 }

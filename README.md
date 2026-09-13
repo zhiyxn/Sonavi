@@ -1,6 +1,6 @@
 # Sonavi
 
-Sonavi 是一套同时正式面向 Windows 11 x64、macOS 13+ Intel x64 与 macOS 13+ Apple Silicon arm64 的 Navidrome 桌面客户端。两个平台共享同一套 Electron/Vue 工程、renderer 和业务代码；P01 工程基础已完成，当前执行 P02 连接认证，不包含音乐播放。
+Sonavi 是一套同时正式面向 Windows 11 x64、macOS 13+ Intel x64 与 macOS 13+ Apple Silicon arm64 的 Navidrome 桌面客户端。两个平台共享同一套 Electron/Vue 工程、renderer 和业务代码；P01/P02 基础已提交，当前执行 P03 最短播放链路。
 
 ## 当前能力
 
@@ -10,8 +10,10 @@ Sonavi 是一套同时正式面向 Windows 11 x64、macOS 13+ Intel x64 与 macO
 - `contextIsolation`、sandbox、CSP、导航/窗口/权限限制；
 - OpenSubsonic token/salt 认证、`ping`、能力探测、音乐文件夹与分层错误诊断；
 - main 内 CredentialStore 与 safeStorage 加密保存；失败时仅会话使用，不写明文；
+- `getAlbumList2` / `getAlbum` 专辑浏览，以及不透明 `sonavi-media://` 封面/音频句柄；
+- 单一 HTMLAudioElement AudioEngine、流式 `stream`、Range 200/206/416 与重定向拒绝；
+- Tailwind CSS 4 与项目持有的 shadcn-vue 组件源码，共用 Sonavi tokens；
 - 集中的 Windows/macOS 菜单、快捷键提示与窗口生命周期适配入口；
-- AudioEngine 接口占位（没有伪播放）；
 - lint、类型检查、单元/组件测试、Electron 冒烟和 electron-builder 配置。
 
 ## 开发环境
@@ -34,7 +36,7 @@ npm run build
 npm run test:e2e
 ```
 
-`test:e2e` 会先构建，再启动真实 Electron 窗口、验证 preload/连接 IPC、renderer 隔离、safeStorage 和当前 macOS 窗口生命周期，并将当前平台截图写入 `artifacts/screenshots/`。它不连接真实 Navidrome，也不等价于声音或另一操作系统的人工验收。
+`test:e2e` 会先构建，再启动真实 Electron 窗口和本地受控 OpenSubsonic fixture，验证连接、专辑、封面、合成 WAV 流式播放、preload 隔离、safeStorage 与当前平台生命周期，并将截图写入 `artifacts/screenshots/`。它不连接真实 Navidrome，也不等价于物理听音或另一操作系统的人工验收。
 
 ## 平台构建入口
 
@@ -53,6 +55,6 @@ npm run build:mac:arm64
 
 产物写入 `release/<version>/`。当前配置生成未签名开发测试包，不发布 Release、不上传安装包。可以在当前主机用 `npm run pack:dir` 做最小目录打包检查，但跨平台打包成功不作为相应平台兼容证明。
 
-`.github/workflows/ci.yml` 为 Windows x64、macOS Intel x64 与 macOS Apple Silicon arm64 建立独立检查/打包 job，不上传产物。P01 提交的三个 job 已通过；当前未提交的 P02 增量尚未进入远端 CI。
+`.github/workflows/ci.yml` 为 Windows x64、macOS Intel x64 与 macOS Apple Silicon arm64 建立独立检查/打包 job，不上传产物。P01 提交的三个 job 已通过；P02 提交已推送，run `34760475489` 正在运行。当前 P03 工作区未提交，仍未进入远端验证。
 
 更多状态与边界见 [兼容性](docs/COMPATIBILITY.md)、[测试报告](docs/TEST-REPORT.md) 和 [交接](docs/HANDOFF.md)。

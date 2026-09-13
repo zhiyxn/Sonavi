@@ -45,6 +45,7 @@ export interface MusicFolderSummary {
 
 export interface ConnectionSuccessResult {
   ok: true
+  sessionId: string
   server: {
     baseUrl: string
     protocolVersion: string

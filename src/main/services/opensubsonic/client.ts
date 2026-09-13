@@ -4,6 +4,7 @@ import type {
   ConnectionSuccessResult,
   MusicFolderSummary
 } from '../../../shared/connection'
+import type { AlbumDetail, AlbumSummary, TrackSummary } from '../../../shared/library'
 import { buildEndpointUrl, type ConnectionEndpoint } from './request-url'
 import {
   ResponseLimitError,
@@ -21,6 +22,28 @@ const SubsonicErrorSchema = z.object({
 const MusicFolderSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
   name: z.string()
+})
+
+const AlbumSchema = z.object({
+  id: z.union([z.string(), z.number()]).transform(String),
+  name: z.string(),
+  artist: z.string().default('未知艺术家'),
+  year: z.number().int().optional(),
+  songCount: z.number().int().nonnegative().default(0),
+  duration: z.number().nonnegative().default(0),
+  coverArt: z.union([z.string(), z.number()]).transform(String).optional()
+})
+
+const TrackSchema = z.object({
+  id: z.union([z.string(), z.number()]).transform(String),
+  title: z.string(),
+  artist: z.string().default('未知艺术家'),
+  album: z.string().default('未知专辑'),
+  duration: z.number().nonnegative().default(0),
+  track: z.number().int().positive().optional(),
+  discNumber: z.number().int().positive().optional(),
+  contentType: z.string().optional(),
+  coverArt: z.union([z.string(), z.number()]).transform(String).optional()
 })
 
 const SubsonicResponseSchema = z.object({
@@ -43,7 +66,9 @@ const SubsonicResponseSchema = z.object({
       .object({
         musicFolder: z.array(MusicFolderSchema).default([])
       })
-      .optional()
+      .optional(),
+    albumList2: z.object({ album: z.array(AlbumSchema).default([]) }).optional(),
+    album: AlbumSchema.extend({ song: z.array(TrackSchema).default([]) }).optional()
   })
 })
 
@@ -220,17 +245,78 @@ export class OpenSubsonicClient {
     }
   }
 
+  async getAlbumList2(
+    baseUrl: string,
+    username: string,
+    password: string
+  ): Promise<Array<AlbumSummary & { coverArtId?: string | undefined }>> {
+    const response = await this.request('getAlbumList2', baseUrl, username, password, {
+      type: 'newest',
+      size: 30
+    })
+
+    return (response.albumList2?.album ?? []).map((album) => ({
+      id: album.id,
+      name: album.name,
+      artist: album.artist,
+      ...(album.year ? { year: album.year } : {}),
+      songCount: album.songCount,
+      duration: album.duration,
+      ...(album.coverArt ? { coverArtId: album.coverArt } : {})
+    }))
+  }
+
+  async getAlbum(
+    baseUrl: string,
+    username: string,
+    password: string,
+    albumId: string
+  ): Promise<
+    Omit<AlbumDetail, 'coverUrl' | 'tracks'> & {
+      coverArtId?: string | undefined
+      tracks: Array<Omit<TrackSummary, 'coverUrl' | 'streamUrl'> & { coverArtId?: string | undefined }>
+    }
+  > {
+    const response = await this.request('getAlbum', baseUrl, username, password, { id: albumId })
+    if (!response.album) {
+      throw new ConnectionFailure('invalid-response', '服务器未返回专辑详情。', false)
+    }
+
+    const album = response.album
+    return {
+      id: album.id,
+      name: album.name,
+      artist: album.artist,
+      ...(album.year ? { year: album.year } : {}),
+      songCount: album.songCount,
+      duration: album.duration,
+      ...(album.coverArt ? { coverArtId: album.coverArt } : {}),
+      tracks: album.song.map((track) => ({
+        id: track.id,
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        duration: track.duration,
+        ...(track.track ? { track: track.track } : {}),
+        ...(track.discNumber ? { disc: track.discNumber } : {}),
+        ...(track.contentType ? { contentType: track.contentType } : {}),
+        ...(track.coverArt ? { coverArtId: track.coverArt } : {})
+      }))
+    }
+  }
+
   private async request(
     endpoint: ConnectionEndpoint,
     baseUrl: string,
     username: string,
-    password: string
+    password: string,
+    parameters: Record<string, string | number> = {}
   ): Promise<ParsedResponse> {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), RESPONSE_TIMEOUT_MS)
 
     try {
-      const url = buildEndpointUrl(baseUrl, endpoint, username, password)
+      const url = buildEndpointUrl(baseUrl, endpoint, username, password, undefined, parameters)
       const response = await this.transport.request(url, controller.signal)
       return parseResponse(response)
     } catch (error) {

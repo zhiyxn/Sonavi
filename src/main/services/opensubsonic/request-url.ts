@@ -3,7 +3,16 @@ import { createHash, randomBytes } from 'node:crypto'
 export const SUBSONIC_PROTOCOL_VERSION = '1.16.1'
 export const SUBSONIC_CLIENT_NAME = 'Sonavi'
 
-export type ConnectionEndpoint = 'ping' | 'getOpenSubsonicExtensions' | 'getMusicFolders'
+export type ConnectionEndpoint =
+  | 'ping'
+  | 'getOpenSubsonicExtensions'
+  | 'getMusicFolders'
+  | 'getAlbumList2'
+  | 'getAlbum'
+  | 'getCoverArt'
+  | 'stream'
+
+export type EndpointParameters = Record<string, string | number>
 
 export class ServerUrlError extends Error {
   constructor(
@@ -53,7 +62,8 @@ export function buildEndpointUrl(
   endpoint: ConnectionEndpoint,
   username: string,
   password: string,
-  salt = randomBytes(16).toString('hex')
+  salt = randomBytes(16).toString('hex'),
+  parameters: EndpointParameters = {}
 ): string {
   const url = new URL(baseUrl)
   url.pathname = `${url.pathname.replace(/\/$/, '')}/rest/${endpoint}.view`
@@ -63,5 +73,8 @@ export function buildEndpointUrl(
   url.searchParams.set('v', SUBSONIC_PROTOCOL_VERSION)
   url.searchParams.set('c', SUBSONIC_CLIENT_NAME)
   url.searchParams.set('f', 'json')
+  for (const [name, value] of Object.entries(parameters)) {
+    url.searchParams.set(name, String(value))
+  }
   return url.toString()
 }

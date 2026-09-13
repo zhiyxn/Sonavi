@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-sonavi-canvas: var(--sonavi-canvas);
+  --color-sonavi-raised: var(--sonavi-raised);
+  --color-sonavi-ink: var(--sonavi-ink);
+  --color-sonavi-muted: var(--sonavi-text-secondary);
+  --color-sonavi-border: var(--sonavi-border);
+  --color-sonavi-accent: var(--sonavi-accent);
+  --color-sonavi-night: var(--sonavi-night);
+}

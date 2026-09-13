@@ -1,4 +1,5 @@
 import type { ConnectionApi } from './connection'
+import type { LibraryApi } from './library'
 
 export const APPLICATION_INFO_CHANNEL = 'sonavi:application:get-info' as const
 
@@ -19,4 +20,5 @@ export interface SonaviApi {
     getInfo: () => Promise<ApplicationInfo>
   }
   connection: ConnectionApi
+  library: LibraryApi
 }

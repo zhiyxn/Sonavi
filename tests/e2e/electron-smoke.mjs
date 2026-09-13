@@ -5,7 +5,7 @@ import { createServer } from 'node:http'
 import { dirname, resolve } from 'node:path'
 
 const screenshotPath = resolve(
-  process.env.SONAVI_SCREENSHOT_PATH ?? 'artifacts/screenshots/p02-current-platform.png'
+  process.env.SONAVI_SCREENSHOT_PATH ?? 'artifacts/screenshots/p03-current-platform.png'
 )
 
 const executablePath = process.env.SONAVI_EXECUTABLE_PATH
@@ -13,6 +13,37 @@ const electronApplication = await electron.launch(
   executablePath ? { executablePath, args: [] } : { args: ['.'] }
 )
 let fixtureServer
+const mediaRequests = []
+
+function createSyntheticWav() {
+  const sampleRate = 8_000
+  const sampleCount = sampleRate * 4
+  const dataSize = sampleCount * 2
+  const wav = Buffer.alloc(44 + dataSize)
+  wav.write('RIFF', 0)
+  wav.writeUInt32LE(36 + dataSize, 4)
+  wav.write('WAVEfmt ', 8)
+  wav.writeUInt32LE(16, 16)
+  wav.writeUInt16LE(1, 20)
+  wav.writeUInt16LE(1, 22)
+  wav.writeUInt32LE(sampleRate, 24)
+  wav.writeUInt32LE(sampleRate * 2, 28)
+  wav.writeUInt16LE(2, 32)
+  wav.writeUInt16LE(16, 34)
+  wav.write('data', 36)
+  wav.writeUInt32LE(dataSize, 40)
+  for (let index = 0; index < sampleCount; index += 1) {
+    const sample = Math.round(Math.sin((index / sampleRate) * Math.PI * 2 * 220) * 2_400)
+    wav.writeInt16LE(sample, 44 + index * 2)
+  }
+  return wav
+}
+
+const syntheticWav = createSyntheticWav()
+const coverPng = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'base64'
+)
 
 function fixtureResponse(endpoint) {
   const base = {
@@ -40,7 +71,92 @@ function fixtureResponse(endpoint) {
       }
     }
   }
+  if (endpoint === 'getAlbumList2') {
+    return {
+      'subsonic-response': {
+        ...base,
+        albumList2: {
+          album: [
+            {
+              id: 'fixture-album',
+              name: '石与琥珀',
+              artist: 'Sonavi Fixture',
+              songCount: 1,
+              duration: 4,
+              coverArt: 'fixture-cover'
+            }
+          ]
+        }
+      }
+    }
+  }
+  if (endpoint === 'getAlbum') {
+    return {
+      'subsonic-response': {
+        ...base,
+        album: {
+          id: 'fixture-album',
+          name: '石与琥珀',
+          artist: 'Sonavi Fixture',
+          songCount: 1,
+          duration: 4,
+          coverArt: 'fixture-cover',
+          song: [
+            {
+              id: 'fixture-track',
+              title: '跨平台试音',
+              artist: 'Sonavi Fixture',
+              album: '石与琥珀',
+              duration: 4,
+              track: 1,
+              contentType: 'audio/wav',
+              coverArt: 'fixture-cover'
+            }
+          ]
+        }
+      }
+    }
+  }
   return null
+}
+
+function sendMedia(request, response, body, contentType) {
+  const range = request.headers.range
+  mediaRequests.push({ path: request.url, range: range ?? null })
+  response.setHeader('accept-ranges', 'bytes')
+  response.setHeader('content-type', contentType)
+
+  if (!range) {
+    response.statusCode = 200
+    response.setHeader('content-length', body.length)
+    response.end(body)
+    return
+  }
+
+  const match = /^bytes=(\d*)-(\d*)$/.exec(range)
+  if (!match) {
+    response.statusCode = 416
+    response.setHeader('content-range', `bytes */${body.length}`)
+    response.end()
+    return
+  }
+
+  const requestedStart = match[1] ? Number(match[1]) : null
+  const requestedEnd = match[2] ? Number(match[2]) : null
+  const start = requestedStart ?? Math.max(0, body.length - (requestedEnd ?? body.length))
+  const end = Math.min(requestedEnd ?? body.length - 1, body.length - 1)
+  if (start >= body.length || start > end) {
+    response.statusCode = 416
+    response.setHeader('content-range', `bytes */${body.length}`)
+    response.end()
+    return
+  }
+
+  const chunk = body.subarray(start, end + 1)
+  response.statusCode = 206
+  response.setHeader('content-range', `bytes ${start}-${end}/${body.length}`)
+  response.setHeader('content-length', chunk.length)
+  response.end(chunk)
 }
 
 async function startFixtureServer() {
@@ -53,6 +169,15 @@ async function startFixtureServer() {
       requestUrl.searchParams.get('u') === 'fixture-user' &&
       requestUrl.searchParams.get('t') === expectedToken &&
       !requestUrl.searchParams.has('p')
+    if (endpoint === 'stream' && validAuthentication) {
+      sendMedia(request, response, syntheticWav, 'audio/wav')
+      return
+    }
+    if (endpoint === 'getCoverArt' && validAuthentication) {
+      sendMedia(request, response, coverPng, 'image/png')
+      return
+    }
+
     const body = endpoint && validAuthentication ? fixtureResponse(endpoint) : null
 
     response.statusCode = body ? 200 : 401
@@ -108,11 +233,15 @@ try {
   const bridgeShape = await window.evaluate(() => ({
     getInfo: typeof window.sonavi?.application?.getInfo,
     testConnection: typeof window.sonavi?.connection?.test,
+    listAlbums: typeof window.sonavi?.library?.listAlbums,
+    getAlbum: typeof window.sonavi?.library?.getAlbum,
     rendererProcess: typeof window.process
   }))
   if (
     bridgeShape.getInfo !== 'function' ||
     bridgeShape.testConnection !== 'function' ||
+    bridgeShape.listAlbums !== 'function' ||
+    bridgeShape.getAlbum !== 'function' ||
     bridgeShape.rendererProcess !== 'undefined'
   ) {
     throw new Error(`preload 安全边界冒烟失败：${JSON.stringify(bridgeShape)}`)
@@ -137,13 +266,22 @@ try {
   await window.locator('#password').fill('fixture-password')
   await window.locator('#allow-insecure-http').check()
   await window.getByRole('button', { name: '测试连接' }).click()
-  await window
-    .getByText('已连接 fixture-server，发现 1 个音乐文件夹。凭据仅用于本次会话。')
-    .waitFor()
+  await window.getByRole('heading', { name: '最近添加' }).waitFor()
+  await window.getByRole('button', { name: /石与琥珀/ }).click()
+  await window.getByRole('heading', { name: '专辑详情' }).waitFor()
+  await window.getByRole('button', { name: '播放 跨平台试音' }).click()
+  await window.getByRole('button', { name: '暂停' }).waitFor()
+  if (!mediaRequests.some((request) => request.path?.includes('/stream.view'))) {
+    throw new Error('真实 HTMLAudioElement 未请求 fixture 音频流')
+  }
+  await window.screenshot({ path: screenshotPath, fullPage: true })
+  console.log('OpenSubsonic integration passed: albums + detail + opaque media handles')
+  console.log('Audio integration passed: real HTMLAudioElement + streamed synthetic WAV')
+
+  await window.getByRole('button', { name: '连接服务器' }).click()
   if ((await window.locator('#password').inputValue()) !== '') {
     throw new Error('连接完成后密码输入框未清空')
   }
-  console.log('OpenSubsonic integration passed: Electron Session + token auth + 3 fixed endpoints')
 
   const encryptionCheck = await electronApplication.evaluate(async ({ safeStorage }) => {
     const available = await safeStorage.isAsyncEncryptionAvailable()

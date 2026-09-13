@@ -1,0 +1,114 @@
+<script setup lang="ts">
+import { useQuery } from '@tanstack/vue-query'
+import { computed, ref } from 'vue'
+import type { AlbumSummary, TrackSummary } from '../../../shared/library'
+import { getAlbum, listAlbums } from '../services/library'
+import { usePlayerStore } from '../stores/player'
+import { Button } from './ui/button'
+
+const props = defineProps<{ sessionId: string; serverName: string }>()
+const selectedAlbumId = ref<string | null>(null)
+const player = usePlayerStore()
+
+const albumsQuery = useQuery({
+  queryKey: computed(() => ['albums', props.sessionId]),
+  queryFn: () => listAlbums(props.sessionId),
+  staleTime: 30_000
+})
+
+const albumQuery = useQuery({
+  queryKey: computed(() => ['album', props.sessionId, selectedAlbumId.value]),
+  queryFn: () => getAlbum(props.sessionId, selectedAlbumId.value ?? ''),
+  enabled: computed(() => selectedAlbumId.value !== null),
+  staleTime: 30_000
+})
+
+function openAlbum(album: AlbumSummary): void {
+  selectedAlbumId.value = album.id
+}
+
+function playTrack(track: TrackSummary): void {
+  void player.play(track)
+}
+</script>
+
+<template>
+  <section class="min-h-full" aria-labelledby="library-title">
+    <div class="mb-8 flex items-end justify-between gap-4">
+      <div>
+        <p class="eyebrow">03 / LIBRARY</p>
+        <h1 id="library-title" class="mt-4 text-4xl font-medium tracking-[-0.04em]">
+          {{ selectedAlbumId ? '专辑详情' : '最近添加' }}
+        </h1>
+        <p class="mt-2 text-sm text-sonavi-muted">{{ serverName }} · 真实 OpenSubsonic 数据</p>
+      </div>
+      <Button v-if="selectedAlbumId" variant="outline" @click="selectedAlbumId = null">
+        返回专辑
+      </Button>
+    </div>
+
+    <p v-if="albumsQuery.isPending.value" role="status">正在读取音乐库…</p>
+    <div
+      v-else-if="albumsQuery.isError.value"
+      class="rounded-2xl border border-sonavi-border bg-sonavi-raised p-6"
+      role="alert"
+    >
+      <p>{{ albumsQuery.error.value?.message ?? '音乐库加载失败。' }}</p>
+      <Button class="mt-4" size="sm" @click="albumsQuery.refetch()">重试</Button>
+    </div>
+
+    <template v-else-if="selectedAlbumId">
+      <p v-if="albumQuery.isPending.value" role="status">正在读取专辑…</p>
+      <div v-else-if="albumQuery.data.value" class="grid gap-8 lg:grid-cols-[220px_1fr]">
+        <div>
+          <img
+            v-if="albumQuery.data.value.coverUrl"
+            :src="albumQuery.data.value.coverUrl"
+            :alt="`${albumQuery.data.value.name} 封面`"
+            class="aspect-square w-full rounded-2xl bg-sonavi-border object-cover shadow-lg"
+          />
+          <div v-else class="aspect-square rounded-2xl bg-sonavi-border" aria-hidden="true" />
+          <h2 class="mt-4 text-xl font-semibold">{{ albumQuery.data.value.name }}</h2>
+          <p class="text-sm text-sonavi-muted">{{ albumQuery.data.value.artist }}</p>
+        </div>
+
+        <ol class="overflow-hidden rounded-2xl border border-sonavi-border bg-sonavi-raised">
+          <li
+            v-for="(track, index) in albumQuery.data.value.tracks"
+            :key="track.id"
+            class="grid grid-cols-[32px_1fr_auto] items-center gap-3 border-b border-sonavi-border px-4 py-3 last:border-b-0"
+          >
+            <span class="text-xs text-sonavi-muted">{{ track.track ?? index + 1 }}</span>
+            <span class="min-w-0">
+              <strong class="block truncate text-sm">{{ track.title }}</strong>
+              <small class="block truncate text-sonavi-muted">{{ track.artist }}</small>
+            </span>
+            <Button size="sm" :aria-label="`播放 ${track.title}`" @click="playTrack(track)">
+              播放
+            </Button>
+          </li>
+        </ol>
+      </div>
+    </template>
+
+    <div v-else class="grid grid-cols-2 gap-5 md:grid-cols-3 xl:grid-cols-4">
+      <button
+        v-for="album in albumsQuery.data.value ?? []"
+        :key="album.id"
+        type="button"
+        class="group min-w-0 rounded-2xl border border-sonavi-border bg-sonavi-raised p-3 text-left transition hover:-translate-y-0.5 hover:border-sonavi-accent"
+        @click="openAlbum(album)"
+      >
+        <img
+          v-if="album.coverUrl"
+          :src="album.coverUrl"
+          :alt="`${album.name} 封面`"
+          class="aspect-square w-full rounded-xl bg-sonavi-border object-cover"
+        />
+        <div v-else class="aspect-square rounded-xl bg-sonavi-border" aria-hidden="true" />
+        <strong class="mt-3 block truncate">{{ album.name }}</strong>
+        <span class="block truncate text-xs text-sonavi-muted">{{ album.artist }}</span>
+      </button>
+    </div>
+  </section>
+</template>

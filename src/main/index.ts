@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, session } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, protocol, session } from 'electron'
 import { join } from 'node:path'
 import { APPLICATION_INFO_CHANNEL } from '../shared/application'
 import { ApplicationInfoSchema } from '../shared/application-schema'
@@ -7,6 +7,19 @@ import {
   ConnectionTestInputSchema,
   ConnectionTestResultSchema
 } from '../shared/connection-schema'
+import {
+  GET_ALBUM_CHANNEL,
+  LIST_ALBUMS_CHANNEL,
+  type AlbumDetail,
+  type AlbumSummary,
+  type LibraryResult
+} from '../shared/library'
+import {
+  AlbumDetailResultSchema,
+  AlbumIdSchema,
+  AlbumListResultSchema,
+  SessionIdSchema
+} from '../shared/library-schema'
 import { getPlatformAdapter } from './platform'
 import { assertTrustedIpcSender, isTrustedRendererUrl } from './security/trusted-renderer'
 import {
@@ -14,10 +27,20 @@ import {
   SafeStorageEncryptionProvider
 } from './services/credentials/credential-store'
 import { ConnectionService } from './services/connection-service'
+import { LibraryService } from './services/library-service'
+import { MediaHandleRegistry } from './services/media-handle-registry'
+import { MediaProtocolService } from './services/media-protocol'
 import { OpenSubsonicClient } from './services/opensubsonic/client'
 import { ElectronSessionTransport } from './services/opensubsonic/transport'
 
 const platformAdapter = getPlatformAdapter(process.platform)
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'sonavi-media',
+    privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true }
+  }
+])
 
 function registerApplicationIpc(): void {
   ipcMain.handle(APPLICATION_INFO_CHANNEL, (event) => {
@@ -31,12 +54,7 @@ function registerApplicationIpc(): void {
   })
 }
 
-function registerConnectionIpc(): void {
-  const connectionService = new ConnectionService(
-    new OpenSubsonicClient(new ElectronSessionTransport()),
-    new FileCredentialStore(app.getPath('userData'), new SafeStorageEncryptionProvider())
-  )
-
+function registerConnectionIpc(connectionService: ConnectionService): void {
   ipcMain.handle(TEST_CONNECTION_CHANNEL, async (event, rawInput: unknown) => {
     assertTrustedIpcSender(event)
 
@@ -55,6 +73,38 @@ function registerConnectionIpc(): void {
 
     return ConnectionTestResultSchema.parse(await connectionService.test(input.data))
   })
+}
+
+function registerLibraryIpc(libraryService: LibraryService): void {
+  ipcMain.handle(LIST_ALBUMS_CHANNEL, async (event, rawSessionId: unknown) => {
+    assertTrustedIpcSender(event)
+    const sessionId = SessionIdSchema.safeParse(rawSessionId)
+    if (!sessionId.success) {
+      const invalid: LibraryResult<AlbumSummary[]> = {
+        ok: false,
+        error: { code: 'invalid-input', message: '音乐库会话参数无效。', retryable: false }
+      }
+      return invalid
+    }
+    return AlbumListResultSchema.parse(await libraryService.listAlbums(sessionId.data))
+  })
+
+  ipcMain.handle(
+    GET_ALBUM_CHANNEL,
+    async (event, rawSessionId: unknown, rawAlbumId: unknown) => {
+      assertTrustedIpcSender(event)
+      const sessionId = SessionIdSchema.safeParse(rawSessionId)
+      const albumId = AlbumIdSchema.safeParse(rawAlbumId)
+      if (!sessionId.success || !albumId.success) {
+        const invalid: LibraryResult<AlbumDetail> = {
+          ok: false,
+          error: { code: 'invalid-input', message: '专辑请求参数无效。', retryable: false }
+        }
+        return invalid
+      }
+      return AlbumDetailResultSchema.parse(await libraryService.getAlbum(sessionId.data, albumId.data))
+    }
+  )
 }
 
 function installSecurityPolicies(): void {
@@ -107,7 +157,22 @@ registerApplicationIpc()
 
 void app.whenReady().then(() => {
   installSecurityPolicies()
-  registerConnectionIpc()
+  const client = new OpenSubsonicClient(new ElectronSessionTransport())
+  const connectionService = new ConnectionService(
+    client,
+    new FileCredentialStore(app.getPath('userData'), new SafeStorageEncryptionProvider())
+  )
+  const mediaHandles = new MediaHandleRegistry()
+  const libraryService = new LibraryService(connectionService, client, mediaHandles)
+  const mediaProtocol = new MediaProtocolService(
+    connectionService,
+    mediaHandles,
+    (url, init) => session.defaultSession.fetch(url, init)
+  )
+
+  protocol.handle('sonavi-media', (request) => mediaProtocol.handle(request))
+  registerConnectionIpc(connectionService)
+  registerLibraryIpc(libraryService)
   Menu.setApplicationMenu(Menu.buildFromTemplate(platformAdapter.createMenuTemplate(app.name)))
   createMainWindow()
 

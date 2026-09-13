@@ -92,6 +92,15 @@ input {
   text-decoration: none;
 }
 
+button.nav-item {
+  width: 100%;
+  border: 0;
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
 .nav-item.active {
   color: #fffaf0;
   background: rgb(255 255 255 / 9%);
@@ -263,7 +272,8 @@ input {
   font-size: 11px;
 }
 
-.player-placeholder {
+.player-placeholder,
+.player-bar {
   display: grid;
   grid-column: 1 / -1;
   grid-row: 2;
@@ -288,15 +298,19 @@ input {
 }
 
 .player-placeholder strong,
-.player-placeholder span {
+.player-placeholder span,
+.player-bar strong,
+.player-bar span {
   display: block;
 }
 
-.player-placeholder strong {
+.player-placeholder strong,
+.player-bar strong {
   font-size: 13px;
 }
 
-.player-placeholder span {
+.player-placeholder span,
+.player-bar span {
   color: var(--sonavi-night-secondary);
   font-size: 11px;
 }
@@ -304,6 +318,23 @@ input {
 .transport-placeholder {
   color: #aaa99f;
   text-align: center;
+}
+
+.player-controls {
+  display: grid;
+  grid-template-columns: auto 38px minmax(120px, 360px) 38px;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+}
+
+.player-controls input[type='range'] {
+  width: 100%;
+  accent-color: var(--sonavi-accent);
+}
+
+.player-error {
+  color: #ef9f91 !important;
 }
 
 .phase-pill {

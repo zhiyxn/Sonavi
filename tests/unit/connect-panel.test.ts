@@ -21,6 +21,7 @@ describe('ConnectPanel', () => {
   it('通过受限 preload API 测试连接并在结束后清空密码', async () => {
     const test = vi.fn<SonaviApi['connection']['test']>().mockResolvedValue({
       ok: true,
+      sessionId: '1e2d7353-9554-46a5-84fe-89b53008f01d',
       server: {
         baseUrl: 'https://music.example.com',
         protocolVersion: '1.16.1',
@@ -33,7 +34,11 @@ describe('ConnectPanel', () => {
       credentialPersistence: 'encrypted'
     })
     Object.defineProperty(window, 'sonavi', {
-      value: { application: { getInfo: vi.fn() }, connection: { test } } satisfies SonaviApi,
+      value: {
+        application: { getInfo: vi.fn() },
+        connection: { test },
+        library: { listAlbums: vi.fn(), getAlbum: vi.fn() }
+      } satisfies SonaviApi,
       configurable: true
     })
 

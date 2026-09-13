@@ -21,6 +21,8 @@ Windows ARM64、Linux、macOS Universal 合并包不属于首版强制交付。�
 | Electron | 44.3.0 | 官方 Electron 44 要求 macOS 13+；发布三种目标预构建二进制 |
 | electron-vite | 5.0.0 | 官方文档要求 Node 20.19+ 或 22.12+、Vite 5+ |
 | Vite | 7.3.6 | electron-vite 5 的实际 peer 范围为 Vite 5/6/7；使用兼容线最新版本 |
+| Tailwind CSS / Vite 插件 | 4.3.3 | 无原生模块；共享 renderer 构建通过 |
+| shadcn-vue 基础 | 当前官方 Vite/Tailwind v4 结构 | 组件源码入库；Reka UI 2.10.4 支持 Vue 3.4+ |
 | electron-builder | 26.15.3 | 配置明确包含 Windows x64、macOS x64/arm64 |
 | TypeScript | 6.0.3 | typescript-eslint 8.70 的实际 peer 上限为 `<6.1.0`；未强装不兼容的 TS 7 |
 
@@ -43,13 +45,14 @@ Windows ARM64、Linux、macOS Universal 合并包不属于首版强制交付。�
 - 文件名采用稳定英文小写目录和明确大小写 import；仍需在 Windows/默认大小写不敏感 APFS 之外的大小写敏感环境回归。
 - 空格/中文工作区路径：代码没有 shell 拼接路径；尚未在包含空格/中文的 Windows 路径安装验证。
 - P02 CredentialStore 已使用 Electron 44 的异步 `safeStorage`；当前 Intel Mac 加密往返与通用失败路径已验证。Windows 11、Apple Silicon、跨重启恢复和签名后 Keychain 稳定性仍待验证；密文不得假设可跨机器复制，禁止明文回退。
+- P03 新增依赖均为跨平台 JavaScript/CSS 包，没有加入单平台原生依赖；版本已精确锁定。`sonavi-media` 使用 Electron 44 官方 protocol/Session 能力，Windows x64 与 macOS arm64 的实际媒体播放仍需各自运行验证。
 
 ## 当前主机
 
-本轮主机为 macOS 13.7.8 Intel x64（Darwin 22.6.0），Node.js 22.19.0 x64。已验证 electron-vite 生产构建、真实 Electron 冒烟、x64 目录包、连接 IPC、异步 safeStorage 加解密往返，以及关闭窗口/Dock 激活重建；Mach-O 为 x86_64，`LSMinimumSystemVersion=13.0`。未生成/安装 DMG，也未签名或公证。此证据不能替代 Windows 11 或 Apple Silicon 实机结果。
+本轮主机为 macOS 13.7.8 Intel x64（Darwin 22.6.0），Node.js 22.19.0 x64。已验证 electron-vite 生产构建、真实 Electron 冒烟、x64 目录包、连接 IPC、异步 safeStorage 往返、专辑/封面、HTMLAudioElement 合成 WAV 流式播放，以及关闭窗口/Dock 激活重建；P03 截图已目视检查。未生成/安装 DMG，也未签名或公证。此证据不能替代 Windows 11 或 Apple Silicon 实机结果，自动播放通过也不能替代物理扬声器听音。
 
 ## CI 状态
 
-`.github/workflows/ci.yml` 使用 `windows-2025` x64、`macos-15-intel` x64 和 `macos-15` arm64 三个独立 runner。P01 提交 `959e742` 的 GitHub Actions run `34749707166` 中，三个 job 均成功执行 lockfile 安装、lint、typecheck、unit/component、Electron smoke 和本平台打包命令；不上传产物。当前工作区的 P02 增量尚未推送，因此其三目标 CI 仍待运行。macOS 15 CI 不能替代 macOS 13 最低版本实机验证，Windows Server runner 也不能替代 Windows 11 桌面人工验收。
+`.github/workflows/ci.yml` 使用 `windows-2025` x64、`macos-15-intel` x64 和 `macos-15` arm64 三个独立 runner。P01 提交 `959e742` 的 GitHub Actions run `34749707166` 三个 job 均成功。P02 提交 `282ce86` 已推送，run `34760475489` 当前为 `in_progress`；P03 未提交，未进入远端 CI。macOS 15 CI 不能替代 macOS 13 最低版本实机验证，Windows Server runner 也不能替代 Windows 11 桌面人工验收。
 
 来源：https://docs.github.com/en/actions/reference/runners/github-hosted-runners

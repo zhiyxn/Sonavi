@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { ApplicationInfo } from '../../../shared/application'
+import type { ConnectionSuccessResult } from '../../../shared/connection'
 import { testConnection } from '../services/connection'
 
 defineProps<{
   applicationInfo: ApplicationInfo
+}>()
+
+const emit = defineEmits<{
+  connected: [result: ConnectionSuccessResult]
 }>()
 
 const serverUrl = ref('')
@@ -48,6 +53,7 @@ async function submitConnection(): Promise<void> {
 
     statusKind.value = 'success'
     statusMessage.value = `已连接 ${serverName}，发现 ${result.server.musicFolders.length} 个音乐文件夹。${persistenceMessage}`
+    emit('connected', result)
   } catch {
     statusKind.value = 'error'
     statusMessage.value = '无法验证应用返回的连接结果，请重新启动 Sonavi。'

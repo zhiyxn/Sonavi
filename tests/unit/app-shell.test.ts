@@ -1,5 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
+import { createPinia } from 'pinia'
 import App from '../../src/renderer/src/App.vue'
 import type { SonaviApi } from '../../src/shared/application'
 
@@ -22,6 +23,16 @@ function installPlatformApi(platform: 'windows' | 'macos'): void {
         ok: false,
         error: { code: 'network', message: 'not used in app shell tests', retryable: true }
       })
+    },
+    library: {
+      listAlbums: async () => ({
+        ok: false,
+        error: { code: 'not-connected', message: 'not used', retryable: false }
+      }),
+      getAlbum: async () => ({
+        ok: false,
+        error: { code: 'not-connected', message: 'not used', retryable: false }
+      })
     }
   }
 
@@ -35,7 +46,7 @@ afterEach(() => {
 describe('共享应用外壳', () => {
   it('按 preload 契约显示 Windows 快捷键，不渲染伪窗口按钮', async () => {
     installPlatformApi('windows')
-    const wrapper = mount(App)
+    const wrapper = mount(App, { global: { plugins: [createPinia()] } })
     await flushPromises()
 
     expect(wrapper.text()).toContain('Windows · v0.1.0')
@@ -45,7 +56,7 @@ describe('共享应用外壳', () => {
 
   it('macOS 与 Windows 复用同一连接组件并显示 Cmd', async () => {
     installPlatformApi('macos')
-    const wrapper = mount(App)
+    const wrapper = mount(App, { global: { plugins: [createPinia()] } })
     await flushPromises()
 
     expect(wrapper.findComponent({ name: 'ConnectPanel' }).exists()).toBe(true)

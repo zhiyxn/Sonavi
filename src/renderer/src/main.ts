@@ -2,6 +2,7 @@ import { VueQueryPlugin } from '@tanstack/vue-query'
 import { createPinia } from 'pinia'
 import { createApp } from 'vue'
 import App from './App.vue'
+import './styles/tailwind.css'
 import './styles/tokens.css'
 import './styles/base.css'
 

@@ -80,4 +80,24 @@ describe('ConnectionService', () => {
     expect(request).not.toHaveBeenCalled()
     expect(save).not.toHaveBeenCalled()
   })
+
+  it('每次成功连接都会轮换不透明会话 ID，使旧会话失效', async () => {
+    const service = new ConnectionService(new OpenSubsonicClient(transport), {
+      save: async () => true
+    })
+    const input = {
+      serverUrl: 'https://music.example.com',
+      username: 'listener',
+      password: 'secret',
+      rememberMe: false,
+      allowInsecureHttp: false
+    }
+
+    const first = await service.test(input)
+    const second = await service.test(input)
+    expect(first.ok && second.ok && first.sessionId).not.toBe(second.ok && second.sessionId)
+    if (!first.ok || !second.ok) throw new Error('fixture connection failed')
+    expect(service.getSession(first.sessionId)).toBeNull()
+    expect(service.getSession(second.sessionId)?.credential.username).toBe('listener')
+  })
 })

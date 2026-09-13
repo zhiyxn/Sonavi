@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import ConnectPanel from './components/ConnectPanel.vue'
+import LibraryPanel from './components/LibraryPanel.vue'
+import PlayerBar from './components/PlayerBar.vue'
 import { loadApplicationInfo } from './services/application-info'
 import type { ApplicationInfo } from '../../shared/application'
+import type { ConnectionSuccessResult } from '../../shared/connection'
+import { useSessionStore } from './stores/session'
 
 const applicationInfo = ref<ApplicationInfo | null>(null)
 const loadingError = ref('')
+const session = useSessionStore()
 
 const shortcutHint = computed(() =>
   applicationInfo.value ? `${applicationInfo.value.shortcutModifier}+,` : '…'
@@ -18,6 +23,10 @@ onMounted(async () => {
     loadingError.value = '无法读取受信任的应用信息，请重新启动 Sonavi。'
   }
 })
+
+function handleConnected(result: ConnectionSuccessResult): void {
+  session.establish(result)
+}
 </script>
 
 <template>
@@ -29,8 +38,15 @@ onMounted(async () => {
       </div>
 
       <nav>
-        <a class="nav-item active" href="#connect" aria-current="page">连接服务器</a>
-        <span class="nav-item disabled" aria-disabled="true">音乐库 <small>P03</small></span>
+        <button
+          type="button"
+          class="nav-item"
+          :class="{ active: !session.connection }"
+          @click="session.disconnect()"
+        >
+          连接服务器
+        </button>
+        <span class="nav-item" :class="{ active: session.connection }">音乐库 <small>P03</small></span>
         <span class="nav-item disabled" aria-disabled="true">搜索 <small>P05</small></span>
         <span class="nav-item disabled" aria-disabled="true">歌单 <small>P06</small></span>
       </nav>
@@ -45,20 +61,21 @@ onMounted(async () => {
 
     <section id="main-content" class="workspace">
       <div id="connect" class="content-frame">
-        <ConnectPanel v-if="applicationInfo" :application-info="applicationInfo" />
+        <LibraryPanel
+          v-if="applicationInfo && session.connection"
+          :session-id="session.connection.sessionId"
+          :server-name="session.connection.server.serverType ?? 'Subsonic 服务器'"
+        />
+        <ConnectPanel
+          v-else-if="applicationInfo"
+          :application-info="applicationInfo"
+          @connected="handleConnected"
+        />
         <p v-else-if="loadingError" class="startup-error" role="alert">{{ loadingError }}</p>
         <p v-else class="startup-status" role="status">正在读取应用信息…</p>
       </div>
     </section>
 
-    <footer class="player-placeholder" aria-label="播放引擎占位">
-      <div class="album-placeholder" aria-hidden="true">S</div>
-      <div>
-        <strong>播放引擎尚未启用</strong>
-        <span>P02 仍保留单一 AudioEngine 空契约</span>
-      </div>
-      <div class="transport-placeholder" aria-hidden="true">— · ○ · —</div>
-      <span class="phase-pill">P03 接入真实播放</span>
-    </footer>
+    <PlayerBar />
   </main>
 </template>

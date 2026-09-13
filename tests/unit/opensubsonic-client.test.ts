@@ -100,6 +100,75 @@ describe('OpenSubsonicClient', () => {
     expect(result.server.extensions).toEqual([])
   })
 
+  it('读取专辑列表与详情，并把查询 ID 和返回 ID 规范为 string', async () => {
+    const client = new OpenSubsonicClient(
+      new EndpointTransport({
+        getAlbumList2: jsonResponse({
+          'subsonic-response': {
+            status: 'ok',
+            version: '1.16.1',
+            albumList2: {
+              album: [
+                {
+                  id: 12,
+                  name: '石与琥珀',
+                  artist: 'Sonavi',
+                  songCount: 1,
+                  duration: 60,
+                  coverArt: 34
+                }
+              ]
+            }
+          }
+        }),
+        getAlbum: jsonResponse({
+          'subsonic-response': {
+            status: 'ok',
+            version: '1.16.1',
+            album: {
+              id: 12,
+              name: '石与琥珀',
+              artist: 'Sonavi',
+              songCount: 1,
+              duration: 60,
+              coverArt: 34,
+              song: [
+                {
+                  id: 56,
+                  title: '第一首',
+                  artist: 'Sonavi',
+                  album: '石与琥珀',
+                  duration: 60,
+                  track: 1,
+                  contentType: 'audio/wav'
+                }
+              ]
+            }
+          }
+        })
+      })
+    )
+
+    await expect(
+      client.getAlbumList2('https://music.example.com', 'listener', 'secret')
+    ).resolves.toEqual([
+      {
+        id: '12',
+        name: '石与琥珀',
+        artist: 'Sonavi',
+        songCount: 1,
+        duration: 60,
+        coverArtId: '34'
+      }
+    ])
+    await expect(
+      client.getAlbum('https://music.example.com', 'listener', 'secret', '12')
+    ).resolves.toMatchObject({
+      id: '12',
+      tracks: [{ id: '56', title: '第一首' }]
+    })
+  })
+
   it('区分协议认证失败、Cloudflare 挑战和 HTML 响应', async () => {
     const authenticationClient = new OpenSubsonicClient(
       new EndpointTransport({

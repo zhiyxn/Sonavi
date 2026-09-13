@@ -34,6 +34,7 @@ const ConnectionErrorCodeSchema = z.enum([
 export const ConnectionTestResultSchema = z.discriminatedUnion('ok', [
   z.object({
     ok: z.literal(true),
+    sessionId: z.string().uuid(),
     server: z.object({
       baseUrl: z.string().url(),
       protocolVersion: z.string().min(1),
