@@ -1,0 +1,21 @@
+.DS_Store
+Sonavi_UI_v0.1/*
+navidrome-vibe-coding-kit/*
+
+# Dependencies and generated output
+node_modules/
+out/
+dist/
+release/
+coverage/
+artifacts/
+*.log
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Editor metadata
+.idea/
+.vscode/

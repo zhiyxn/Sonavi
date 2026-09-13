@@ -1,0 +1,60 @@
+{
+  "name": "sonavi",
+  "version": "0.1.0",
+  "description": "Windows 与 macOS 双平台 Navidrome 桌面音乐客户端",
+  "main": "./out/main/index.js",
+  "type": "module",
+  "private": true,
+  "author": "Sonavi contributors",
+  "license": "UNLICENSED",
+  "packageManager": "npm@10.9.3",
+  "engines": {
+    "node": ">=22.12.0 <23"
+  },
+  "overrides": {
+    "js-beautify": {
+      "glob": "10.5.0"
+    }
+  },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "start": "electron-vite preview",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web && npm run typecheck:test",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
+    "typecheck:web": "vue-tsc --noEmit -p tsconfig.web.json",
+    "typecheck:test": "vue-tsc --noEmit -p tsconfig.test.json",
+    "test": "vitest run",
+    "test:e2e": "npm run build && node tests/e2e/electron-smoke.mjs",
+    "build": "npm run typecheck && electron-vite build",
+    "pack:dir": "npm run build && electron-builder --dir --publish never",
+    "build:win": "npm run build && electron-builder --win nsis --x64 --publish never",
+    "build:mac:x64": "npm run build && electron-builder --mac dmg --x64 --publish never",
+    "build:mac:arm64": "npm run build && electron-builder --mac dmg --arm64 --publish never"
+  },
+  "dependencies": {
+    "@tanstack/vue-query": "5.102.8",
+    "pinia": "4.0.3",
+    "vue": "3.5.42",
+    "zod": "4.6.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.5.1",
+    "@vitejs/plugin-vue": "6.0.8",
+    "@vue/test-utils": "2.4.6",
+    "electron": "44.3.0",
+    "electron-builder": "26.15.3",
+    "electron-vite": "5.0.0",
+    "eslint": "10.10.0",
+    "eslint-plugin-vue": "10.11.0",
+    "globals": "17.12.0",
+    "happy-dom": "20.14.5",
+    "playwright-core": "1.63.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.0",
+    "vite": "7.3.6",
+    "vitest": "5.0.0",
+    "vue-tsc": "3.3.11"
+  }
+}

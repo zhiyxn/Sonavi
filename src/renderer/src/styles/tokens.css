@@ -1,0 +1,28 @@
+:root {
+  --sonavi-canvas: #faf9f6;
+  --sonavi-subtle: #f2efe9;
+  --sonavi-raised: #ffffff;
+  --sonavi-ink: #302d28;
+  --sonavi-text-secondary: #7a746b;
+  --sonavi-border: #e5dfd5;
+  --sonavi-accent: #a86122;
+  --sonavi-accent-hover: #8f4f1a;
+  --sonavi-accent-subtle: #f4e5cd;
+  --sonavi-night: #1f211e;
+  --sonavi-night-secondary: #c9cebd;
+  --sonavi-success: #61725b;
+  --sonavi-danger: #a13f32;
+  --sonavi-control-radius: 10px;
+  --sonavi-card-radius: 16px;
+  --sonavi-sidebar-width: 218px;
+  --sonavi-player-height: 96px;
+  --sonavi-space-1: 4px;
+  --sonavi-space-2: 8px;
+  --sonavi-space-3: 12px;
+  --sonavi-space-4: 16px;
+  --sonavi-space-6: 24px;
+  --sonavi-space-8: 32px;
+  --sonavi-font:
+    "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB",
+    "Noto Sans SC", "Noto Sans CJK SC", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
