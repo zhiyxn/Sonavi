@@ -7,7 +7,11 @@ import {
   TEST_CONNECTION_CHANNEL,
   type ConnectionTestInput
 } from '../shared/connection'
-import { GET_ALBUM_CHANNEL, LIST_ALBUMS_CHANNEL } from '../shared/library'
+import {
+  GET_ALBUM_CHANNEL,
+  LIST_ALBUMS_CHANNEL,
+  type AlbumPageRequest
+} from '../shared/library'
 
 const sonaviApi: SonaviApi = Object.freeze({
   application: Object.freeze({
@@ -21,7 +25,7 @@ const sonaviApi: SonaviApi = Object.freeze({
     forget: (sessionId: string) => ipcRenderer.invoke(FORGET_CONNECTION_CHANNEL, sessionId)
   }),
   library: Object.freeze({
-    listAlbums: (sessionId: string) => ipcRenderer.invoke(LIST_ALBUMS_CHANNEL, sessionId),
+    listAlbums: (request: AlbumPageRequest) => ipcRenderer.invoke(LIST_ALBUMS_CHANNEL, request),
     getAlbum: (sessionId: string, albumId: string) =>
       ipcRenderer.invoke(GET_ALBUM_CHANNEL, sessionId, albumId)
   })

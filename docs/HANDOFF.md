@@ -9,13 +9,13 @@ P01 已完成；P02/P03 的当前本机代码闸门已完成，继续等待外�
 ## 当前分支与最近已验证提交
 
 - 分支：`main`
-- 最近提交：`95c1753 feat(p03): 建立专辑与流式播放链路`（仅本地）
-- 远端：`origin/main` 当前到 `282ce86`；P01 run `34749707166`、P02 run `34760475489` 均三目标成功
-- `95c1753` 之后的 P01～P03 修复仍未提交；未推送、未发布或上传安装包
+- 最近提交：`4d1777d fix(p01-p03): 补齐凭据与媒体生命周期`
+- 远端：`origin/main` 与本地提交一致；run `34762062759` 三目标成功
+- 当前专辑分页修复尚未提交；未发布或上传安装包
 
 ## 工作区未提交改动
 
-工作区包含本轮 P01～P03 修复、测试和文档改动，均未提交。已逐项补读两个被忽略参考目录内的 README、AGENTS、ACCEPTANCE、PROMPTS、tokens 与 UI review；其中的旧单平台优先描述只保留为历史。用户原有 `.gitignore` 与原始参考目录继续保留；`node_modules/`、`out/`、`release/`、`artifacts/` 和原始参考包不进入提交。
+工作区包含 P03 专辑分页的源码、测试和文档改动，均未提交。用户原有 `.gitignore` 与原始参考目录继续保留；`node_modules/`、`out/`、`release/`、`artifacts/` 和原始参考包不进入提交。
 
 ## 已完成代码
 
@@ -27,7 +27,7 @@ P01 已完成；P02/P03 的当前本机代码闸门已完成，继续等待外�
 - 连接 IPC 新增受限 restore/disconnect/forget；退出、忘记账号和会话轮换会清查询/播放状态、撤销旧句柄并中止活动媒体流。
 - 协议 fixture、凭据文件、共享 UI 与真实 Electron 冒烟测试。
 - 原始提示中明确指定的 Tailwind CSS 4 + shadcn-vue 基础：`components.json`、Vite 插件、theme/token 映射、alias、`cn()` 与 Button 组件源码。
-- P03 `getAlbumList2` / `getAlbum`、音乐库 IPC、简单专辑列表/详情与 Pinia 会话状态。
+- P03 `getAlbumList2` / `getAlbum`、带 `offset/size` 校验的分页音乐库 IPC、每页 30 张的加载更多界面与 Pinia 会话状态。
 - P03 随机会话/媒体句柄、`sonavi-media` scheme、严格 CSP、Electron Session 流式 `getCoverArt` / `stream` 与 Range。
 - 单一 HTMLAudioElement AudioEngine 和共享 PlayerBar；未实现 P04 队列。
 
@@ -38,12 +38,12 @@ P01 已完成；P02/P03 的当前本机代码闸门已完成，继续等待外�
 - `npm test`：通过，9 个文件、43 项测试。
 - `npm run build` / `npm run test:e2e` 内建构建：通过；main、sandbox CJS preload、renderer 均产出。
 - `npm run pack:dir`：通过，生成 `release/0.1.0/mac/Sonavi.app`（未签名目录包）。
-- 生产构建与目录包冒烟：真实 Electron Session 连接本地 `127.0.0.1` fixture；连接、专辑、封面、合成 WAV 播放/暂停/原始流 seek/恢复、旧句柄撤销、真正应用进程重启后的凭据恢复/删除、renderer 无 `process`、safeStorage、截图和 macOS 关闭/重激活均通过。
+- 生产构建冒烟：真实 Electron Session 连接本地 `127.0.0.1` fixture；31 张专辑分两页加载完毕后仍可打开详情并完成播放/暂停/seek。既有凭据、媒体和 macOS 生命周期检查继续通过。
 - P01 与 P02 远端 CI：Windows x64、macOS Intel x64、macOS arm64 均完成 install、lint、typecheck、unit/component、Electron smoke 和对应平台打包。
 
 ## 已执行真实服务器与实机验证
 
-尚未连接真实服务器（需要用户授权的测试服务/账号），也未做物理扬声器/耳机听音。macOS 13.7.8 Intel 上已执行 P03 生产 Electron 冒烟、renderer 截图、未签名 x64 目录包启动、合成 WAV 播放、safeStorage 往返，以及关闭窗口后 Dock 激活重建。Windows 与 Apple Silicon 无可用实机；P01 的对应 GitHub runner 自动化不等于 P03 实机验收。
+用户已在实际服务完成连接、读取首批专辑并成功播放，证明基础真实服务链路可用；本轮问题由固定 30 张且无分页入口引起。分页修复尚待用户在该服务复验，服务地址、账号和凭据没有写入项目或日志。物理扬声器/耳机听音、转码差异仍未单独记录。Windows 与 Apple Silicon 无可用实机。
 
 ## 关键架构与安全决策
 
@@ -51,7 +51,7 @@ P01 已完成；P02/P03 的当前本机代码闸门已完成，继续等待外�
 
 ## 当前问题和最小复现
 
-当前无已知阻断性代码问题。首次在受限网络下运行 `npm run pack:dir` 因无法解析 GitHub 失败；允许 electron-builder 下载官方 Electron 打包文件后复跑成功，不是项目代码失败。P01 已解决的依赖/preload 问题保持不变。
+用户实际服务暴露了首批专辑被截断的问题：`getAlbumList2` 固定 `size=30`，IPC/renderer 没有页信息。当前工作区已改为受校验的 `offset/size` 分页和显式加载更多，并用 31 张受控专辑验证第二页及后续播放；等待实际服务复验。
 
 ## 未验证项
 
@@ -64,7 +64,7 @@ P01 已完成；P02/P03 的当前本机代码闸门已完成，继续等待外�
 
 ## 下一项可执行任务
 
-先提交并推送当前修复后观察三目标 CI；随后继续 P03 外部验证：使用明确授权的真实 Navidrome/OpenSubsonic 服务验证专辑、封面、原始格式/转码、seek 与错误映射，并在 Windows 11、Apple Silicon 环境分别运行 P03 冒烟和截图。未补齐这些证据前不宣称 P03 跨平台最终验收完成，也不进入 P04。原始资料建议的 Vue Router 留到 P05 出现正式页面路由需求时再引入，当前不建立无实际用途的框架。
+请先在同一实际服务点击“加载更多专辑”，确认超过 30 张且最后一页正确收口；随后提交/推送分页修复并观察三目标 CI。之后继续验证封面、原始格式/转码、seek 与错误映射，并在 Windows 11、Apple Silicon 环境分别运行 P03 冒烟和截图。
 
 ## 不应重做或覆盖的内容
 

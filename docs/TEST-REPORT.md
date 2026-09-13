@@ -1,7 +1,7 @@
 # P03 最短播放链路测试报告
 
 更新日期：2026-09-13
-状态：P01～P03 本机代码闸门与 macOS Intel x64 目录包通过；真实服务器、物理听音及另两类实机待验证
+状态：P01～P03 本机代码闸门通过；实际服务基础连接/专辑/播放成功，分页修复待实际服务复验
 
 ## 测试环境
 
@@ -12,8 +12,8 @@
 - 分支：`main`
 - P01 远端提交：`959e742030c3d5795f2632a5f092e81472c1b056`
 - P02 提交：`282ce86`（已推送；GitHub Actions run `34760475489` 三目标成功）
-- P03 基线提交：`95c1753`（仅本地，未推送）
-- 当前 P01～P03 修复：工作区未提交
+- P03 生命周期修复提交：`4d1777d`（已推送；run `34762062759` 三目标成功）
+- 当前专辑分页修复：工作区未提交
 
 ## P01 远端 CI 证据
 
@@ -35,7 +35,7 @@ GitHub Actions run：`34749707166`，结论 `success`，运行页面：https://g
 | `npm run typecheck` | 通过 | main/preload、renderer、tests 三组通过 |
 | `npm test` | 通过 | 9 个文件、43 项测试通过 |
 | `npm run build` | 通过 | main、preload CJS、renderer 构建成功 |
-| `npm run test:e2e` | 通过 | 真实 Electron 连接本地 fixture，完成专辑/封面、HTMLAudioElement 播放/暂停/原始流 seek/恢复、旧句柄撤销、应用进程重启后的凭据恢复/删除；同时验证 IPC、renderer 无 `process`、safeStorage 与 macOS 生命周期 |
+| `npm run test:e2e` | 通过 | 真实 Electron 连接本地 fixture；按 `offset=0/30` 加载 31 张专辑的两页数据，第二页后正确收口，并继续完成详情、播放/暂停/seek、会话/凭据和 macOS 生命周期检查 |
 | `npm run pack:dir` | 通过 | 生成未签名 macOS x64 目录包；首次受限网络失败后获准下载官方 Electron 文件并复跑成功 |
 | 包内 Electron 冒烟 | 通过 | 未签名 x64 `Sonavi.app` 同样完成连接、播放/暂停/seek、会话清理、跨进程凭据恢复/删除、safeStorage、截图、关闭/重激活 |
 
@@ -47,7 +47,7 @@ GitHub Actions run：`34749707166`，结论 `success`，运行页面：https://g
 - 错误：DNS、拒绝连接、超时、TLS、重定向、HTTP 401/403/5xx、Cloudflare challenge、HTML、非法 JSON、超大响应、协议认证/认证方式/权限/版本。
 - 存储：系统加密可用时文件中无明文密码；不可用时不创建凭据文件；当前 Intel Mac 异步 safeStorage 加解密、应用进程重启恢复、显式删除和删除后重启不恢复均通过。
 - 边界：IPC 校验主 frame/窗口/来源与输入；preload 只暴露应用信息、固定连接/恢复/退出和音乐库方法；renderer 对返回值再次校验，不获得原始 IPC、Node 或任意 URL 请求能力。
-- P03 数据：`getAlbumList2`、`getAlbum` 响应 schema、数字/字符串 ID 统一、会话轮换、断开/忘记账号及旧句柄失效。
+- P03 数据：`getAlbumList2` 使用受校验的 offset/size，每页 30 张；返回 items/nextOffset/hasMore，renderer 用 Infinite Query 累积并按 ID 去重；`getAlbum` 详情与会话生命周期保持不变。
 - P03 媒体：renderer 只获得随机 `sonavi-media` URL；覆盖 GET/HEAD 方法限制、单段 Range、200/206/416、重定向/非媒体/网络失败拒绝，以及安全响应头白名单。
 - P03 流：生产 handler 以保留背压的 ReadableStream 传递上游内容，不调用 `arrayBuffer()` 或 Base64 IPC；会话撤销会 Abort 活动上游请求。Electron 冒烟实际执行播放、暂停、2 秒 seek 与恢复播放。
 
@@ -61,11 +61,11 @@ GitHub Actions run：`34749707166`，结论 `success`，运行页面：https://g
 | P02 目录包 | 未验证：无实机 | x64 目录包启动通过；DMG 未安装 | 未验证：无实机 |
 | P02 safeStorage | 单元失败路径通过；实机未验证 | 异步加密往返、跨进程恢复/删除通过 | 单元失败路径通过；实机未验证 |
 | P02 UI 截图 | 未验证 | 开发构建与目录包截图目视通过，无截断/重叠 | 未验证 |
-| P03 当前增量远端 CI | 未运行 | 未运行 | 未运行 |
+| P03 截至 `4d1777d` 远端 CI | 三目标成功 | 三目标成功 | 三目标成功 |
 | P03 专辑/媒体/Audio 冒烟 | 未验证：无实机 | 生产构建与 x64 目录包播放/暂停/seek、会话清理通过 | 未验证：无实机 |
 | P03 UI 截图 | 未验证 | 专辑详情与播放器目视通过，无截断/重叠 | 未验证 |
 | P03 物理听音 | 未验证 | 未验证：自动播放事件不等同听音 | 未验证 |
-| 真实服务器 | 未验证 | 未验证：无授权测试服务/账号 | 未验证 |
+| 真实服务器 | 未验证 | 用户实际服务的连接、首批专辑、播放成功；分页修复待复验 | 未验证 |
 
 ## 安全检查
 
@@ -84,13 +84,13 @@ GitHub Actions run：`34749707166`，结论 `success`，运行页面：https://g
 
 ## 截图证据
 
-- macOS Intel x64：已生成并目视检查 `artifacts/screenshots/p03-current-platform.png` 与 `p03-macos-x64-package.png`；专辑详情、中文/英文字体与播放器无截断/重叠。Playwright 页面截图不包含系统标题栏。
+- macOS Intel x64：已生成并目视检查 `artifacts/screenshots/p03-current-platform.png`、`p03-macos-x64-package.png` 与 `p03-pagination-macos-x64-package.png`；分页后专辑详情、中文/英文字体与播放器无截断/重叠。Playwright 页面截图不包含系统标题栏。
 - Windows 11 x64：未验证，无 Windows 11 实机。
 - macOS Apple Silicon arm64：未验证，无 Apple Silicon 实机。
 
 ## 当前结论
 
-P01 的安全显式项、P02 的凭据恢复/删除与会话退出、P03 的媒体取消和播放/暂停/seek 代码门槛均在当前 Intel Mac 达到；源构建和未签名 x64 目录包通过同一套真实 Electron 流程。P03 不能宣称跨平台最终验收：真实服务器/反向代理、物理听音、Windows 11、Apple Silicon 及当前版本三目标 CI 尚未验证。P04 队列与完整 AudioEngine 状态机尚未开始。
+用户实际服务已证明 P03 基础连接、首批专辑和播放链路可用，并暴露固定 30 张的问题。本轮分页修复通过 31 张两页的真实 Electron fixture 测试，但尚未在用户服务复验、提交或进入 CI。Windows 11、Apple Silicon 实机、转码/反向代理差异和物理听音仍未验证。
 
 ## 已观察的非阻断提示
 

@@ -1,8 +1,19 @@
 import { z } from 'zod'
-import type { AlbumDetail, AlbumSummary, LibraryResult } from './library'
+import type {
+  AlbumDetail,
+  AlbumPage,
+  AlbumPageRequest,
+  AlbumSummary,
+  LibraryResult
+} from './library'
 
 export const SessionIdSchema = z.string().uuid()
 export const AlbumIdSchema = z.string().min(1).max(1024)
+export const AlbumPageRequestSchema = z.object({
+  sessionId: SessionIdSchema,
+  offset: z.number().int().min(0).max(10_000_000),
+  size: z.number().int().min(1).max(100)
+}) satisfies z.ZodType<AlbumPageRequest>
 
 const MediaUrlSchema = z.string().regex(/^sonavi-media:\/\/media\/[0-9a-f-]+$/i)
 
@@ -39,10 +50,16 @@ const LibraryErrorSchema = z.object({
   retryable: z.boolean()
 })
 
+export const AlbumPageSchema = z.object({
+  items: z.array(AlbumSummarySchema),
+  nextOffset: z.number().int().nonnegative(),
+  hasMore: z.boolean()
+}) satisfies z.ZodType<AlbumPage>
+
 export const AlbumListResultSchema = z.discriminatedUnion('ok', [
-  z.object({ ok: z.literal(true), value: z.array(AlbumSummarySchema) }),
+  z.object({ ok: z.literal(true), value: AlbumPageSchema }),
   z.object({ ok: z.literal(false), error: LibraryErrorSchema })
-]) satisfies z.ZodType<LibraryResult<AlbumSummary[]>>
+]) satisfies z.ZodType<LibraryResult<AlbumPage>>
 
 export const AlbumDetailResultSchema = z.discriminatedUnion('ok', [
   z.object({ ok: z.literal(true), value: AlbumDetailSchema }),

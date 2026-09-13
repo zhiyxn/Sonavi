@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useQuery } from '@tanstack/vue-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
 import { computed, ref } from 'vue'
 import type { AlbumSummary, TrackSummary } from '../../../shared/library'
 import { getAlbum, listAlbums } from '../services/library'
@@ -10,11 +10,23 @@ const props = defineProps<{ sessionId: string; serverName: string }>()
 const emit = defineEmits<{ forget: [] }>()
 const selectedAlbumId = ref<string | null>(null)
 const player = usePlayerStore()
+const ALBUM_PAGE_SIZE = 30
 
-const albumsQuery = useQuery({
+const albumsQuery = useInfiniteQuery({
   queryKey: computed(() => ['albums', props.sessionId]),
-  queryFn: () => listAlbums(props.sessionId),
+  queryFn: ({ pageParam }) =>
+    listAlbums({ sessionId: props.sessionId, offset: pageParam, size: ALBUM_PAGE_SIZE }),
+  initialPageParam: 0,
+  getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextOffset : undefined),
   staleTime: 30_000
+})
+
+const albums = computed(() => {
+  const uniqueAlbums = new Map<string, AlbumSummary>()
+  for (const page of albumsQuery.data.value?.pages ?? []) {
+    for (const album of page.items) uniqueAlbums.set(album.id, album)
+  }
+  return [...uniqueAlbums.values()]
 })
 
 const albumQuery = useQuery({
@@ -53,7 +65,7 @@ function playTrack(track: TrackSummary): void {
 
     <p v-if="albumsQuery.isPending.value" role="status">正在读取音乐库…</p>
     <div
-      v-else-if="albumsQuery.isError.value"
+      v-else-if="albumsQuery.isError.value && albums.length === 0"
       class="rounded-2xl border border-sonavi-border bg-sonavi-raised p-6"
       role="alert"
     >
@@ -95,24 +107,49 @@ function playTrack(track: TrackSummary): void {
       </div>
     </template>
 
-    <div v-else class="grid grid-cols-2 gap-5 md:grid-cols-3 xl:grid-cols-4">
-      <button
-        v-for="album in albumsQuery.data.value ?? []"
-        :key="album.id"
-        type="button"
-        class="group min-w-0 rounded-2xl border border-sonavi-border bg-sonavi-raised p-3 text-left transition hover:-translate-y-0.5 hover:border-sonavi-accent"
-        @click="openAlbum(album)"
+    <template v-else>
+      <p v-if="albums.length === 0" class="text-sm text-sonavi-muted">音乐库中暂无专辑。</p>
+      <div v-else class="grid grid-cols-2 gap-5 md:grid-cols-3 xl:grid-cols-4">
+        <button
+          v-for="album in albums"
+          :key="album.id"
+          type="button"
+          class="group min-w-0 rounded-2xl border border-sonavi-border bg-sonavi-raised p-3 text-left transition hover:-translate-y-0.5 hover:border-sonavi-accent"
+          @click="openAlbum(album)"
+        >
+          <img
+            v-if="album.coverUrl"
+            :src="album.coverUrl"
+            :alt="`${album.name} 封面`"
+            class="aspect-square w-full rounded-xl bg-sonavi-border object-cover"
+          />
+          <div v-else class="aspect-square rounded-xl bg-sonavi-border" aria-hidden="true" />
+          <strong class="mt-3 block truncate">{{ album.name }}</strong>
+          <span class="block truncate text-xs text-sonavi-muted">{{ album.artist }}</span>
+        </button>
+      </div>
+      <div
+        v-if="albumsQuery.isError.value"
+        class="mt-8 rounded-2xl border border-sonavi-border bg-sonavi-raised p-4 text-center"
+        role="alert"
       >
-        <img
-          v-if="album.coverUrl"
-          :src="album.coverUrl"
-          :alt="`${album.name} 封面`"
-          class="aspect-square w-full rounded-xl bg-sonavi-border object-cover"
-        />
-        <div v-else class="aspect-square rounded-xl bg-sonavi-border" aria-hidden="true" />
-        <strong class="mt-3 block truncate">{{ album.name }}</strong>
-        <span class="block truncate text-xs text-sonavi-muted">{{ album.artist }}</span>
-      </button>
-    </div>
+        <p>下一页加载失败，已加载的 {{ albums.length }} 张专辑仍可使用。</p>
+        <Button class="mt-3" size="sm" variant="outline" @click="albumsQuery.fetchNextPage()">
+          重试加载
+        </Button>
+      </div>
+      <div v-else-if="albumsQuery.hasNextPage.value" class="mt-8 flex justify-center">
+        <Button
+          variant="outline"
+          :disabled="albumsQuery.isFetchingNextPage.value"
+          @click="albumsQuery.fetchNextPage()"
+        >
+          {{ albumsQuery.isFetchingNextPage.value ? '正在加载…' : '加载更多专辑' }}
+        </Button>
+      </div>
+      <p v-else-if="albums.length > 0" class="mt-8 text-center text-xs text-sonavi-muted">
+        已加载全部 {{ albums.length }} 张专辑
+      </p>
+    </template>
   </section>
 </template>

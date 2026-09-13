@@ -11,7 +11,7 @@
 | 石色/琥珀 tokens | renderer CSS 变量 | 无 |
 | 左导航、内容区、底部播放器 | 单一 App.vue 外壳 | 无 |
 | 连接表单 | 单一 ConnectPanel.vue | 设备名称由 preload 提供 |
-| P03 专辑列表/详情 | 单一 LibraryPanel.vue | 无；结果按平台分别截图验收 |
+| P03 专辑列表/详情 | 单一 LibraryPanel.vue；每页 30 张并显式加载更多 | 无；结果按平台分别截图验收 |
 | P03 播放器 | 单一 PlayerBar.vue / AudioEngine | 系统媒体集成留到 P09 |
 | 账号退出 | 同一断开/忘记账号逻辑 | 文案不假设某一系统；系统凭据由 main 删除 |
 | 设置快捷键提示 | 同一文案槽位 | Windows Ctrl；macOS Cmd |

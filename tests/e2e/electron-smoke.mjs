@@ -20,6 +20,23 @@ const launchApplication = () =>
 let electronApplication = await launchApplication()
 let fixtureServer
 const mediaRequests = []
+const fixtureAlbums = [
+  {
+    id: 'fixture-album',
+    name: '石与琥珀',
+    artist: 'Sonavi Fixture',
+    songCount: 1,
+    duration: 4,
+    coverArt: 'fixture-cover'
+  },
+  ...Array.from({ length: 30 }, (_, index) => ({
+    id: `fixture-album-${index + 2}`,
+    name: `分页专辑 ${index + 2}`,
+    artist: 'Sonavi Fixture',
+    songCount: 1,
+    duration: 4
+  }))
+]
 
 function createSyntheticWav() {
   const sampleRate = 8_000
@@ -51,7 +68,7 @@ const coverPng = Buffer.from(
   'base64'
 )
 
-function fixtureResponse(endpoint) {
+function fixtureResponse(endpoint, requestUrl) {
   const base = {
     status: 'ok',
     version: '1.16.1',
@@ -78,20 +95,13 @@ function fixtureResponse(endpoint) {
     }
   }
   if (endpoint === 'getAlbumList2') {
+    const offset = Number(requestUrl.searchParams.get('offset') ?? 0)
+    const size = Number(requestUrl.searchParams.get('size') ?? 10)
     return {
       'subsonic-response': {
         ...base,
         albumList2: {
-          album: [
-            {
-              id: 'fixture-album',
-              name: '石与琥珀',
-              artist: 'Sonavi Fixture',
-              songCount: 1,
-              duration: 4,
-              coverArt: 'fixture-cover'
-            }
-          ]
+          album: fixtureAlbums.slice(offset, offset + size)
         }
       }
     }
@@ -184,7 +194,7 @@ async function startFixtureServer() {
       return
     }
 
-    const body = endpoint && validAuthentication ? fixtureResponse(endpoint) : null
+    const body = endpoint && validAuthentication ? fixtureResponse(endpoint, requestUrl) : null
 
     response.statusCode = body ? 200 : 401
     response.setHeader('content-type', 'application/json; charset=utf-8')
@@ -302,6 +312,11 @@ try {
   await window.locator('#allow-insecure-http').check()
   await window.getByRole('button', { name: '测试连接' }).click()
   await window.getByRole('heading', { name: '最近添加' }).waitFor()
+  await window.getByRole('button', { name: '加载更多专辑' }).click()
+  await window.getByRole('button', { name: /分页专辑 31/ }).waitFor()
+  if ((await window.getByRole('button', { name: '加载更多专辑' }).count()) !== 0) {
+    throw new Error('最后一页加载后仍显示加载更多按钮')
+  }
   await window.getByRole('button', { name: /石与琥珀/ }).click()
   await window.getByRole('heading', { name: '专辑详情' }).waitFor()
   await window.getByRole('button', { name: '播放 跨平台试音' }).click()
@@ -330,7 +345,7 @@ try {
     throw new Error(`未取得不透明封面句柄：${oldCoverHandle ?? '空'}`)
   }
   await window.screenshot({ path: screenshotPath, fullPage: true })
-  console.log('OpenSubsonic integration passed: albums + detail + opaque media handles')
+  console.log('OpenSubsonic integration passed: two album pages + detail + opaque media handles')
   console.log('Audio integration passed: play + pause + original-stream seek + resume')
 
   await window.getByRole('button', { name: '连接服务器' }).click()

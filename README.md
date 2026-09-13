@@ -10,7 +10,7 @@ Sonavi 是一套同时正式面向 Windows 11 x64、macOS 13+ Intel x64 与 macO
 - `contextIsolation`、sandbox、CSP、导航/窗口/权限限制；
 - OpenSubsonic token/salt 认证、`ping`、能力探测、音乐文件夹与分层错误诊断；
 - main 内 CredentialStore 与 safeStorage 加密保存、跨重启恢复和显式删除；失败时仅会话使用，不写明文；
-- `getAlbumList2` / `getAlbum` 专辑浏览，以及不透明 `sonavi-media://` 封面/音频句柄；
+- 分页 `getAlbumList2` / `getAlbum` 专辑浏览，以及不透明 `sonavi-media://` 封面/音频句柄；
 - 单一 HTMLAudioElement AudioEngine、流式 `stream`、播放/暂停/seek、Range 200/206/416、会话取消与重定向拒绝；
 - Tailwind CSS 4 与项目持有的 shadcn-vue 组件源码，共用 Sonavi tokens；
 - 集中的 Windows/macOS 菜单、快捷键提示与窗口生命周期适配入口；
@@ -55,6 +55,6 @@ npm run build:mac:arm64
 
 产物写入 `release/<version>/`。当前配置生成未签名开发测试包，不发布 Release、不上传安装包。可以在当前主机用 `npm run pack:dir` 做最小目录打包检查，但跨平台打包成功不作为相应平台兼容证明。
 
-`.github/workflows/ci.yml` 为 Windows x64、macOS Intel x64 与 macOS Apple Silicon arm64 建立独立检查/打包 job，不上传产物。P01、P02 提交的三个 job 均已通过。P03 基线仅本地提交，当前修复未提交，均未进入远端验证。
+`.github/workflows/ci.yml` 为 Windows x64、macOS Intel x64 与 macOS Apple Silicon arm64 建立独立检查/打包 job，不上传产物。截至 `4d1777d` 的 P01～P03 三目标均已通过；当前专辑分页修复尚未提交、未进入远端验证。
 
 更多状态与边界见 [兼容性](docs/COMPATIBILITY.md)、[测试报告](docs/TEST-REPORT.md) 和 [交接](docs/HANDOFF.md)。

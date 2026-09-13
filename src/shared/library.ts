@@ -1,6 +1,12 @@
 export const LIST_ALBUMS_CHANNEL = 'sonavi:library:list-albums' as const
 export const GET_ALBUM_CHANNEL = 'sonavi:library:get-album' as const
 
+export interface AlbumPageRequest {
+  sessionId: string
+  offset: number
+  size: number
+}
+
 export interface AlbumSummary {
   id: string
   name: string
@@ -28,6 +34,12 @@ export interface AlbumDetail extends AlbumSummary {
   tracks: TrackSummary[]
 }
 
+export interface AlbumPage {
+  items: AlbumSummary[]
+  nextOffset: number
+  hasMore: boolean
+}
+
 export type LibraryErrorCode =
   | 'not-connected'
   | 'invalid-input'
@@ -39,6 +51,6 @@ export type LibraryResult<T> =
   | { ok: false; error: { code: LibraryErrorCode; message: string; retryable: boolean } }
 
 export interface LibraryApi {
-  listAlbums: (sessionId: string) => Promise<LibraryResult<AlbumSummary[]>>
+  listAlbums: (request: AlbumPageRequest) => Promise<LibraryResult<AlbumPage>>
   getAlbum: (sessionId: string, albumId: string) => Promise<LibraryResult<AlbumDetail>>
 }

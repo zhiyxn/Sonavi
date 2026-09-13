@@ -19,13 +19,14 @@ import {
   GET_ALBUM_CHANNEL,
   LIST_ALBUMS_CHANNEL,
   type AlbumDetail,
-  type AlbumSummary,
+  type AlbumPage,
   type LibraryResult
 } from '../shared/library'
 import {
   AlbumDetailResultSchema,
   AlbumIdSchema,
   AlbumListResultSchema,
+  AlbumPageRequestSchema,
   SessionIdSchema
 } from '../shared/library-schema'
 import { getPlatformAdapter } from './platform'
@@ -130,17 +131,23 @@ function registerConnectionIpc(
 }
 
 function registerLibraryIpc(libraryService: LibraryService): void {
-  ipcMain.handle(LIST_ALBUMS_CHANNEL, async (event, rawSessionId: unknown) => {
+  ipcMain.handle(LIST_ALBUMS_CHANNEL, async (event, rawRequest: unknown) => {
     assertTrustedIpcSender(event)
-    const sessionId = SessionIdSchema.safeParse(rawSessionId)
-    if (!sessionId.success) {
-      const invalid: LibraryResult<AlbumSummary[]> = {
+    const request = AlbumPageRequestSchema.safeParse(rawRequest)
+    if (!request.success) {
+      const invalid: LibraryResult<AlbumPage> = {
         ok: false,
         error: { code: 'invalid-input', message: '音乐库会话参数无效。', retryable: false }
       }
       return invalid
     }
-    return AlbumListResultSchema.parse(await libraryService.listAlbums(sessionId.data))
+    return AlbumListResultSchema.parse(
+      await libraryService.listAlbums(
+        request.data.sessionId,
+        request.data.offset,
+        request.data.size
+      )
+    )
   })
 
   ipcMain.handle(

@@ -248,11 +248,14 @@ export class OpenSubsonicClient {
   async getAlbumList2(
     baseUrl: string,
     username: string,
-    password: string
+    password: string,
+    offset = 0,
+    size = 30
   ): Promise<Array<AlbumSummary & { coverArtId?: string | undefined }>> {
     const response = await this.request('getAlbumList2', baseUrl, username, password, {
       type: 'newest',
-      size: 30
+      size,
+      offset
     })
 
     return (response.albumList2?.album ?? []).map((album) => ({

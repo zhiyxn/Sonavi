@@ -1,4 +1,4 @@
-import type { AlbumDetail, AlbumSummary, LibraryResult } from '../../shared/library'
+import type { AlbumDetail, AlbumPage, LibraryResult } from '../../shared/library'
 import type { ConnectionService } from './connection-service'
 import { MediaHandleRegistry } from './media-handle-registry'
 import { ConnectionFailure, OpenSubsonicClient } from './opensubsonic/client'
@@ -10,27 +10,41 @@ export class LibraryService {
     private readonly mediaHandles: MediaHandleRegistry
   ) {}
 
-  async listAlbums(sessionId: string): Promise<LibraryResult<AlbumSummary[]>> {
+  async listAlbums(
+    sessionId: string,
+    offset: number,
+    size: number
+  ): Promise<LibraryResult<AlbumPage>> {
     const session = this.connectionService.getSession(sessionId)
     if (!session) return this.notConnected()
 
     try {
       const { serverUrl, username, password } = session.credential
-      const albums = await this.client.getAlbumList2(serverUrl, username, password)
+      const albums = await this.client.getAlbumList2(
+        serverUrl,
+        username,
+        password,
+        offset,
+        size
+      )
       return {
         ok: true,
-        value: albums.map(({ coverArtId, ...album }) => ({
-          ...album,
-          ...(coverArtId
-            ? {
-                coverUrl: this.mediaHandles.create({
-                  sessionId,
-                  kind: 'cover',
-                  resourceId: coverArtId
-                })
-              }
-            : {})
-        }))
+        value: {
+          items: albums.map(({ coverArtId, ...album }) => ({
+            ...album,
+            ...(coverArtId
+              ? {
+                  coverUrl: this.mediaHandles.create({
+                    sessionId,
+                    kind: 'cover',
+                    resourceId: coverArtId
+                  })
+                }
+              : {})
+          })),
+          nextOffset: offset + albums.length,
+          hasMore: albums.length === size
+        }
       }
     } catch (error) {
       return this.failure(error)

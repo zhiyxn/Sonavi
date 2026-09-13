@@ -1,4 +1,9 @@
-import type { AlbumDetail, AlbumSummary, LibraryResult } from '../../../shared/library'
+import type {
+  AlbumDetail,
+  AlbumPage,
+  AlbumPageRequest,
+  LibraryResult
+} from '../../../shared/library'
 import {
   AlbumDetailResultSchema,
   AlbumListResultSchema
@@ -9,8 +14,8 @@ function unwrap<T>(result: LibraryResult<T>): T {
   return result.value
 }
 
-export async function listAlbums(sessionId: string): Promise<AlbumSummary[]> {
-  const result = AlbumListResultSchema.parse(await window.sonavi.library.listAlbums(sessionId))
+export async function listAlbums(request: AlbumPageRequest): Promise<AlbumPage> {
+  const result = AlbumListResultSchema.parse(await window.sonavi.library.listAlbums(request))
   return unwrap(result)
 }
 

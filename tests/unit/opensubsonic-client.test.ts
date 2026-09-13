@@ -19,9 +19,12 @@ function jsonResponse(body: unknown, status = 200): TransportResponse {
 }
 
 class EndpointTransport implements ApiTransport {
+  readonly requestedUrls: string[] = []
+
   constructor(private readonly responses: Record<string, TransportResponse | Error>) {}
 
   async request(url: string): Promise<TransportResponse> {
+    this.requestedUrls.push(url)
     const endpoint = new URL(url).pathname.match(/\/rest\/(.+)\.view$/)?.[1]
     const response = endpoint ? this.responses[endpoint] : undefined
     if (!response) throw new Error('missing fixture')
@@ -101,56 +104,55 @@ describe('OpenSubsonicClient', () => {
   })
 
   it('读取专辑列表与详情，并把查询 ID 和返回 ID 规范为 string', async () => {
-    const client = new OpenSubsonicClient(
-      new EndpointTransport({
-        getAlbumList2: jsonResponse({
-          'subsonic-response': {
-            status: 'ok',
-            version: '1.16.1',
-            albumList2: {
-              album: [
-                {
-                  id: 12,
-                  name: '石与琥珀',
-                  artist: 'Sonavi',
-                  songCount: 1,
-                  duration: 60,
-                  coverArt: 34
-                }
-              ]
-            }
+    const transport = new EndpointTransport({
+      getAlbumList2: jsonResponse({
+        'subsonic-response': {
+          status: 'ok',
+          version: '1.16.1',
+          albumList2: {
+            album: [
+              {
+                id: 12,
+                name: '石与琥珀',
+                artist: 'Sonavi',
+                songCount: 1,
+                duration: 60,
+                coverArt: 34
+              }
+            ]
           }
-        }),
-        getAlbum: jsonResponse({
-          'subsonic-response': {
-            status: 'ok',
-            version: '1.16.1',
-            album: {
-              id: 12,
-              name: '石与琥珀',
-              artist: 'Sonavi',
-              songCount: 1,
-              duration: 60,
-              coverArt: 34,
-              song: [
-                {
-                  id: 56,
-                  title: '第一首',
-                  artist: 'Sonavi',
-                  album: '石与琥珀',
-                  duration: 60,
-                  track: 1,
-                  contentType: 'audio/wav'
-                }
-              ]
-            }
+        }
+      }),
+      getAlbum: jsonResponse({
+        'subsonic-response': {
+          status: 'ok',
+          version: '1.16.1',
+          album: {
+            id: 12,
+            name: '石与琥珀',
+            artist: 'Sonavi',
+            songCount: 1,
+            duration: 60,
+            coverArt: 34,
+            song: [
+              {
+                id: 56,
+                title: '第一首',
+                artist: 'Sonavi',
+                album: '石与琥珀',
+                duration: 60,
+                track: 1,
+                contentType: 'audio/wav'
+              }
+            ]
           }
-        })
+        }
       })
-    )
+    })
+    const client = new OpenSubsonicClient(transport)
 
     await expect(
-      client.getAlbumList2('https://music.example.com', 'listener', 'secret')
+      client.getAlbumList2('https://music.example.com', 'listener', 'secret', 30, 25)
     ).resolves.toEqual([
       {
         id: '12',
@@ -161,6 +163,10 @@ describe('OpenSubsonicClient', () => {
         coverArtId: '34'
       }
     ])
+    const albumListUrl = new URL(transport.requestedUrls[0] ?? '')
+    expect(albumListUrl.searchParams.get('type')).toBe('newest')
+    expect(albumListUrl.searchParams.get('offset')).toBe('30')
+    expect(albumListUrl.searchParams.get('size')).toBe('25')
     await expect(
       client.getAlbum('https://music.example.com', 'listener', 'secret', '12')
     ).resolves.toMatchObject({
