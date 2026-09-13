@@ -55,7 +55,7 @@ onMounted(async () => {
       <div class="album-placeholder" aria-hidden="true">S</div>
       <div>
         <strong>播放引擎尚未启用</strong>
-        <span>P01 仅保留单一 AudioEngine 接口</span>
+        <span>P02 仍保留单一 AudioEngine 空契约</span>
       </div>
       <div class="transport-placeholder" aria-hidden="true">— · ○ · —</div>
       <span class="phase-pill">P03 接入真实播放</span>

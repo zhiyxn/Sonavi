@@ -1,6 +1,6 @@
 # Sonavi 产品需求
 
-状态：P01 工程与当前 Intel Mac 环境已完成；Windows/Apple Silicon 实机待验证
+状态：P01 已完成并通过三目标 CI；P02 连接认证进行中，Windows/Apple Silicon 实机待验证
 更新日期：2026-09-13
 
 ## 产品目标
@@ -17,7 +17,7 @@ Sonavi 是个人使用优先、非网页套壳的 Navidrome/Subsonic/OpenSubsoni
 
 两个平台共用 Navidrome/Subsonic/OpenSubsonic 客户端、认证业务、音乐库、搜索、收藏、歌单、AudioEngine、播放队列、歌词、缓存、设置、组件、导航、页面布局、播放器和交互逻辑。
 
-阶段顺序沿用 P01～P10：工程基础 → 认证连接 → 最短播放链路 → 播放核心 → 音乐库 UI → 收藏歌单 → 歌词上报 → 转码网络诊断 → 桌面集成性能 → 打包发布前审计。本轮仅交付 P01 和双平台基础配置。
+阶段顺序沿用 P01～P10：工程基础 → 认证连接 → 最短播放链路 → 播放核心 → 音乐库 UI → 收藏歌单 → 歌词上报 → 转码网络诊断 → 桌面集成性能 → 打包发布前审计。P01 已收口，当前只推进 P02，不提前实现 P03 播放。
 
 ## P01 验收范围
 
@@ -29,7 +29,7 @@ Sonavi 是个人使用优先、非网页套壳的 Navidrome/Subsonic/OpenSubsoni
 - 可真实执行的 lint、typecheck、test、build 与 Electron 冒烟；
 - 分平台兼容性与验证记录。
 
-P01 不实现真实认证、服务器网络请求、音乐库、播放队列、媒体协议、safeStorage 凭据落盘、托盘或完整桌面集成。界面必须明确这些能力尚未实现，不能回退假数据。
+P01 的上述验收项已经完成。P02 实现公共 Subsonic/OpenSubsonic 连接、认证、能力探测、CredentialStore 与错误诊断；音乐库正式页面、播放队列、媒体协议、托盘和完整桌面集成仍按 P03 以后阶段推进，不能回退假数据。
 
 ## UX 与平台行为
 

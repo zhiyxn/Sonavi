@@ -1,4 +1,4 @@
-name: P01 cross-platform checks
+name: Sonavi cross-platform checks
 
 on:
   pull_request:

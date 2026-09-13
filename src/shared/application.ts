@@ -1,3 +1,5 @@
+import type { ConnectionApi } from './connection'
+
 export const APPLICATION_INFO_CHANNEL = 'sonavi:application:get-info' as const
 
 export type SupportedPlatform = 'windows' | 'macos' | 'unsupported'
@@ -16,4 +18,5 @@ export interface SonaviApi {
   application: {
     getInfo: () => Promise<ApplicationInfo>
   }
+  connection: ConnectionApi
 }

@@ -47,3 +47,26 @@ BrowserWindow 使用 `frame: true` 与 `titleBarStyle: default`。设计图的 m
 - 状态：已接受
 
 `Sonavi_UI_v0.1/` 和 `navidrome-vibe-coding-kit/` 保留原貌。它们包含历史单平台优先描述，不再是执行规范；根 `AGENTS.md` 与根 `docs/` 是当前唯一执行文档。这一选择既保存原始依据，也避免改写历史参考包。
+
+## D007：公共 Subsonic token 认证与 main 网络边界
+
+- 日期：2026-09-13
+- 状态：已接受
+
+P02 首选 Subsonic 1.13+ 的 token/salt 认证：每次请求生成至少 6 字符的随机 salt，并计算 UTF-8 `md5(password + salt)`。密码不作为 `p` 参数发送；连接 URL 不跟随重定向，避免认证参数被带到未确认目标。renderer 只能调用固定的连接测试 IPC，不能发起任意 URL 请求。响应同时检查 HTTP 层、内容类型、1 MiB 大小上限、JSON 结构与 `subsonic-response.status`。
+
+来源：
+
+- https://opensubsonic.netlify.app/docs/api-reference/
+- https://opensubsonic.netlify.app/docs/endpoints/ping/
+- https://opensubsonic.netlify.app/docs/endpoints/getopensubsonicextensions/
+- https://opensubsonic.netlify.app/docs/endpoints/getmusicfolders/
+
+## D008：safeStorage 不可用时仅会话使用
+
+- 日期：2026-09-13
+- 状态：已接受
+
+CredentialStore 使用当前锁定 Electron 44.3.0 类型中存在的异步 `isAsyncEncryptionAvailable`、`encryptStringAsync` 与后续 `decryptStringAsync`。只有系统加密成功后才写入 userData；不可用、加密失败或文件写入失败均返回 `session-only`，绝不落盘明文。safeStorage 密文与当前系统用户/密钥链绑定，不设计跨机器复制。未签名 macOS 开发包的加密往返只作为本机开发证据，不能替代签名后升级稳定性验证。
+
+来源：https://www.electronjs.org/docs/latest/api/safe-storage

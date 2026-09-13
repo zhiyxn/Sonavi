@@ -16,6 +16,12 @@ function installPlatformApi(platform: 'windows' | 'macos'): void {
         closeBehavior: isMac ? 'close-window' : 'quit',
         canHideToBackground: false
       })
+    },
+    connection: {
+      test: async () => ({
+        ok: false,
+        error: { code: 'network', message: 'not used in app shell tests', retryable: true }
+      })
     }
   }
 

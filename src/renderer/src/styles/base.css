@@ -236,9 +236,22 @@ input {
   background: var(--sonavi-accent-hover);
 }
 
+.connection-form button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .form-status {
   min-height: 18px;
   text-align: center;
+}
+
+.form-status.is-success {
+  color: #386541;
+}
+
+.form-status.is-error {
+  color: var(--sonavi-danger);
 }
 
 .security-note {
