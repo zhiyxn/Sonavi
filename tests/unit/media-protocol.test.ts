@@ -6,7 +6,11 @@ import { MediaProtocolService, type MediaFetch } from '../../src/main/services/m
 import { OpenSubsonicClient } from '../../src/main/services/opensubsonic/client'
 import type { ApiTransport } from '../../src/main/services/opensubsonic/transport'
 
-const credentialStore: CredentialStore = { save: async () => true }
+const credentialStore: CredentialStore = {
+  save: async () => true,
+  load: async () => null,
+  delete: async () => true
+}
 
 async function connectedService(): Promise<{ service: ConnectionService; sessionId: string }> {
   const transport: ApiTransport = {
@@ -141,5 +145,26 @@ describe('sonavi-media 协议', () => {
     const response = await protocol.handle(new Request(mediaUrl))
     expect(response.status).toBe(502)
     expect(await response.text()).not.toContain('secret')
+  })
+
+  it('撤销会话会使旧句柄失效并取消尚未完成的上游请求', async () => {
+    const { service, sessionId } = await connectedService()
+    const registry = new MediaHandleRegistry()
+    const mediaUrl = registry.create({ sessionId, kind: 'audio', resourceId: 'song-1' })
+    let upstreamSignal: AbortSignal | undefined
+    const protocol = new MediaProtocolService(service, registry, async (_url, init) => {
+      upstreamSignal = init.signal ?? undefined
+      return await new Promise<Response>((_resolve, reject) => {
+        upstreamSignal?.addEventListener('abort', () => reject(new Error('aborted')), { once: true })
+      })
+    })
+
+    const pendingResponse = protocol.handle(new Request(mediaUrl))
+    await vi.waitFor(() => expect(upstreamSignal).toBeDefined())
+    expect(protocol.revokeSession(sessionId)).toBe(1)
+    expect(registry.revokeSession(sessionId)).toBe(1)
+    expect(upstreamSignal?.aborted).toBe(true)
+    await expect(pendingResponse).resolves.toMatchObject({ status: 502 })
+    await expect(protocol.handle(new Request(mediaUrl))).resolves.toMatchObject({ status: 404 })
   })
 })

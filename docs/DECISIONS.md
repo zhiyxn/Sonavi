@@ -67,7 +67,7 @@ P02 首选 Subsonic 1.13+ 的 token/salt 认证：每次请求生成至少 6 字
 - 日期：2026-09-13
 - 状态：已接受
 
-CredentialStore 使用当前锁定 Electron 44.3.0 类型中存在的异步 `isAsyncEncryptionAvailable`、`encryptStringAsync` 与后续 `decryptStringAsync`。只有系统加密成功后才写入 userData；不可用、加密失败或文件写入失败均返回 `session-only`，绝不落盘明文。safeStorage 密文与当前系统用户/密钥链绑定，不设计跨机器复制。未签名 macOS 开发包的加密往返只作为本机开发证据，不能替代签名后升级稳定性验证。
+CredentialStore 使用当前锁定 Electron 44.3.0 类型中存在的异步 `isAsyncEncryptionAvailable`、`encryptStringAsync` 与 `decryptStringAsync`。只有系统加密成功后才写入 userData；不可用、加密失败或文件写入失败均返回 `session-only`，绝不落盘明文。恢复时遵循 `shouldReEncrypt` 完成密钥轮换；显式“退出并忘记账号”才删除本机密文。safeStorage 密文与当前系统用户/密钥链绑定，不设计跨机器复制。未签名 macOS 开发包的加密往返只作为本机开发证据，不能替代签名后升级稳定性验证。
 
 来源：https://www.electronjs.org/docs/latest/api/safe-storage
 
@@ -89,6 +89,6 @@ CredentialStore 使用当前锁定 Electron 44.3.0 类型中存在的异步 `isA
 - 日期：2026-09-13
 - 状态：已接受
 
-renderer 不获得上游地址、用户名、salt 或 token，只获得绑定当前 main 会话的随机媒体句柄。`sonavi-media` scheme 在 ready 前注册，并由 default Session 的 `protocol.handle` 处理。main 使用 Electron Session、`redirect: manual` 和 `format=raw` 请求封面/音频，只转发安全响应头及 200/206/416，直接返回响应流；不缓冲整首歌曲，不跨 IPC 传 Base64，不通过 `bypassCSP` 放宽安全策略。新连接会轮换会话 ID，使旧媒体句柄失效。
+renderer 不获得上游地址、用户名、salt 或 token，只获得绑定当前 main 会话的随机媒体句柄。`sonavi-media` scheme 在 ready 前注册，并由 default Session 的 `protocol.handle` 处理。main 使用 Electron Session、`redirect: manual` 和 `format=raw` 请求封面/音频，只转发安全响应头及 200/206/416，以保留背压的流返回；不缓冲整首歌曲，不跨 IPC 传 Base64，不通过 `bypassCSP` 放宽安全策略。新连接会轮换会话 ID；退出、忘记账号和真正退出会撤销旧媒体句柄并中止活动请求。
 
 来源：https://www.electronjs.org/docs/latest/api/protocol

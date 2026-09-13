@@ -2,10 +2,18 @@ import { app, BrowserWindow, ipcMain, Menu, protocol, session } from 'electron'
 import { join } from 'node:path'
 import { APPLICATION_INFO_CHANNEL } from '../shared/application'
 import { ApplicationInfoSchema } from '../shared/application-schema'
-import { TEST_CONNECTION_CHANNEL, type ConnectionTestResult } from '../shared/connection'
+import {
+  DISCONNECT_CONNECTION_CHANNEL,
+  FORGET_CONNECTION_CHANNEL,
+  RESTORE_CONNECTION_CHANNEL,
+  TEST_CONNECTION_CHANNEL,
+  type ConnectionTestResult
+} from '../shared/connection'
 import {
   ConnectionTestInputSchema,
-  ConnectionTestResultSchema
+  ConnectionTestResultSchema,
+  RestoredConnectionResultSchema,
+  SessionActionResultSchema
 } from '../shared/connection-schema'
 import {
   GET_ALBUM_CHANNEL,
@@ -54,7 +62,11 @@ function registerApplicationIpc(): void {
   })
 }
 
-function registerConnectionIpc(connectionService: ConnectionService): void {
+function registerConnectionIpc(
+  connectionService: ConnectionService,
+  mediaHandles: MediaHandleRegistry,
+  mediaProtocol: MediaProtocolService
+): void {
   ipcMain.handle(TEST_CONNECTION_CHANNEL, async (event, rawInput: unknown) => {
     assertTrustedIpcSender(event)
 
@@ -71,7 +83,49 @@ function registerConnectionIpc(connectionService: ConnectionService): void {
       return invalidResult
     }
 
-    return ConnectionTestResultSchema.parse(await connectionService.test(input.data))
+    const previousSessionId = connectionService.getCurrentSessionId()
+    const result = ConnectionTestResultSchema.parse(await connectionService.test(input.data))
+    if (result.ok && previousSessionId && previousSessionId !== result.sessionId) {
+      mediaProtocol.revokeSession(previousSessionId)
+      mediaHandles.revokeSession(previousSessionId)
+    }
+    return result
+  })
+
+  ipcMain.handle(RESTORE_CONNECTION_CHANNEL, async (event) => {
+    assertTrustedIpcSender(event)
+    const previousSessionId = connectionService.getCurrentSessionId()
+    const result = RestoredConnectionResultSchema.parse(await connectionService.restore())
+    if (result && previousSessionId && previousSessionId !== result.sessionId) {
+      mediaProtocol.revokeSession(previousSessionId)
+      mediaHandles.revokeSession(previousSessionId)
+    }
+    return result
+  })
+
+  ipcMain.handle(DISCONNECT_CONNECTION_CHANNEL, (event, rawSessionId: unknown) => {
+    assertTrustedIpcSender(event)
+    const sessionId = SessionIdSchema.safeParse(rawSessionId)
+    if (!sessionId.success || !connectionService.getSession(sessionId.data)) return false
+
+    mediaProtocol.revokeSession(sessionId.data)
+    mediaHandles.revokeSession(sessionId.data)
+    return SessionActionResultSchema.parse(connectionService.disconnect(sessionId.data))
+  })
+
+  ipcMain.handle(FORGET_CONNECTION_CHANNEL, async (event, rawSessionId: unknown) => {
+    assertTrustedIpcSender(event)
+    const sessionId = SessionIdSchema.safeParse(rawSessionId)
+    if (!sessionId.success || !connectionService.getSession(sessionId.data)) return false
+
+    const forgotten = SessionActionResultSchema.parse(
+      await connectionService.forget(sessionId.data)
+    )
+    if (forgotten) {
+      mediaProtocol.revokeSession(sessionId.data)
+      mediaHandles.revokeSession(sessionId.data)
+    }
+    return forgotten
   })
 }
 
@@ -132,6 +186,9 @@ function createMainWindow(): BrowserWindow {
       sandbox: true,
       nodeIntegration: false,
       webSecurity: true,
+      webviewTag: false,
+      allowRunningInsecureContent: false,
+      navigateOnDragDrop: false,
       spellcheck: false
     }
   })
@@ -171,13 +228,18 @@ void app.whenReady().then(() => {
   )
 
   protocol.handle('sonavi-media', (request) => mediaProtocol.handle(request))
-  registerConnectionIpc(connectionService)
+  registerConnectionIpc(connectionService, mediaHandles, mediaProtocol)
   registerLibraryIpc(libraryService)
   Menu.setApplicationMenu(Menu.buildFromTemplate(platformAdapter.createMenuTemplate(app.name)))
   createMainWindow()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
+  })
+
+  app.once('before-quit', () => {
+    mediaProtocol.dispose()
+    mediaHandles.clear()
   })
 })
 

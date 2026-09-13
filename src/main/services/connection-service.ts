@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type {
+  ConnectionSuccessResult,
   ConnectionTestInput,
   ConnectionTestResult
 } from '../../shared/connection'
@@ -29,10 +30,7 @@ export class ConnectionService {
         username: input.username.trim(),
         password: input.password
       }
-      const probe = await this.client.testConnection(baseUrl, credential.username, credential.password)
-
-      this.sessionCredential = credential
-      this.sessionId = randomUUID()
+      const probe = await this.connect(credential)
 
       let credentialPersistence: 'encrypted' | 'session-only' | 'not-requested' = 'not-requested'
       if (input.rememberMe) {
@@ -43,7 +41,7 @@ export class ConnectionService {
 
       return {
         ok: true,
-        sessionId: this.sessionId,
+        sessionId: this.sessionId!,
         server: probe.server,
         credentialPersistence
       }
@@ -69,8 +67,57 @@ export class ConnectionService {
     }
   }
 
+  async restore(): Promise<ConnectionSuccessResult | null> {
+    const credential = await this.credentialStore.load()
+    if (!credential) return null
+
+    try {
+      const normalized = {
+        serverUrl: normalizeServerUrl(credential.serverUrl, true),
+        username: credential.username.trim(),
+        password: credential.password
+      }
+      const probe = await this.connect(normalized)
+      return {
+        ok: true,
+        sessionId: this.sessionId!,
+        server: probe.server,
+        credentialPersistence: 'encrypted'
+      }
+    } catch {
+      return null
+    }
+  }
+
+  disconnect(sessionId: string): boolean {
+    if (this.sessionId !== sessionId) return false
+    this.sessionId = null
+    this.sessionCredential = null
+    return true
+  }
+
+  async forget(sessionId: string): Promise<boolean> {
+    if (this.sessionId !== sessionId || !(await this.credentialStore.delete())) return false
+    return this.disconnect(sessionId)
+  }
+
+  getCurrentSessionId(): string | null {
+    return this.sessionId
+  }
+
   getSession(sessionId: string): ConnectedSession | null {
     if (this.sessionId !== sessionId || !this.sessionCredential) return null
     return { sessionId: this.sessionId, credential: { ...this.sessionCredential } }
+  }
+
+  private async connect(credential: StoredCredentialInput) {
+    const probe = await this.client.testConnection(
+      credential.serverUrl,
+      credential.username,
+      credential.password
+    )
+    this.sessionCredential = credential
+    this.sessionId = randomUUID()
+    return probe
   }
 }

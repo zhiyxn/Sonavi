@@ -31,11 +31,25 @@ function hasExpectedMediaType(kind: 'cover' | 'audio', contentType: string): boo
 }
 
 export class MediaProtocolService {
+  private readonly activeRequests = new Map<string, Set<AbortController>>()
+
   constructor(
     private readonly connectionService: ConnectionService,
     private readonly handles: MediaHandleRegistry,
     private readonly fetchMedia: MediaFetch
   ) {}
+
+  revokeSession(sessionId: string): number {
+    const controllers = this.activeRequests.get(sessionId)
+    if (!controllers) return 0
+    this.activeRequests.delete(sessionId)
+    for (const controller of controllers) controller.abort()
+    return controllers.size
+  }
+
+  dispose(): void {
+    for (const sessionId of [...this.activeRequests.keys()]) this.revokeSession(sessionId)
+  }
 
   async handle(request: Request): Promise<Response> {
     if (request.method !== 'GET' && request.method !== 'HEAD') {
@@ -51,6 +65,21 @@ export class MediaProtocolService {
     const range = request.headers.get('range')
     if (range && !isValidRange(range)) return errorResponse(416, 'Invalid range')
 
+    const abortController = new AbortController()
+    const sessionRequests = this.activeRequests.get(handle.sessionId) ?? new Set<AbortController>()
+    sessionRequests.add(abortController)
+    this.activeRequests.set(handle.sessionId, sessionRequests)
+    const abortFromRequest = (): void => abortController.abort()
+    request.signal.addEventListener('abort', abortFromRequest, { once: true })
+    let cleanedUp = false
+    const cleanup = (): void => {
+      if (cleanedUp) return
+      cleanedUp = true
+      request.signal.removeEventListener('abort', abortFromRequest)
+      sessionRequests.delete(abortController)
+      if (sessionRequests.size === 0) this.activeRequests.delete(handle.sessionId)
+    }
+
     const { serverUrl, username, password } = connected.credential
     const endpoint = handle.kind === 'cover' ? 'getCoverArt' : 'stream'
     const url = buildEndpointUrl(serverUrl, endpoint, username, password, undefined, {
@@ -65,19 +94,23 @@ export class MediaProtocolService {
         credentials: 'omit',
         redirect: 'manual',
         referrerPolicy: 'no-referrer',
-        signal: request.signal,
+        signal: abortController.signal,
         ...(range ? { headers: { range } } : {})
       })
     } catch {
+      cleanup()
       return errorResponse(502, 'Upstream media request failed')
     }
 
     if (upstream.status >= 300 && upstream.status < 400) {
       await upstream.body?.cancel()
+      cleanup()
       return errorResponse(502, 'Upstream redirect rejected')
     }
 
     if (upstream.status === 416) {
+      await upstream.body?.cancel()
+      cleanup()
       const headers = new Headers({ 'cache-control': 'no-store' })
       const contentRange = upstream.headers.get('content-range')
       if (contentRange) headers.set('content-range', contentRange)
@@ -86,12 +119,14 @@ export class MediaProtocolService {
 
     if (upstream.status !== 200 && upstream.status !== 206) {
       await upstream.body?.cancel()
+      cleanup()
       return errorResponse(502, 'Upstream media request failed')
     }
 
     const contentType = upstream.headers.get('content-type') ?? ''
     if (!hasExpectedMediaType(handle.kind, contentType)) {
       await upstream.body?.cancel()
+      cleanup()
       return errorResponse(502, 'Unexpected upstream media type')
     }
 
@@ -101,7 +136,38 @@ export class MediaProtocolService {
       if (value) headers.set(name, value)
     }
 
-    return new Response(request.method === 'HEAD' ? null : upstream.body, {
+    if (request.method === 'HEAD' || !upstream.body) {
+      await upstream.body?.cancel()
+      cleanup()
+      return new Response(null, { status: upstream.status, headers })
+    }
+
+    const reader = upstream.body.getReader()
+    const streamingBody = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        try {
+          const chunk = await reader.read()
+          if (chunk.done) {
+            controller.close()
+            cleanup()
+          } else {
+            controller.enqueue(chunk.value)
+          }
+        } catch (error) {
+          controller.error(error)
+          cleanup()
+        }
+      },
+      async cancel(reason) {
+        try {
+          await reader.cancel(reason)
+        } finally {
+          cleanup()
+        }
+      }
+    })
+
+    return new Response(streamingBody, {
       status: upstream.status,
       headers
     })

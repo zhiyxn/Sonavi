@@ -41,4 +41,18 @@ export class MediaHandleRegistry {
     const handle = this.handles.get(id)
     return handle ? { ...handle } : null
   }
+
+  revokeSession(sessionId: string): number {
+    let revoked = 0
+    for (const [id, handle] of this.handles) {
+      if (handle.sessionId !== sessionId) continue
+      this.handles.delete(id)
+      revoked += 1
+    }
+    return revoked
+  }
+
+  clear(): void {
+    this.handles.clear()
+  }
 }

@@ -7,6 +7,7 @@ import { usePlayerStore } from '../stores/player'
 import { Button } from './ui/button'
 
 const props = defineProps<{ sessionId: string; serverName: string }>()
+const emit = defineEmits<{ forget: [] }>()
 const selectedAlbumId = ref<string | null>(null)
 const player = usePlayerStore()
 
@@ -42,9 +43,12 @@ function playTrack(track: TrackSummary): void {
         </h1>
         <p class="mt-2 text-sm text-sonavi-muted">{{ serverName }} · 真实 OpenSubsonic 数据</p>
       </div>
-      <Button v-if="selectedAlbumId" variant="outline" @click="selectedAlbumId = null">
-        返回专辑
-      </Button>
+      <div class="flex gap-2">
+        <Button v-if="selectedAlbumId" variant="outline" @click="selectedAlbumId = null">
+          返回专辑
+        </Button>
+        <Button variant="ghost" @click="emit('forget')">退出并忘记账号</Button>
+      </div>
     </div>
 
     <p v-if="albumsQuery.isPending.value" role="status">正在读取音乐库…</p>

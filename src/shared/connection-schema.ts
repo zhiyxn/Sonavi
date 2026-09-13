@@ -1,5 +1,9 @@
 import { z } from 'zod'
-import type { ConnectionTestInput, ConnectionTestResult } from './connection'
+import type {
+  ConnectionSuccessResult,
+  ConnectionTestInput,
+  ConnectionTestResult
+} from './connection'
 
 export const ConnectionTestInputSchema = z.object({
   serverUrl: z.string().trim().min(1).max(2048),
@@ -61,3 +65,8 @@ export const ConnectionTestResultSchema = z.discriminatedUnion('ok', [
     })
   })
 ]) satisfies z.ZodType<ConnectionTestResult>
+
+export const ConnectionSuccessResultSchema =
+  ConnectionTestResultSchema.options[0] satisfies z.ZodType<ConnectionSuccessResult>
+export const RestoredConnectionResultSchema = ConnectionSuccessResultSchema.nullable()
+export const SessionActionResultSchema = z.boolean()

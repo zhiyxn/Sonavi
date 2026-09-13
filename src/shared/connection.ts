@@ -1,4 +1,7 @@
 export const TEST_CONNECTION_CHANNEL = 'sonavi:connection:test' as const
+export const RESTORE_CONNECTION_CHANNEL = 'sonavi:connection:restore' as const
+export const DISCONNECT_CONNECTION_CHANNEL = 'sonavi:connection:disconnect' as const
+export const FORGET_CONNECTION_CHANNEL = 'sonavi:connection:forget' as const
 
 export interface ConnectionTestInput {
   serverUrl: string
@@ -63,4 +66,7 @@ export type ConnectionTestResult = ConnectionSuccessResult | ConnectionFailureRe
 
 export interface ConnectionApi {
   test: (input: ConnectionTestInput) => Promise<ConnectionTestResult>
+  restore: () => Promise<ConnectionSuccessResult | null>
+  disconnect: (sessionId: string) => Promise<boolean>
+  forget: (sessionId: string) => Promise<boolean>
 }

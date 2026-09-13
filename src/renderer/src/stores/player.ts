@@ -19,7 +19,7 @@ export const usePlayerStore = defineStore('player', () => {
     audio = markRaw(new Audio())
     audio.preload = 'metadata'
     audio.addEventListener('loadstart', () => {
-      state.value = 'loading'
+      state.value = track.value ? 'loading' : 'idle'
     })
     audio.addEventListener('playing', () => {
       state.value = 'playing'
@@ -74,5 +74,18 @@ export const usePlayerStore = defineStore('player', () => {
     audio.currentTime = Math.max(0, Math.min(seconds, duration.value || seconds))
   }
 
-  return { state, track, currentTime, duration, errorMessage, isPlaying, play, toggle, seek }
+  function stop(): void {
+    track.value = null
+    if (audio) {
+      audio.pause()
+      audio.removeAttribute('src')
+      audio.load()
+    }
+    currentTime.value = 0
+    duration.value = 0
+    errorMessage.value = ''
+    state.value = 'idle'
+  }
+
+  return { state, track, currentTime, duration, errorMessage, isPlaying, play, toggle, seek, stop }
 })

@@ -36,7 +36,12 @@ describe('ConnectPanel', () => {
     Object.defineProperty(window, 'sonavi', {
       value: {
         application: { getInfo: vi.fn() },
-        connection: { test },
+        connection: {
+          test,
+          restore: vi.fn(),
+          disconnect: vi.fn(),
+          forget: vi.fn()
+        },
         library: { listAlbums: vi.fn(), getAlbum: vi.fn() }
       } satisfies SonaviApi,
       configurable: true

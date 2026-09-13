@@ -41,7 +41,11 @@ describe('ConnectionService', () => {
     [false, 'session-only']
   ] as const)('按 CredentialStore 结果返回保存状态：%s', async (saved, expectedPersistence) => {
     const save = vi.fn<(credential: StoredCredentialInput) => Promise<boolean>>().mockResolvedValue(saved)
-    const credentialStore: CredentialStore = { save }
+    const credentialStore: CredentialStore = {
+      save,
+      load: async () => null,
+      delete: async () => true
+    }
     const service = new ConnectionService(new OpenSubsonicClient(transport), credentialStore)
 
     const result = await service.test({
@@ -65,7 +69,7 @@ describe('ConnectionService', () => {
     const save = vi.fn<CredentialStore['save']>()
     const service = new ConnectionService(
       new OpenSubsonicClient({ request }),
-      { save }
+      { save, load: async () => null, delete: async () => true }
     )
 
     await expect(
@@ -83,7 +87,9 @@ describe('ConnectionService', () => {
 
   it('每次成功连接都会轮换不透明会话 ID，使旧会话失效', async () => {
     const service = new ConnectionService(new OpenSubsonicClient(transport), {
-      save: async () => true
+      save: async () => true,
+      load: async () => null,
+      delete: async () => true
     })
     const input = {
       serverUrl: 'https://music.example.com',
@@ -99,5 +105,46 @@ describe('ConnectionService', () => {
     if (!first.ok || !second.ok) throw new Error('fixture connection failed')
     expect(service.getSession(first.sessionId)).toBeNull()
     expect(service.getSession(second.sessionId)?.credential.username).toBe('listener')
+  })
+
+  it('从系统密文存储恢复凭据并产生新的会话 ID', async () => {
+    const credentialStore: CredentialStore = {
+      save: async () => true,
+      load: async () => ({
+        serverUrl: 'https://music.example.com',
+        username: 'listener',
+        password: 'secret'
+      }),
+      delete: async () => true
+    }
+    const service = new ConnectionService(new OpenSubsonicClient(transport), credentialStore)
+
+    const restored = await service.restore()
+    expect(restored).toMatchObject({ ok: true, credentialPersistence: 'encrypted' })
+    if (!restored?.ok) throw new Error('fixture restore failed')
+    expect(service.getSession(restored.sessionId)?.credential.password).toBe('secret')
+  })
+
+  it('断开只接受当前会话；忘记账号会清除会话和持久化凭据', async () => {
+    const deleteCredential = vi.fn<CredentialStore['delete']>().mockResolvedValue(true)
+    const service = new ConnectionService(new OpenSubsonicClient(transport), {
+      save: async () => true,
+      load: async () => null,
+      delete: deleteCredential
+    })
+    const result = await service.test({
+      serverUrl: 'https://music.example.com',
+      username: 'listener',
+      password: 'secret',
+      rememberMe: false,
+      allowInsecureHttp: false
+    })
+    if (!result.ok) throw new Error('fixture connection failed')
+
+    await expect(service.forget('b79c8445-459d-49e8-8e98-e54beb270a12')).resolves.toBe(false)
+    expect(deleteCredential).not.toHaveBeenCalled()
+    await expect(service.forget(result.sessionId)).resolves.toBe(true)
+    expect(deleteCredential).toHaveBeenCalledOnce()
+    expect(service.getSession(result.sessionId)).toBeNull()
   })
 })

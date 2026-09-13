@@ -4,18 +4,18 @@
 
 ## 当前目标
 
-P01/P02 基础已完成，当前按 P01～P10 顺序执行 P03。目标是专辑到真实流式播放的最短链路，不提前实现 P04 队列或 P05 正式音乐库。
+P01 已完成；P02/P03 的当前本机代码闸门已完成，继续等待外部服务器、另两类实机和远端 CI 证据。没有提前实现 P04 队列或 P05 正式音乐库。
 
 ## 当前分支与最近已验证提交
 
 - 分支：`main`
-- 最近提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`
-- 远端：`origin/main` 已包含该 P01 提交；GitHub Actions run `34749707166` 成功
-- `282ce86` 已推送到 `origin/main`；三目标 CI run `34760475489` 当前为 `in_progress`；P03 增量未提交、未推送、未发布或上传安装包
+- 最近提交：`95c1753 feat(p03): 建立专辑与流式播放链路`（仅本地）
+- 远端：`origin/main` 当前到 `282ce86`；P01 run `34749707166`、P02 run `34760475489` 均三目标成功
+- `95c1753` 之后的 P01～P03 修复仍未提交；未推送、未发布或上传安装包
 
 ## 工作区未提交改动
 
-工作区包含本轮 P03 源码、测试和文档改动，均未提交。用户原有 `.gitignore` 与两个被忽略的原始参考目录继续保留；`node_modules/`、`out/`、`release/`、`artifacts/` 和原始参考包不进入提交。
+工作区包含本轮 P01～P03 修复、测试和文档改动，均未提交。已逐项补读两个被忽略参考目录内的 README、AGENTS、ACCEPTANCE、PROMPTS、tokens 与 UI review；其中的旧单平台优先描述只保留为历史。用户原有 `.gitignore` 与原始参考目录继续保留；`node_modules/`、`out/`、`release/`、`artifacts/` 和原始参考包不进入提交。
 
 ## 已完成代码
 
@@ -23,7 +23,8 @@ P01/P02 基础已完成，当前按 P01～P10 顺序执行 P03。目标是专辑
 - 三目标 GitHub Actions 构建矩阵；不上传产物，P01 提交的三个 job 均成功。
 - P02 固定端点 OpenSubsonic 客户端：URL 规范化、token/salt 认证、能力探测、音乐文件夹与错误分类。
 - P02 连接 IPC/preload/renderer 流程；renderer 无任意网络或 Node 能力。
-- P02 CredentialStore 加密保存与 `session-only` 失败策略。
+- P02 CredentialStore 加密保存、跨进程重启恢复、密钥轮换重加密、幂等删除与 `session-only` 失败策略。
+- 连接 IPC 新增受限 restore/disconnect/forget；退出、忘记账号和会话轮换会清查询/播放状态、撤销旧句柄并中止活动媒体流。
 - 协议 fixture、凭据文件、共享 UI 与真实 Electron 冒烟测试。
 - 原始提示中明确指定的 Tailwind CSS 4 + shadcn-vue 基础：`components.json`、Vite 插件、theme/token 映射、alias、`cn()` 与 Button 组件源码。
 - P03 `getAlbumList2` / `getAlbum`、音乐库 IPC、简单专辑列表/详情与 Pinia 会话状态。
@@ -34,11 +35,11 @@ P01/P02 基础已完成，当前按 P01～P10 顺序执行 P03。目标是专辑
 
 - `npm run lint`：通过，0 warning。
 - `npm run typecheck`：通过，main/preload、renderer、tests 三组均通过。
-- `npm test`：通过，9 个文件、当前 39 项测试（最终复跑后以 TEST-REPORT 为准）。
+- `npm test`：通过，9 个文件、43 项测试。
 - `npm run build` / `npm run test:e2e` 内建构建：通过；main、sandbox CJS preload、renderer 均产出。
 - `npm run pack:dir`：通过，生成 `release/0.1.0/mac/Sonavi.app`（未签名目录包）。
-- 生产构建与目录包冒烟：真实 Electron Session 连接本地 `127.0.0.1` fixture；连接、专辑、封面、合成 WAV、实际 HTMLAudioElement `playing`、renderer 无 `process`、safeStorage、截图和 macOS 关闭/重激活均通过。
-- P01 远端 CI：Windows x64、macOS Intel x64、macOS arm64 均完成 install、lint、typecheck、unit/component、Electron smoke 和对应平台打包。
+- 生产构建与目录包冒烟：真实 Electron Session 连接本地 `127.0.0.1` fixture；连接、专辑、封面、合成 WAV 播放/暂停/原始流 seek/恢复、旧句柄撤销、真正应用进程重启后的凭据恢复/删除、renderer 无 `process`、safeStorage、截图和 macOS 关闭/重激活均通过。
+- P01 与 P02 远端 CI：Windows x64、macOS Intel x64、macOS arm64 均完成 install、lint、typecheck、unit/component、Electron smoke 和对应平台打包。
 
 ## 已执行真实服务器与实机验证
 
@@ -59,12 +60,11 @@ P01/P02 基础已完成，当前按 P01～P10 顺序执行 P03。目标是专辑
 - Intel Mac 的未签名 DMG 安装、签名、公证。
 - 真实 Navidrome/OpenSubsonic 与反向代理组合。
 - Windows/macOS arm64 的 safeStorage 实机行为，以及签名后 macOS Keychain 升级稳定性。
-- 已保存凭据的跨重启恢复/删除。
-- 音频、托盘、Dock 播放宿主（分别属于后续阶段）。
+- 真正退出时活动音频停止已验证；托盘、Dock 后台播放宿主仍属于 P09。
 
 ## 下一项可执行任务
 
-继续 P03 验证：优先使用明确授权的真实 Navidrome/OpenSubsonic 服务验证专辑、封面、原始格式/转码、seek 与错误映射；获得 Windows 11 或 Apple Silicon 环境后分别运行 P03 冒烟和截图。未补齐这些证据前不宣称 P03 跨平台验收完成，也不进入 P04。
+先提交并推送当前修复后观察三目标 CI；随后继续 P03 外部验证：使用明确授权的真实 Navidrome/OpenSubsonic 服务验证专辑、封面、原始格式/转码、seek 与错误映射，并在 Windows 11、Apple Silicon 环境分别运行 P03 冒烟和截图。未补齐这些证据前不宣称 P03 跨平台最终验收完成，也不进入 P04。原始资料建议的 Vue Router 留到 P05 出现正式页面路由需求时再引入，当前不建立无实际用途的框架。
 
 ## 不应重做或覆盖的内容
 

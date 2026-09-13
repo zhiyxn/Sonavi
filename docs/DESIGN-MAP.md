@@ -13,6 +13,7 @@
 | 连接表单 | 单一 ConnectPanel.vue | 设备名称由 preload 提供 |
 | P03 专辑列表/详情 | 单一 LibraryPanel.vue | 无；结果按平台分别截图验收 |
 | P03 播放器 | 单一 PlayerBar.vue / AudioEngine | 系统媒体集成留到 P09 |
+| 账号退出 | 同一断开/忘记账号逻辑 | 文案不假设某一系统；系统凭据由 main 删除 |
 | 设置快捷键提示 | 同一文案槽位 | Windows Ctrl；macOS Cmd |
 | 标题栏 | 不在 renderer 绘制 | 使用各自原生边框与按钮 |
 | 字体 | 同一 fallback 列表 | Windows 优先 Segoe UI/微软雅黑；macOS 优先苹方/冬青黑体 |
@@ -32,4 +33,4 @@
 - macOS Intel x64：必须在 Intel Mac 单独启动并截图。
 - macOS Apple Silicon arm64：必须在 Apple Silicon Mac 单独启动 arm64 包并截图。
 
-当前主机的 P03 截图位于 `artifacts/screenshots/p03-current-platform.png` 与 `p03-macos-x64-package.png`。macOS Intel 已检查专辑详情、播放器、中文/英文字体、按钮与长布局，无截断或重叠；该目录是本地测试证据，不作为另一平台验收结论。
+当前主机的 P03 截图位于 `artifacts/screenshots/p03-current-platform.png` 与 `p03-macos-x64-package.png`。macOS Intel 已检查专辑详情、播放器、退出/忘记账号入口、中文/英文字体、按钮与长布局，无截断或重叠；该目录是本地测试证据，不作为另一平台验收结论。
