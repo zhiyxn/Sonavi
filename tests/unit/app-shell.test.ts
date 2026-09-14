@@ -49,7 +49,35 @@ function installPlatformApi(platform: 'windows' | 'macos'): void {
         ok: false,
         error: { code: 'not-connected', message: 'not used', retryable: false }
       }),
-      cancelSearch: async () => false
+      cancelSearch: async () => false,
+      listStarred: async () => ({
+        ok: false,
+        error: { code: 'not-connected', message: 'not used', retryable: false }
+      }),
+      setStarred: async () => ({
+        ok: false,
+        error: { code: 'not-connected', message: 'not used', retryable: false }
+      }),
+      listPlaylists: async () => ({
+        ok: false,
+        error: { code: 'not-connected', message: 'not used', retryable: false }
+      }),
+      getPlaylist: async () => ({
+        ok: false,
+        error: { code: 'not-connected', message: 'not used', retryable: false }
+      }),
+      createPlaylist: async () => ({
+        ok: false,
+        error: { code: 'not-connected', message: 'not used', retryable: false }
+      }),
+      updatePlaylist: async () => ({
+        ok: false,
+        error: { code: 'not-connected', message: 'not used', retryable: false }
+      }),
+      deletePlaylist: async () => ({
+        ok: false,
+        error: { code: 'not-connected', message: 'not used', retryable: false }
+      })
     }
   }
 

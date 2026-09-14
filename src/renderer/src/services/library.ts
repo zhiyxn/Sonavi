@@ -4,15 +4,27 @@ import type {
   AlbumPageRequest,
   ArtistDetail,
   ArtistLibrary,
+  CreatePlaylistRequest,
+  DeletePlaylistRequest,
   LibraryResult,
-  SearchResultPage
+  MutationSuccess,
+  PlaylistDetail,
+  PlaylistSummary,
+  SearchResultPage,
+  SetStarredRequest,
+  StarredLibrary,
+  UpdatePlaylistRequest
 } from '../../../shared/library'
 import {
   AlbumDetailResultSchema,
   AlbumListResultSchema,
   ArtistDetailResultSchema,
   ArtistLibraryResultSchema,
-  SearchResultSchema
+  MutationResultSchema,
+  PlaylistDetailResultSchema,
+  PlaylistListResultSchema,
+  SearchResultSchema,
+  StarredLibraryResultSchema
 } from '../../../shared/library-schema'
 
 function unwrap<T>(result: LibraryResult<T>): T {
@@ -67,4 +79,48 @@ export async function searchLibrary(
   } finally {
     signal?.removeEventListener('abort', cancel)
   }
+}
+
+export async function listStarred(sessionId: string): Promise<StarredLibrary> {
+  const result = StarredLibraryResultSchema.parse(
+    await window.sonavi.library.listStarred(sessionId)
+  )
+  return unwrap(result)
+}
+
+export async function setStarred(request: SetStarredRequest): Promise<MutationSuccess> {
+  const result = MutationResultSchema.parse(await window.sonavi.library.setStarred(request))
+  return unwrap(result)
+}
+
+export async function listPlaylists(sessionId: string): Promise<PlaylistSummary[]> {
+  const result = PlaylistListResultSchema.parse(
+    await window.sonavi.library.listPlaylists(sessionId)
+  )
+  return unwrap(result)
+}
+
+export async function getPlaylist(
+  sessionId: string,
+  playlistId: string
+): Promise<PlaylistDetail> {
+  const result = PlaylistDetailResultSchema.parse(
+    await window.sonavi.library.getPlaylist(sessionId, playlistId)
+  )
+  return unwrap(result)
+}
+
+export async function createPlaylist(request: CreatePlaylistRequest): Promise<MutationSuccess> {
+  const result = MutationResultSchema.parse(await window.sonavi.library.createPlaylist(request))
+  return unwrap(result)
+}
+
+export async function updatePlaylist(request: UpdatePlaylistRequest): Promise<MutationSuccess> {
+  const result = MutationResultSchema.parse(await window.sonavi.library.updatePlaylist(request))
+  return unwrap(result)
+}
+
+export async function deletePlaylist(request: DeletePlaylistRequest): Promise<MutationSuccess> {
+  const result = MutationResultSchema.parse(await window.sonavi.library.deletePlaylist(request))
+  return unwrap(result)
 }

@@ -2,9 +2,11 @@
 import { useQueryClient } from '@tanstack/vue-query'
 import { computed, onMounted, ref } from 'vue'
 import ConnectPanel from './components/ConnectPanel.vue'
+import FavoritesPanel from './components/FavoritesPanel.vue'
 import ArtistsPanel from './components/ArtistsPanel.vue'
 import LibraryPanel from './components/LibraryPanel.vue'
 import PlayerBar from './components/PlayerBar.vue'
+import PlaylistsPanel from './components/PlaylistsPanel.vue'
 import SearchPanel from './components/SearchPanel.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
 import { loadApplicationInfo } from './services/application-info'
@@ -21,7 +23,7 @@ const sessionActionError = ref('')
 const session = useSessionStore()
 const player = usePlayerStore()
 const queryClient = useQueryClient()
-type ApplicationView = 'home' | 'albums' | 'artists' | 'search' | 'settings'
+type ApplicationView = 'home' | 'albums' | 'artists' | 'search' | 'favorites' | 'playlists' | 'settings'
 const activeView = ref<ApplicationView>('home')
 const selectedAlbumId = ref<string | null>(null)
 const selectedArtistId = ref<string | null>(null)
@@ -132,8 +134,12 @@ async function handleForget(): Promise<void> {
           <button class="nav-item" :class="{ active: activeView === 'search' }" @click="navigate('search')">
             搜索
           </button>
-          <span class="nav-item disabled" aria-disabled="true">收藏 <small>P06</small></span>
-          <span class="nav-item disabled" aria-disabled="true">歌单 <small>P06</small></span>
+          <button class="nav-item" :class="{ active: activeView === 'favorites' }" @click="navigate('favorites')">
+            收藏
+          </button>
+          <button class="nav-item" :class="{ active: activeView === 'playlists' }" @click="navigate('playlists')">
+            歌单
+          </button>
           <button class="nav-item" :class="{ active: activeView === 'settings' }" @click="navigate('settings')">
             设置
           </button>
@@ -173,6 +179,18 @@ async function handleForget(): Promise<void> {
             :server-id="session.connection.server.baseUrl"
             @open-album="openAlbum"
             @open-artist="openArtist"
+          />
+          <FavoritesPanel
+            v-else-if="activeView === 'favorites'"
+            :session-id="session.connection.sessionId"
+            :server-id="session.connection.server.baseUrl"
+            @open-album="openAlbum"
+            @open-artist="openArtist"
+          />
+          <PlaylistsPanel
+            v-else-if="activeView === 'playlists'"
+            :session-id="session.connection.sessionId"
+            :server-id="session.connection.server.baseUrl"
           />
           <SettingsPanel
             v-else

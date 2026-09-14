@@ -48,7 +48,14 @@ describe('ConnectPanel', () => {
           listArtists: vi.fn(),
           getArtist: vi.fn(),
           search: vi.fn(),
-          cancelSearch: vi.fn()
+          cancelSearch: vi.fn(),
+          listStarred: vi.fn(),
+          setStarred: vi.fn(),
+          listPlaylists: vi.fn(),
+          getPlaylist: vi.fn(),
+          createPlaylist: vi.fn(),
+          updatePlaylist: vi.fn(),
+          deletePlaylist: vi.fn()
         }
       } satisfies SonaviApi,
       configurable: true

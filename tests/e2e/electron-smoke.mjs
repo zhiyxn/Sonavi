@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 
 const screenshotPath = resolve(
-  process.env.SONAVI_SCREENSHOT_PATH ?? 'artifacts/screenshots/p05-current-platform.png'
+  process.env.SONAVI_SCREENSHOT_PATH ?? 'artifacts/screenshots/p06-current-platform.png'
 )
 
 const executablePath = process.env.SONAVI_EXECUTABLE_PATH
@@ -37,6 +37,67 @@ const fixtureAlbums = [
     duration: 4
   }))
 ]
+const fixtureTracks = [
+  {
+    id: 'fixture-track',
+    title: '跨平台试音',
+    artist: 'Sonavi Fixture',
+    album: '石与琥珀',
+    duration: 4,
+    track: 1,
+    contentType: 'audio/wav',
+    coverArt: 'fixture-cover'
+  },
+  {
+    id: 'fixture-track-2',
+    title: '队列下一首',
+    artist: 'Sonavi Fixture',
+    album: '石与琥珀',
+    duration: 4,
+    track: 2,
+    contentType: 'audio/wav',
+    coverArt: 'fixture-cover'
+  },
+  {
+    id: 'fixture-track-3',
+    title: '循环终点',
+    artist: 'Sonavi Fixture',
+    album: '石与琥珀',
+    duration: 4,
+    track: 3,
+    contentType: 'audio/wav',
+    coverArt: 'fixture-cover'
+  }
+]
+const starredTrackIds = new Set(['fixture-track'])
+const starredAlbumIds = new Set()
+const starredArtistIds = new Set()
+let playlistSequence = 2
+const fixturePlaylists = [
+  {
+    id: 'fixture-playlist-1',
+    name: '现有歌单',
+    owner: 'fixture-user',
+    public: false,
+    songIds: ['fixture-track', 'fixture-track']
+  }
+]
+
+function playlistPayload(playlist) {
+  const entries = playlist.songIds
+    .map((songId) => fixtureTracks.find((track) => track.id === songId))
+    .filter(Boolean)
+    .map((track) => ({ ...track, ...(starredTrackIds.has(track.id) ? { starred: '2026-09-14' } : {}) }))
+  return {
+    id: playlist.id,
+    name: playlist.name,
+    owner: playlist.owner,
+    public: playlist.public,
+    songCount: entries.length,
+    duration: entries.reduce((total, track) => total + track.duration, 0),
+    entry: entries
+  }
+}
 
 function createSyntheticWav() {
   const sampleRate = 8_000
@@ -117,38 +178,11 @@ function fixtureResponse(endpoint, requestUrl) {
           songCount: 3,
           duration: 12,
           coverArt: 'fixture-cover',
-          song: [
-            {
-              id: 'fixture-track',
-              title: '跨平台试音',
-              artist: 'Sonavi Fixture',
-              album: '石与琥珀',
-              duration: 4,
-              track: 1,
-              contentType: 'audio/wav',
-              coverArt: 'fixture-cover'
-            },
-            {
-              id: 'fixture-track-2',
-              title: '队列下一首',
-              artist: 'Sonavi Fixture',
-              album: '石与琥珀',
-              duration: 4,
-              track: 2,
-              contentType: 'audio/wav',
-              coverArt: 'fixture-cover'
-            },
-            {
-              id: 'fixture-track-3',
-              title: '循环终点',
-              artist: 'Sonavi Fixture',
-              album: '石与琥珀',
-              duration: 4,
-              track: 3,
-              contentType: 'audio/wav',
-              coverArt: 'fixture-cover'
-            }
-          ]
+          ...(starredAlbumIds.has('fixture-album') ? { starred: '2026-09-14' } : {}),
+          song: fixtureTracks.map((track) => ({
+            ...track,
+            ...(starredTrackIds.has(track.id) ? { starred: '2026-09-14' } : {})
+          }))
         }
       }
     }
@@ -166,7 +200,8 @@ function fixtureResponse(endpoint, requestUrl) {
                   id: 'fixture-artist',
                   name: 'Sonavi Fixture',
                   albumCount: fixtureAlbums.length,
-                  coverArt: 'fixture-cover'
+                  coverArt: 'fixture-cover',
+                  ...(starredArtistIds.has('fixture-artist') ? { starred: '2026-09-14' } : {})
                 }
               ]
             }
@@ -184,6 +219,7 @@ function fixtureResponse(endpoint, requestUrl) {
           name: 'Sonavi Fixture',
           albumCount: fixtureAlbums.length,
           coverArt: 'fixture-cover',
+          ...(starredArtistIds.has('fixture-artist') ? { starred: '2026-09-14' } : {}),
           album: fixtureAlbums
         }
       }
@@ -198,18 +234,98 @@ function fixtureResponse(endpoint, requestUrl) {
           album: [fixtureAlbums[0]],
           song: [
             {
-              id: 'fixture-track',
-              title: '跨平台试音',
-              artist: 'Sonavi Fixture',
-              album: '石与琥珀',
-              duration: 4,
-              contentType: 'audio/wav',
-              coverArt: 'fixture-cover'
+              ...fixtureTracks[0],
+              ...(starredTrackIds.has('fixture-track') ? { starred: '2026-09-14' } : {})
             }
           ]
         }
       }
     }
+  }
+  if (endpoint === 'getStarred2') {
+    return {
+      'subsonic-response': {
+        ...base,
+        starred2: {
+          artist: starredArtistIds.has('fixture-artist')
+            ? [{ id: 'fixture-artist', name: 'Sonavi Fixture', albumCount: fixtureAlbums.length, coverArt: 'fixture-cover', starred: '2026-09-14' }]
+            : [],
+          album: fixtureAlbums
+            .filter((album) => starredAlbumIds.has(album.id))
+            .map((album) => ({ ...album, starred: '2026-09-14' })),
+          song: fixtureTracks
+            .filter((track) => starredTrackIds.has(track.id))
+            .map((track) => ({ ...track, starred: '2026-09-14' }))
+        }
+      }
+    }
+  }
+  if (endpoint === 'star' || endpoint === 'unstar') {
+    const collection = requestUrl.searchParams.has('albumId')
+      ? starredAlbumIds
+      : requestUrl.searchParams.has('artistId')
+        ? starredArtistIds
+        : starredTrackIds
+    const id =
+      requestUrl.searchParams.get('albumId') ??
+      requestUrl.searchParams.get('artistId') ??
+      requestUrl.searchParams.get('id')
+    if (id) {
+      if (endpoint === 'star') collection.add(id)
+      else collection.delete(id)
+    }
+    return { 'subsonic-response': base }
+  }
+  if (endpoint === 'getPlaylists') {
+    return {
+      'subsonic-response': {
+        ...base,
+        playlists: {
+          playlist: fixturePlaylists.map(({ songIds: _songIds, ...playlist }) => ({
+            ...playlist,
+            songCount: _songIds.length,
+            duration: _songIds.length * 4
+          }))
+        }
+      }
+    }
+  }
+  if (endpoint === 'getPlaylist') {
+    const playlist = fixturePlaylists.find((item) => item.id === requestUrl.searchParams.get('id'))
+    return playlist
+      ? { 'subsonic-response': { ...base, playlist: playlistPayload(playlist) } }
+      : null
+  }
+  if (endpoint === 'createPlaylist') {
+    fixturePlaylists.push({
+      id: `fixture-playlist-${playlistSequence++}`,
+      name: requestUrl.searchParams.get('name') ?? '未命名歌单',
+      owner: 'fixture-user',
+      public: false,
+      songIds: requestUrl.searchParams.getAll('songId')
+    })
+    return { 'subsonic-response': base }
+  }
+  if (endpoint === 'updatePlaylist') {
+    const playlist = fixturePlaylists.find(
+      (item) => item.id === requestUrl.searchParams.get('playlistId')
+    )
+    if (!playlist) return null
+    if (requestUrl.searchParams.has('name')) playlist.name = requestUrl.searchParams.get('name') ?? playlist.name
+    if (requestUrl.searchParams.has('public')) playlist.public = requestUrl.searchParams.get('public') === 'true'
+    playlist.songIds.push(...requestUrl.searchParams.getAll('songIdToAdd'))
+    const removals = requestUrl.searchParams
+      .getAll('songIndexToRemove')
+      .map(Number)
+      .sort((left, right) => right - left)
+    for (const index of removals) playlist.songIds.splice(index, 1)
+    return { 'subsonic-response': base }
+  }
+  if (endpoint === 'deletePlaylist') {
+    const index = fixturePlaylists.findIndex((item) => item.id === requestUrl.searchParams.get('id'))
+    if (index < 0) return null
+    fixturePlaylists.splice(index, 1)
+    return { 'subsonic-response': base }
   }
   return null
 }
@@ -471,6 +587,45 @@ try {
   if (hasHorizontalOverflow) throw new Error('P05 最小窗口出现应用级横向溢出')
   await window.screenshot({ path: screenshotPath, fullPage: true })
   console.log('P05 navigation passed: artists + artist detail + album detail + debounced search')
+
+  await window.getByRole('button', { name: '收藏', exact: true }).click()
+  await window.getByRole('heading', { name: '收藏', exact: true }).waitFor()
+  const favoriteTracks = window.getByRole('region', { name: '歌曲' })
+  await favoriteTracks.getByText('跨平台试音', { exact: true }).waitFor()
+  await favoriteTracks.getByRole('button', { name: '取消收藏', exact: true }).click()
+  await window.getByText('还没有收藏的艺术家、专辑或歌曲。').waitFor()
+
+  await window.getByRole('button', { name: '歌单', exact: true }).click()
+  await window.getByRole('heading', { name: '歌单', exact: true }).waitFor()
+  await window.getByRole('button', { name: /现有歌单/ }).click()
+  await window.getByRole('heading', { name: '歌单详情', exact: true }).waitFor()
+  const playlistTracks = window.locator('.track-results')
+  await playlistTracks.getByText('跨平台试音', { exact: true }).first().waitFor()
+  if ((await playlistTracks.getByText('跨平台试音', { exact: true }).count()) !== 2) {
+    throw new Error('歌单详情未保留重复歌曲')
+  }
+  await window.getByRole('button', { name: '播放全部', exact: true }).click()
+  await playlistTracks.getByRole('button', { name: '移除', exact: true }).first().click()
+  await window.getByText('歌曲已从歌单移除。').waitFor()
+  if ((await playlistTracks.getByText('跨平台试音', { exact: true }).count()) !== 1) {
+    throw new Error('歌单按索引移除未生效')
+  }
+  await window.getByRole('button', { name: '返回歌单', exact: true }).click()
+  await window.getByPlaceholder('例如：夜间聆听').fill('P06 自动化')
+  await window.getByLabel(/包含当前队列/).check()
+  await window.getByRole('button', { name: '创建歌单', exact: true }).click()
+  await window.getByText('歌单已创建。').waitFor()
+  await window.getByRole('button', { name: /P06 自动化/ }).click()
+  await window.getByLabel('名称').fill('P06 已更新')
+  await window.getByLabel('对服务器上的其他用户公开').check()
+  await window.getByRole('button', { name: '保存信息', exact: true }).click()
+  await window.getByText('歌单信息已更新。').waitFor()
+  window.once('dialog', (dialog) => dialog.accept())
+  await window.getByRole('button', { name: '删除歌单', exact: true }).click()
+  await window.getByText('歌单已删除。').waitFor()
+  await window.getByRole('button', { name: /现有歌单/ }).waitFor()
+  await window.screenshot({ path: screenshotPath, fullPage: true })
+  console.log('P06 integration passed: favorites sync + playlist CRUD + duplicate track index removal')
 
   await window.getByRole('button', { name: '设置', exact: true }).click()
   await window.getByRole('button', { name: '断开连接' }).click()

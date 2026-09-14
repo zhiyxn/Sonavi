@@ -1,13 +1,13 @@
-# P05 正式音乐库与搜索测试报告
+# P06 收藏与歌单测试报告
 
 更新日期：2026-09-14
-状态：P01～P05 本机代码闸门通过；实际服务基础连接/专辑/播放成功，P04 队列与 P05 浏览/搜索待实际服务复验
+状态：P01～P06 本机代码闸门通过；P06 Windows x64 源码与目录包受控验证成功，真实服务器写操作、提交后 CI 与目标系统实机待验证
 
 ## 测试环境
 
-- 当前主机：macOS 13.7.8 Intel x64（Darwin 22.6.0）
-- Node.js：22.19.0（NVM）
-- npm：10.9.3
+- 当前主机：Windows x64 build 26200
+- Node.js：22.21.1 x64（NVM；符合 `>=22.12 <23` engines，非 `.nvmrc` 精确 22.19.0）
+- npm：10.9.4（当前 NVM Node 自带；项目 `packageManager` 仍固定 10.9.3）
 - Electron：44.3.0
 - 分支：`main`
 - P01 远端提交：`959e742030c3d5795f2632a5f092e81472c1b056`
@@ -15,7 +15,8 @@
 - P03 生命周期修复提交：`4d1777d`（已推送；run `34762062759` 三目标成功）
 - P03 分页修复提交：`f2a39c9`（本地与 `origin/main` 对齐；本轮未取得 CI 运行编号）
 - P04 提交：`3b3fca2`（本地 `main` 与 `origin/main` 对齐；CI 编号未核实）
-- 当前 P05：工作区未提交
+- P05 提交：`b8b61d5`（本地与 `origin/main` 对齐；run `34798063277` 三目标成功）
+- P06：当前工作区未提交，暂无三目标 CI 结论
 
 ## P01 远端 CI 证据
 
@@ -29,17 +30,17 @@ GitHub Actions run：`34749707166`，结论 `success`，运行页面：https://g
 
 这些是 P01 提交的自动化 runner 证据。Windows Server runner 不等于 Windows 11 桌面人工验收，macOS 15 runner 不等于 macOS 13 最低版本与真实设备 UI/安装验收。
 
-## 当前 P01～P03 自动验证
+## 当前自动验证
 
 | 命令/检查 | 结果 | 证据/说明 |
 | --- | --- | --- |
 | `npm run lint` | 通过 | ESLint 10.10.0，0 warning |
 | `npm run typecheck` | 通过 | main/preload、renderer、tests 三组通过 |
-| `npm test` | 通过 | 13 个文件、60 项测试通过 |
+| `npm test` | 通过 | 14 个文件、67 项测试通过 |
 | `npm run build` | 通过 | main、preload CJS、renderer 构建成功 |
-| `npm run test:e2e` | 通过 | 真实 Electron 连接本地 fixture；31 张专辑分页、艺术家/详情、专辑详情、300ms 搜索、播放队列、会话/凭据及 macOS 生命周期全部通过 |
-| `npm run pack:dir` | 通过 | 重新生成包含 P05 的未签名 macOS x64 目录包 |
-| 包内 Electron 冒烟 | 通过 | 未签名 x64 `Sonavi.app` 完成连接、P05 专辑/艺术家/搜索、P04 队列、会话清理、凭据恢复/删除、safeStorage、960×640 布局、截图与关闭/重激活 |
+| `npm run test:e2e` | 通过 | 真实 Electron 连接本地 fixture；既有 P02～P05 流程与 P06 收藏同步、歌单 CRUD、重复歌曲索引移除全部通过 |
+| `npm run pack:dir` | 通过 | 重新生成包含 P06 的 Windows x64 `release/0.1.0/win-unpacked` |
+| 包内 Electron 冒烟 | 通过 | Windows x64 目录包完成连接、P02～P05 回归、P06 收藏/歌单、会话/凭据、safeStorage、960×640 布局与截图 |
 
 ## P02/P03 覆盖范围
 
@@ -59,6 +60,10 @@ GitHub Actions run：`34749707166`，结论 `success`，运行页面：https://g
 - P05 艺术家：解析 `getArtists` 索引及 `getArtist` 专辑；10,000 项组件测试确认 DOM 只保留可见窗口与 overscan。
 - P05 搜索：`search3` 同步分页艺术家/专辑/歌曲，输入 300ms 防抖；TanStack Query AbortSignal 通过受限 requestId IPC 中止 main 请求，断开/会话轮换也取消活动搜索。
 - P05 边界：搜索、艺术家与专辑输入/输出均经 Zod 校验；renderer 仍只持有随机媒体句柄，不接触上游 URL 或凭据。
+- P06 收藏：解析 `starred` 为显式布尔值；`getStarred2`、`star`、`unstar` 覆盖艺术家/专辑/歌曲参数映射，成功后按当前会话失效查询，失败不改写已有状态。
+- P06 歌单：覆盖列表/详情、空歌单创建、重命名、公开状态、删除、按队列顺序重复追加、按零基索引精确移除重复歌曲和整单播放。
+- P06 契约：共享类型、main IPC 输入/输出与 renderer 返回值均经 Zod 校验；重复 URL 参数保留原顺序，旧版写端点空成功响应可接受。
+- P06 失败：单元与 Electron fixture 覆盖无会话和协议权限/错误映射；断开连接沿用既有查询清理、播放器停止、媒体句柄撤销与活动请求取消。
 
 ## 分平台结果
 
@@ -78,9 +83,12 @@ GitHub Actions run：`34749707166`，结论 `success`，运行页面：https://g
 | P04 状态机/队列自动化 | 未验证：无实机 | 单元、开发 Electron 与 x64 目录包通过 | 未验证：无实机 |
 | P04 队列 UI 截图 | 未验证 | 开发构建与目录包目视通过，无截断/重叠 | 未验证 |
 | P04 实际服务/听音 | 未验证 | 未验证：等待多曲专辑和物理听音 | 未验证 |
-| P05 音乐库/搜索自动化 | 未验证：无实机 | 单元、生产 Electron 冒烟通过 | 未验证：无实机 |
-| P05 UI 截图 | 未验证 | 搜索页、共享导航、专辑/艺术家结果目视通过 | 未验证 |
+| P05 音乐库/搜索自动化 | 当前 Windows x64 主机的源码与目录包冒烟通过 | 单元、生产 Electron 冒烟通过 | CI 通过；实机未验证 |
+| P05 UI 截图 | 当前 Windows x64 主机截图目视通过；系统版本/安装器实装仍待确认 | 搜索页、共享导航、专辑/艺术家结果目视通过 | 未验证 |
 | P05 实际服务 | 未验证 | 未验证：等待大量艺术家、分页与混合语言搜索 | 未验证 |
+| P06 收藏/歌单自动化 | 当前 Windows x64 主机源码与目录包通过 | 未验证：P06 尚未在 Intel Mac 运行 | 未验证：无实机 |
+| P06 UI 截图 | Windows x64 目录包截图目视通过；Windows 11 正式版本/安装器待验证 | 未验证 | 未验证 |
+| P06 真实服务器写操作 | 未验证 | 未验证 | 未验证 |
 
 ## 安全检查
 
@@ -98,17 +106,20 @@ GitHub Actions run：`34749707166`，结论 `success`，运行页面：https://g
 - [x] P04 队列只保存当前会话的不透明媒体句柄；断开时清空，不将失效账号队列恢复为可播放状态。
 - [x] P05 新增 IPC 仍为固定端点，分页、ID、查询长度与 requestId 有运行时校验；未暴露任意网络能力。
 - [x] 搜索取消只允许当前有效 sessionId + requestId，退出或切换会话时取消活动请求。
+- [x] P06 收藏/歌单 IPC 仍为固定端点；资源 ID、名称、布尔值、歌曲数组和非负索引均有运行时上下界校验。
+- [x] P06 凭据继续只由 main 使用；renderer 不获得认证参数、任意端点或原始服务 URL 请求能力。
+- [x] P06 mutation 失败保留服务器查询数据；成功后只失效当前会话相关查询，不落盘或乐观伪造收藏/歌单实体。
 - [x] 队列落盘、托盘、后台宿主和媒体键未提前实现，仍属于 P09。
 
 ## 截图证据
 
-- macOS Intel x64：已生成并目视检查 `artifacts/screenshots/p05-current-platform.png` 与 `p05-macos-x64-package.png`；搜索页的共享导航、中文输入、艺术家/专辑/歌曲区域及播放器在 960×640 无截断/重叠或应用级横向溢出。Playwright 页面截图不包含系统标题栏。P04 既有截图仍保留。
-- Windows 11 x64：未验证，无 Windows 11 实机。
+- macOS Intel x64：历史 P05 开发构建与目录包截图已检查；P06 未在该平台运行或截图。
+- Windows x64：当前 build 26200 主机已生成并目视检查 `artifacts/screenshots/p06-windows-x64-package.png`；歌单页在 960×640 无明显截断、重叠或应用级横向溢出。P06 未生成/安装 NSIS，系统正式版本与物理听音仍待人工确认。
 - macOS Apple Silicon arm64：未验证，无 Apple Silicon 实机。
 
 ## 当前结论
 
-用户实际服务已证明 P03 基础连接、首批专辑和播放链路可用。P04 已提交并推送为 `3b3fca2`，对应 CI 编号未核实；P05 的共享导航、正式专辑/艺术家页面、窗口化和可取消分页搜索通过当前 Intel Mac 代码闸门。P04/P05 尚未在用户服务深度复验，P05 尚未进入三目标 CI；Windows 11、Apple Silicon 实机、转码/反向代理差异和物理听音仍未验证。
+P06 收藏与歌单实现已通过当前 Windows x64 主机的 lint、类型检查、67 项测试、生产构建、源码 Electron fixture、目录打包和包内完整冒烟，且既有 P02～P05 链路未回归。P06 尚未提交或运行三目标 CI，也未对用户实际服务执行写操作；Windows 11 正式版本/安装器、macOS Intel/Apple Silicon、不同服务端权限与大歌单差异仍未验证，因此当前结论是“本机代码闸门通过”，不是三平台最终验收完成。
 
 ## 已观察的非阻断提示
 

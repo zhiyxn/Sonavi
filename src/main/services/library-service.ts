@@ -7,7 +7,12 @@ import type {
   ArtistLibrary,
   ArtistSummary,
   LibraryResult,
+  MutationSuccess,
+  PlaylistDetail,
+  PlaylistSummary,
   SearchResultPage,
+  StarredLibrary,
+  StarTargetType,
   TrackSummary
 } from '../../shared/library'
 import type { ConnectionService } from './connection-service'
@@ -139,6 +144,152 @@ export class LibraryService {
           albums: albums.map((album) => this.withAlbumCover(sessionId, album))
         }
       }
+    } catch (error) {
+      return this.failure(error)
+    }
+  }
+
+  async listStarred(sessionId: string): Promise<LibraryResult<StarredLibrary>> {
+    const session = this.connectionService.getSession(sessionId)
+    if (!session) return this.notConnected()
+
+    try {
+      const { serverUrl, username, password } = session.credential
+      const result = await this.client.getStarred2(serverUrl, username, password)
+      return {
+        ok: true,
+        value: {
+          artists: result.artists.map((artist) => this.withArtistCover(sessionId, artist)),
+          albums: result.albums.map((album) => this.withAlbumCover(sessionId, album)),
+          tracks: result.tracks.map((track) => this.withTrackHandles(sessionId, track))
+        }
+      }
+    } catch (error) {
+      return this.failure(error)
+    }
+  }
+
+  async setStarred(
+    sessionId: string,
+    targetType: StarTargetType,
+    targetId: string,
+    starred: boolean
+  ): Promise<LibraryResult<MutationSuccess>> {
+    const session = this.connectionService.getSession(sessionId)
+    if (!session) return this.notConnected()
+
+    try {
+      const { serverUrl, username, password } = session.credential
+      await this.client.setStarred(
+        serverUrl,
+        username,
+        password,
+        targetType,
+        targetId,
+        starred
+      )
+      return { ok: true, value: { changed: true } }
+    } catch (error) {
+      return this.failure(error)
+    }
+  }
+
+  async listPlaylists(sessionId: string): Promise<LibraryResult<PlaylistSummary[]>> {
+    const session = this.connectionService.getSession(sessionId)
+    if (!session) return this.notConnected()
+
+    try {
+      const { serverUrl, username, password } = session.credential
+      return { ok: true, value: await this.client.getPlaylists(serverUrl, username, password) }
+    } catch (error) {
+      return this.failure(error)
+    }
+  }
+
+  async getPlaylist(
+    sessionId: string,
+    playlistId: string
+  ): Promise<LibraryResult<PlaylistDetail>> {
+    const session = this.connectionService.getSession(sessionId)
+    if (!session) return this.notConnected()
+
+    try {
+      const { serverUrl, username, password } = session.credential
+      const playlist = await this.client.getPlaylist(
+        serverUrl,
+        username,
+        password,
+        playlistId
+      )
+      return {
+        ok: true,
+        value: {
+          ...playlist,
+          tracks: playlist.tracks.map((track) => this.withTrackHandles(sessionId, track))
+        }
+      }
+    } catch (error) {
+      return this.failure(error)
+    }
+  }
+
+  async createPlaylist(
+    sessionId: string,
+    name: string,
+    songIds: string[]
+  ): Promise<LibraryResult<MutationSuccess>> {
+    const session = this.connectionService.getSession(sessionId)
+    if (!session) return this.notConnected()
+
+    try {
+      const { serverUrl, username, password } = session.credential
+      await this.client.createPlaylist(serverUrl, username, password, name, songIds)
+      return { ok: true, value: { changed: true } }
+    } catch (error) {
+      return this.failure(error)
+    }
+  }
+
+  async updatePlaylist(
+    sessionId: string,
+    playlistId: string,
+    changes: {
+      name?: string | undefined
+      comment?: string | undefined
+      public?: boolean | undefined
+      songIdsToAdd?: string[] | undefined
+      songIndexesToRemove?: number[] | undefined
+    }
+  ): Promise<LibraryResult<MutationSuccess>> {
+    const session = this.connectionService.getSession(sessionId)
+    if (!session) return this.notConnected()
+
+    try {
+      const { serverUrl, username, password } = session.credential
+      await this.client.updatePlaylist(
+        serverUrl,
+        username,
+        password,
+        playlistId,
+        changes
+      )
+      return { ok: true, value: { changed: true } }
+    } catch (error) {
+      return this.failure(error)
+    }
+  }
+
+  async deletePlaylist(
+    sessionId: string,
+    playlistId: string
+  ): Promise<LibraryResult<MutationSuccess>> {
+    const session = this.connectionService.getSession(sessionId)
+    if (!session) return this.notConnected()
+
+    try {
+      const { serverUrl, username, password } = session.credential
+      await this.client.deletePlaylist(serverUrl, username, password, playlistId)
+      return { ok: true, value: { changed: true } }
     } catch (error) {
       return this.failure(error)
     }

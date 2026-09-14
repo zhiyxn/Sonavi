@@ -2,6 +2,7 @@
 import { useQuery } from '@tanstack/vue-query'
 import { computed } from 'vue'
 import type { ArtistSummary } from '../../../shared/library'
+import { useStarredMutation } from '../composables/use-starred-mutation'
 import { getArtist, listArtists } from '../services/library'
 import { Button } from './ui/button'
 import VirtualArtistList from './VirtualArtistList.vue'
@@ -14,6 +15,9 @@ const emit = defineEmits<{
   'update:selectedArtistId': [artistId: string | null]
   openAlbum: [albumId: string]
 }>()
+const { errorMessage: starredError, pendingKey, toggleStarred } = useStarredMutation(
+  () => props.sessionId
+)
 
 const artistsQuery = useQuery({
   queryKey: computed(() => ['artists', props.sessionId]),
@@ -47,13 +51,17 @@ function openArtist(artist: ArtistSummary): void {
         </h1>
         <p class="mt-2 text-sm text-sonavi-muted">按服务器提供的索引浏览</p>
       </div>
-      <Button
-        v-if="selectedArtistId"
-        variant="outline"
-        @click="emit('update:selectedArtistId', null)"
-      >
-        返回艺术家
-      </Button>
+      <div v-if="selectedArtistId" class="flex gap-2">
+        <Button
+          v-if="artistQuery.data.value"
+          variant="outline"
+          :disabled="pendingKey === `artist:${artistQuery.data.value.id}`"
+          @click="toggleStarred('artist', artistQuery.data.value.id, !artistQuery.data.value.starred)"
+        >
+          {{ artistQuery.data.value.starred ? '取消收藏' : '收藏艺术家' }}
+        </Button>
+        <Button variant="outline" @click="emit('update:selectedArtistId', null)">返回艺术家</Button>
+      </div>
     </div>
 
     <template v-if="selectedArtistId">
@@ -117,5 +125,6 @@ function openArtist(artist: ArtistSummary): void {
       <p v-else-if="artists.length === 0" class="text-sonavi-muted">音乐库中暂无艺术家。</p>
       <VirtualArtistList v-else :artists="artists" @select="openArtist" />
     </template>
+    <p v-if="starredError" class="mutation-error" role="alert">{{ starredError }}</p>
   </section>
 </template>

@@ -17,16 +17,27 @@ import {
 } from '../shared/connection-schema'
 import {
   CANCEL_LIBRARY_SEARCH_CHANNEL,
+  CREATE_PLAYLIST_CHANNEL,
+  DELETE_PLAYLIST_CHANNEL,
   GET_ALBUM_CHANNEL,
   GET_ARTIST_CHANNEL,
+  GET_PLAYLIST_CHANNEL,
   LIST_ALBUMS_CHANNEL,
   LIST_ARTISTS_CHANNEL,
+  LIST_PLAYLISTS_CHANNEL,
+  LIST_STARRED_CHANNEL,
   SEARCH_LIBRARY_CHANNEL,
+  SET_STARRED_CHANNEL,
+  UPDATE_PLAYLIST_CHANNEL,
   type AlbumDetail,
   type AlbumPage,
   type ArtistDetail,
   type ArtistLibrary,
+  type MutationSuccess,
+  type PlaylistDetail,
+  type PlaylistSummary,
   type SearchResultPage,
+  type StarredLibrary,
   type LibraryResult
 } from '../shared/library'
 import {
@@ -38,9 +49,18 @@ import {
   ArtistIdSchema,
   ArtistLibraryResultSchema,
   CancelSearchRequestSchema,
+  CreatePlaylistRequestSchema,
+  DeletePlaylistRequestSchema,
+  MutationResultSchema,
+  PlaylistDetailResultSchema,
+  PlaylistIdSchema,
+  PlaylistListResultSchema,
   SearchRequestSchema,
   SearchResultSchema,
-  SessionIdSchema
+  SetStarredRequestSchema,
+  SessionIdSchema,
+  StarredLibraryResultSchema,
+  UpdatePlaylistRequestSchema
 } from '../shared/library-schema'
 import { getPlatformAdapter } from './platform'
 import { assertTrustedIpcSender, isTrustedRendererUrl } from './security/trusted-renderer'
@@ -244,6 +264,121 @@ function registerLibraryIpc(libraryService: LibraryService): void {
     const request = CancelSearchRequestSchema.safeParse(rawRequest)
     if (!request.success) return false
     return libraryService.cancelSearch(request.data.sessionId, request.data.requestId)
+  })
+
+  ipcMain.handle(LIST_STARRED_CHANNEL, async (event, rawSessionId: unknown) => {
+    assertTrustedIpcSender(event)
+    const sessionId = SessionIdSchema.safeParse(rawSessionId)
+    if (!sessionId.success) {
+      const invalid: LibraryResult<StarredLibrary> = {
+        ok: false,
+        error: { code: 'invalid-input', message: '收藏列表参数无效。', retryable: false }
+      }
+      return invalid
+    }
+    return StarredLibraryResultSchema.parse(await libraryService.listStarred(sessionId.data))
+  })
+
+  ipcMain.handle(SET_STARRED_CHANNEL, async (event, rawRequest: unknown) => {
+    assertTrustedIpcSender(event)
+    const request = SetStarredRequestSchema.safeParse(rawRequest)
+    if (!request.success) {
+      const invalid: LibraryResult<MutationSuccess> = {
+        ok: false,
+        error: { code: 'invalid-input', message: '收藏操作参数无效。', retryable: false }
+      }
+      return invalid
+    }
+    return MutationResultSchema.parse(
+      await libraryService.setStarred(
+        request.data.sessionId,
+        request.data.targetType,
+        request.data.targetId,
+        request.data.starred
+      )
+    )
+  })
+
+  ipcMain.handle(LIST_PLAYLISTS_CHANNEL, async (event, rawSessionId: unknown) => {
+    assertTrustedIpcSender(event)
+    const sessionId = SessionIdSchema.safeParse(rawSessionId)
+    if (!sessionId.success) {
+      const invalid: LibraryResult<PlaylistSummary[]> = {
+        ok: false,
+        error: { code: 'invalid-input', message: '歌单列表参数无效。', retryable: false }
+      }
+      return invalid
+    }
+    return PlaylistListResultSchema.parse(await libraryService.listPlaylists(sessionId.data))
+  })
+
+  ipcMain.handle(
+    GET_PLAYLIST_CHANNEL,
+    async (event, rawSessionId: unknown, rawPlaylistId: unknown) => {
+      assertTrustedIpcSender(event)
+      const sessionId = SessionIdSchema.safeParse(rawSessionId)
+      const playlistId = PlaylistIdSchema.safeParse(rawPlaylistId)
+      if (!sessionId.success || !playlistId.success) {
+        const invalid: LibraryResult<PlaylistDetail> = {
+          ok: false,
+          error: { code: 'invalid-input', message: '歌单详情参数无效。', retryable: false }
+        }
+        return invalid
+      }
+      return PlaylistDetailResultSchema.parse(
+        await libraryService.getPlaylist(sessionId.data, playlistId.data)
+      )
+    }
+  )
+
+  ipcMain.handle(CREATE_PLAYLIST_CHANNEL, async (event, rawRequest: unknown) => {
+    assertTrustedIpcSender(event)
+    const request = CreatePlaylistRequestSchema.safeParse(rawRequest)
+    if (!request.success) {
+      const invalid: LibraryResult<MutationSuccess> = {
+        ok: false,
+        error: { code: 'invalid-input', message: '新建歌单参数无效。', retryable: false }
+      }
+      return invalid
+    }
+    return MutationResultSchema.parse(
+      await libraryService.createPlaylist(
+        request.data.sessionId,
+        request.data.name,
+        request.data.songIds
+      )
+    )
+  })
+
+  ipcMain.handle(UPDATE_PLAYLIST_CHANNEL, async (event, rawRequest: unknown) => {
+    assertTrustedIpcSender(event)
+    const request = UpdatePlaylistRequestSchema.safeParse(rawRequest)
+    if (!request.success) {
+      const invalid: LibraryResult<MutationSuccess> = {
+        ok: false,
+        error: { code: 'invalid-input', message: '更新歌单参数无效。', retryable: false }
+      }
+      return invalid
+    }
+    const { sessionId, playlistId, ...changes } = request.data
+    return MutationResultSchema.parse(
+      await libraryService.updatePlaylist(sessionId, playlistId, changes)
+    )
+  })
+
+  ipcMain.handle(DELETE_PLAYLIST_CHANNEL, async (event, rawRequest: unknown) => {
+    assertTrustedIpcSender(event)
+    const request = DeletePlaylistRequestSchema.safeParse(rawRequest)
+    if (!request.success) {
+      const invalid: LibraryResult<MutationSuccess> = {
+        ok: false,
+        error: { code: 'invalid-input', message: '删除歌单参数无效。', retryable: false }
+      }
+      return invalid
+    }
+    return MutationResultSchema.parse(
+      await libraryService.deletePlaylist(request.data.sessionId, request.data.playlistId)
+    )
   })
 }
 

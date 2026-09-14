@@ -76,7 +76,7 @@ P02 基础提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`�
 - [x] 本地与 `origin/main` 均指向 `3b3fca2`；本轮未核实对应三目标 CI 编号。
 - [ ] 物理扬声器/耳机听音验证；合成 WAV 的 `playing` 事件不等价于听音。
 
-## 当前阶段：P05 正式音乐库 UI 与搜索（本机代码闸门已完成）
+## P05：正式音乐库 UI 与搜索（已实现并进入三目标 CI）
 
 - [x] 首页与专辑页共享 LibraryPanel；首页使用 `newest`，全部专辑使用 `alphabeticalByName` 分页。
 - [x] 实现 `getArtists`、`getArtist`、`search3` 的协议解析、main 服务、IPC 与 preload 固定方法。
@@ -89,8 +89,21 @@ P02 基础提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`�
 - [x] 当前 Intel Mac Electron 冒烟走通艺术家、艺术家详情、专辑详情和防抖搜索，并生成截图。
 - [x] 当前 Intel Mac 生成未签名 x64 目录包，并在包内复跑完整 P05 Electron 冒烟。
 - [ ] 使用用户实际服务验证大量艺术家、混合语言搜索、无结果和多页结果。
-- [ ] Windows 11 x64 与 macOS arm64 分别运行、搜索和截图验证。
-- [ ] 提交并进入三目标 CI；当前 P05 工作区尚未提交。
+- [x] 当前 Windows x64 主机完成生产构建、源码与目录包 Electron 冒烟、搜索截图和 NSIS 生成；安装器实际安装与物理听音未验证。
+- [ ] macOS arm64 实机运行、搜索和截图验证。
+- [x] 提交为 `b8b61d5 feat(p05): 完善音乐库与搜索`；run `34798063277` 的 Windows x64、macOS Intel x64、macOS arm64 三个 job 全部成功。
+
+## P06：收藏与歌单管理（本机代码闸门已完成）
+
+- [x] 核对 OpenSubsonic `getStarred2`、`star`、`unstar`、`getPlaylists`、`getPlaylist`、`createPlaylist`、`updatePlaylist`、`deletePlaylist` 官方文档。
+- [x] 扩展共享类型、Zod schema 与固定 IPC/preload 契约；所有 ID、名称、布尔值、歌曲数组和索引均有运行时校验。
+- [x] 扩展 OpenSubsonic 客户端和 LibraryService，兼容写端点空成功响应及旧版 `createPlaylist` 不返回实体。
+- [x] 实现收藏页，并在现有艺术家、专辑和歌曲界面提供收藏/取消收藏操作。
+- [x] 实现歌单列表/详情、创建、重命名、公开状态、删除、从当前播放队列追加、按索引移除及整单播放。
+- [x] mutation 成功后只失效当前会话相关查询；失败时保留已有数据并显示安全错误，不乐观伪造服务端成功。
+- [x] 单元、组件与 Electron fixture 覆盖收藏、歌单 CRUD、重复歌曲、权限/会话失败和断开清理。
+- [x] 执行 lint、typecheck、test、build、当前平台 Electron 冒烟和目录包验证；更新 TEST-REPORT/HANDOFF。
+- [ ] 真实服务器、Windows 11、macOS Intel 与 Apple Silicon 分别验证写权限和服务端差异。
 
 ## 后续阶段（顺序保留）
 
@@ -98,7 +111,7 @@ P02 基础提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`�
 - [ ] P03：外部服务器分页/格式及另两目标实机验证（本机实现已完成）。
 - [ ] P04：Windows 11、Apple Silicon 与真实服务器队列/事件差异验证（本机代码闸门已完成）。
 - [ ] P05：真实服务器、Windows 11 与 Apple Silicon 外部环境验证（本机代码闸门已完成）。
-- [ ] P06：收藏与歌单管理。
+- [ ] P06：真实服务器、提交后三目标 CI 与各目标实机验证（本机代码闸门已完成）。
 - [ ] P07：歌词与播放上报。
 - [ ] P08：转码、网络策略与诊断。
 - [ ] P09：托盘/Dock、隐藏继续播放、真正退出、媒体键与性能。
@@ -109,8 +122,8 @@ P02 基础提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`�
 - Windows 11 x64：依赖安装、开发启动、单元测试、生产构建、NSIS 打包、截图、菜单/关闭/重启。
 - Apple Silicon macOS 13+：原生 arm64 依赖安装、开发启动、DMG 打包、截图、菜单/Dock/关闭与重激活。
 - Intel Mac 的未签名 DMG 安装打开验证（目录包与开发启动不等于安装器验收）。
-- P01、P02 与截至 `4d1777d` 的 P03 GitHub Actions 三平台矩阵均已通过。分页修复 `f2a39c9` 与 P04 `3b3fca2` 已推送；本轮未核实 P04 对应 CI 编号。P05 尚未提交。
+- P05 提交 `b8b61d5` 的 GitHub Actions run `34798063277` 已在 Windows x64、macOS Intel x64、macOS arm64 三个 job 成功；CI 仍不替代对应桌面系统与最低系统版本实机验收。
 
 ## 当前闸门结论
 
-P01 已达到验收条件。P02～P05 的本机代码闸门已通过；用户实际服务已证明连接、首批专辑和播放可用，分页修复及 P04/P05 流程通过本地 Electron fixture。真实服务器的 P04/P05 深度验证、Windows 11、Apple Silicon、格式差异和物理听音仍未完成，因此不能宣称 P02～P05 双平台最终验收完成。
+P01 已达到验收条件。P02～P06 的本机代码闸门已通过；用户实际服务已证明连接、首批专辑和播放可用，P06 收藏同步与歌单 CRUD/重复项索引通过受控 Electron fixture 和 Windows x64 目录包。P06 尚未提交或进入三目标 CI，真实服务器写权限、Windows 11 人工验收、macOS Intel/Apple Silicon、格式差异和物理听音仍未完成，因此不能宣称 P02～P06 双平台最终验收完成。

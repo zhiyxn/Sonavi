@@ -117,3 +117,23 @@ AudioEngine 使用单一枚举状态而非跨组件布尔组合，并以 generat
 - https://opensubsonic.netlify.app/docs/endpoints/getartists/
 - https://opensubsonic.netlify.app/docs/endpoints/getartist/
 - https://opensubsonic.netlify.app/docs/endpoints/search3/
+
+## D013：P06 写入后重新读取服务器事实
+
+- 日期：2026-09-14
+- 状态：已接受
+
+收藏使用公共 `getStarred2` / `star` / `unstar`，歌单使用 `getPlaylists` / `getPlaylist` / `createPlaylist` / `updatePlaylist` / `deletePlaylist`，不调用 Navidrome 私有 Web API。renderer 只通过固定、类型化 preload 方法提交当前会话及受限业务参数；main 校验发送者、会话和参数后才用其持有的凭据调用协议端点。
+
+部分旧协议服务器的写端点（尤其 `createPlaylist`）成功时可以不返回实体，因此客户端不依赖 mutation 响应构造本地对象，也不乐观伪造成功。写入成功后仅失效当前会话相关查询并重新读取服务器事实；权限、会话或服务器失败保留已有数据。歌单添加参数保留顺序和重复歌曲，删除按协议的零基 `songIndexToRemove` 精确定位重复项。
+
+来源：
+
+- https://opensubsonic.netlify.app/docs/endpoints/getstarred2/
+- https://opensubsonic.netlify.app/docs/endpoints/star/
+- https://opensubsonic.netlify.app/docs/endpoints/unstar/
+- https://opensubsonic.netlify.app/docs/endpoints/getplaylists/
+- https://opensubsonic.netlify.app/docs/endpoints/getplaylist/
+- https://opensubsonic.netlify.app/docs/endpoints/createplaylist/
+- https://opensubsonic.netlify.app/docs/endpoints/updateplaylist/
+- https://opensubsonic.netlify.app/docs/endpoints/deleteplaylist/

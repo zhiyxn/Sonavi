@@ -38,7 +38,7 @@
 
 BrowserWindow 固定 `contextIsolation=true`、`sandbox=true`、`nodeIntegration=false`、`webSecurity=true`、`webviewTag=false`、`allowRunningInsecureContent=false`、`navigateOnDragDrop=false` 并使用原生 frame。CSP 以 `default-src 'none'` 默认拒绝，仅逐项开放本地脚本/样式、媒体 scheme 与开发 localhost WebSocket，并拒绝 frame ancestor。main 默认拒绝权限请求、窗口打开和应用外导航。
 
-应用信息、连接与音乐库 IPC 同时执行：主 frame/所属 BrowserWindow 检查、开发 origin 或打包后精确文件路径检查、输入/返回数据 Zod 校验。renderer 再校验返回值。连接 IPC 只接受服务器地址、用户名、一次性密码和两个布尔选项；音乐库 IPC 只接受不透明会话 ID、资源 ID 以及有上下界的分页参数，不提供任意 URL 请求能力。
+应用信息、连接与音乐库 IPC 同时执行：主 frame/所属 BrowserWindow 检查、开发 origin 或打包后精确文件路径检查、输入/返回数据 Zod 校验。renderer 再校验返回值。连接 IPC 只接受服务器地址、用户名、一次性密码和两个布尔选项；音乐库 IPC 只接受不透明会话 ID、受限资源 ID、分页参数及 P06 明确列出的收藏/歌单变更，不提供任意 URL 请求能力。
 
 P02 的连接客户端位于 `src/main/services/opensubsonic/`，使用 Electron Session 的 Chromium 网络栈，禁止自动重定向并限制 JSON 响应为 1 MiB。认证按每次请求独立 salt 生成 token，明文密码不进入 URL、日志、renderer store 或持久化文件。`ping` 成功后探测 OpenSubsonic 扩展与音乐文件夹；旧服务器缺少扩展端点时可降级，认证和音乐库权限失败不能伪装成功。
 
@@ -60,7 +60,15 @@ P04 队列只存在于当前 renderer 会话。恢复持久化队列时必须重
 
 搜索只调用公共 `search3`，艺术家、专辑和歌曲使用相同 offset/size 分页。输入在 renderer 防抖 300ms，TanStack Query 为每个查询提供 AbortSignal；renderer 生成随机 requestId，通过固定 `cancel-search` preload 方法请求 main 中止对应 AbortController。main 同时校验 sessionId/requestId，断开或轮换账号时取消该会话的全部活动搜索。搜索结果只返回纯文本元数据及随机媒体句柄，不允许 renderer 访问任意 URL。
 
-P05 收藏与歌单入口明确保持禁用，写操作留到 P06。设置页当前只呈现平台、服务器、协议与安全退出操作；托盘/Dock、后台播放及缓存设置仍按后续阶段实现。
+设置页当前只呈现平台、服务器、协议与安全退出操作；托盘/Dock、后台播放及缓存设置仍按后续阶段实现。
+
+## P06 收藏与歌单
+
+收藏与歌单继续使用同一个 OpenSubsonic 客户端、LibraryService 和受限 preload。`getStarred2`、`star`、`unstar` 负责艺术家、专辑和歌曲收藏；成功写入后 TanStack Query 只失效当前 session 的收藏、音乐库、详情和搜索查询，失败则保留已有数据，不在客户端乐观伪造服务端状态。
+
+歌单读取使用 `getPlaylists` / `getPlaylist`，写入使用 `createPlaylist` / `updatePlaylist` / `deletePlaylist`。协议重复参数由 URL 构造器按原顺序追加；创建/追加保留队列重复项，删除歌曲传递服务端歌单中的零基索引，从而能精确删除某一个重复项。旧服务器在创建或其他写操作成功时可以只返回空成功响应，因此 mutation 只返回受校验的 `{ changed: true }`，随后通过固定读取端点刷新服务器事实。
+
+凭据仍只存在于 main；renderer 不能选择端点或参数名，只能提交受限 sessionId、资源 ID、名称、公开布尔值、歌曲 ID 数组和非负索引。P06 不持久化收藏/歌单副本，也不引入平台分叉、原生依赖、歌词、scrobble 或后台播放宿主。
 
 ## 平台生命周期规则
 

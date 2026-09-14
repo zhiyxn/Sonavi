@@ -160,6 +160,7 @@ describe('OpenSubsonicClient', () => {
         artist: 'Sonavi',
         songCount: 1,
         duration: 60,
+        starred: false,
         coverArtId: '34'
       }
     ])
@@ -226,7 +227,7 @@ describe('OpenSubsonicClient', () => {
     ).resolves.toEqual([
       {
         name: 'S',
-        artists: [{ id: '9', name: '声波旅人', albumCount: 1, coverArtId: '90' }]
+        artists: [{ id: '9', name: '声波旅人', albumCount: 1, starred: false, coverArtId: '90' }]
       }
     ])
     await expect(
@@ -245,6 +246,94 @@ describe('OpenSubsonicClient', () => {
     expect(searchUrl.searchParams.get('artistOffset')).toBe('25')
     expect(searchUrl.searchParams.get('albumCount')).toBe('25')
     expect(searchUrl.searchParams.get('songOffset')).toBe('25')
+  })
+
+  it('读取与更新收藏，并完整保留歌单重复歌曲和移除索引', async () => {
+    const ok = jsonResponse({ 'subsonic-response': { status: 'ok', version: '1.16.1' } })
+    const transport = new EndpointTransport({
+      getStarred2: jsonResponse({
+        'subsonic-response': {
+          status: 'ok',
+          version: '1.16.1',
+          starred2: {
+            artist: [{ id: 9, name: '声波旅人', albumCount: 1, starred: '2026-09-14' }],
+            album: [{ id: 10, name: '跨平台', artist: '声波旅人', songCount: 2, duration: 120, starred: '2026-09-14' }],
+            song: [{ id: 11, title: '同一首歌', artist: '声波旅人', album: '跨平台', duration: 60, starred: '2026-09-14' }]
+          }
+        }
+      }),
+      star: ok,
+      unstar: ok,
+      getPlaylists: jsonResponse({
+        'subsonic-response': {
+          status: 'ok',
+          version: '1.16.1',
+          playlists: { playlist: [{ id: 20, name: '夜间', owner: 'listener', public: false, songCount: 2, duration: 120 }] }
+        }
+      }),
+      getPlaylist: jsonResponse({
+        'subsonic-response': {
+          status: 'ok',
+          version: '1.16.1',
+          playlist: {
+            id: 20,
+            name: '夜间',
+            owner: 'listener',
+            public: false,
+            songCount: 2,
+            duration: 120,
+            entry: [
+              { id: 11, title: '同一首歌', artist: '声波旅人', album: '跨平台', duration: 60 },
+              { id: 11, title: '同一首歌', artist: '声波旅人', album: '跨平台', duration: 60 }
+            ]
+          }
+        }
+      }),
+      createPlaylist: ok,
+      updatePlaylist: ok,
+      deletePlaylist: ok
+    })
+    const client = new OpenSubsonicClient(transport)
+    const args = ['https://music.example.com', 'listener', 'secret'] as const
+
+    await expect(client.getStarred2(...args)).resolves.toMatchObject({
+      artists: [{ id: '9', starred: true }],
+      albums: [{ id: '10', starred: true }],
+      tracks: [{ id: '11', starred: true }]
+    })
+    await client.setStarred(...args, 'album', '10', true)
+    await client.setStarred(...args, 'track', '11', false)
+    await expect(client.getPlaylists(...args)).resolves.toEqual([
+      {
+        id: '20',
+        name: '夜间',
+        owner: 'listener',
+        public: false,
+        songCount: 2,
+        duration: 120
+      }
+    ])
+    await expect(client.getPlaylist(...args, '20')).resolves.toMatchObject({
+      id: '20',
+      tracks: [{ id: '11' }, { id: '11' }]
+    })
+    await client.createPlaylist(...args, '重复歌曲', ['11', '11'])
+    await client.updatePlaylist(...args, '20', {
+      name: '更新名称',
+      public: true,
+      songIdsToAdd: ['11', '12'],
+      songIndexesToRemove: [3, 1]
+    })
+    await client.deletePlaylist(...args, '20')
+
+    expect(new URL(transport.requestedUrls[1]!).searchParams.get('albumId')).toBe('10')
+    expect(new URL(transport.requestedUrls[2]!).searchParams.get('id')).toBe('11')
+    expect(new URL(transport.requestedUrls[5]!).searchParams.getAll('songId')).toEqual(['11', '11'])
+    const updateParams = new URL(transport.requestedUrls[6]!).searchParams
+    expect(updateParams.get('public')).toBe('true')
+    expect(updateParams.getAll('songIdToAdd')).toEqual(['11', '12'])
+    expect(updateParams.getAll('songIndexToRemove')).toEqual(['3', '1'])
+    expect(new URL(transport.requestedUrls[7]!).searchParams.get('id')).toBe('20')
   })
 
   it('区分协议认证失败、Cloudflare 挑战和 HTML 响应', async () => {

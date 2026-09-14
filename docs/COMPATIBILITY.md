@@ -6,7 +6,7 @@
 
 | 系统 | 架构 | 构建入口 | 运行状态 | 截图状态 |
 | --- | --- | --- | --- | --- |
-| Windows 11 | x64 | `npm run build:win` | 待 Windows 实机验证 | 待验证 |
+| Windows 11 | x64 | `npm run build:win` | 当前 Windows x64 build 26200 的源码/目录包冒烟与 NSIS 生成通过；安装器实装及系统版本人工确认待验证 | renderer 截图已检查 |
 | macOS 13+ | Intel x64 | `npm run build:mac:x64` | 开发模式、生产构建、x64 目录包已运行通过 | renderer 截图已检查 |
 | macOS 13+ | Apple Silicon arm64 | `npm run build:mac:arm64` | 待 Apple Silicon 实机验证 | 待验证 |
 
@@ -48,13 +48,14 @@ Windows ARM64、Linux、macOS Universal 合并包不属于首版强制交付。�
 - P03 新增依赖均为跨平台 JavaScript/CSS 包，没有加入单平台原生依赖；版本已精确锁定。`sonavi-media` 使用 Electron 44 官方 protocol/Session 能力，Windows x64 与 macOS arm64 的实际媒体播放仍需各自运行验证。
 - P04 未增加依赖或原生模块。状态机、队列、随机历史和 UI 都位于共享 TypeScript/Vue renderer；使用浏览器标准 HTMLAudioElement、EventTarget 与 Web Crypto `randomUUID`。当前 Intel Mac 已验证，Windows 11 与 Apple Silicon 仍需实机验证相同媒体事件次序和音频输出。
 - P05 未增加依赖或原生模块。`getAlbumList2`、`getArtists`、`getArtist`、`search3` 使用共享 Electron Session 客户端；窗口化列表、防抖和 Query 取消位于共享 Vue renderer，Windows/macOS 不存在页面分叉。
+- P06 未增加依赖或原生模块。收藏与歌单复用共享 OpenSubsonic 客户端、Zod、TanStack Query 和 Vue renderer；重复查询参数由平台无关 URL API 构造，Windows/macOS 不存在业务或页面分叉。
 
 ## 当前主机
 
-本轮主机为 macOS 13.7.8 Intel x64（Darwin 22.6.0），Node.js 22.19.0 x64。已验证 electron-vite 生产构建、真实 Electron 冒烟、未签名 x64 目录包及包内冒烟、连接 IPC、异步 safeStorage 往返与跨进程恢复/删除、专辑/封面、HTMLAudioElement 合成 WAV 流式播放、P04 队列，以及 P05 首页/专辑分页、艺术家/详情、搜索、会话取消和 960×640 布局；开发构建与目录包截图已目视检查。未生成/安装 DMG，且未签名/公证。此证据不能替代 Windows 11 或 Apple Silicon 实机结果，自动播放通过也不能替代物理扬声器听音。
+本轮主机为 Windows x64 build 26200，Node.js 22.21.1 x64（符合项目 `>=22.12 <23` engines，但不同于 `.nvmrc` 的精确 22.19.0）。已验证 P06 lint、三套类型检查、67 项测试、生产构建、真实 Electron 受控 fixture、Windows x64 目录包及包内冒烟；收藏同步、歌单 CRUD、重复歌曲索引移除和 960×640 布局均通过。此前 macOS 13.7.8 Intel x64 已完成 P01～P05 开发/目录包证据。本轮未生成或安装 P06 NSIS/DMG，也未在真实服务器写入；这些证据不能替代 Windows 11 正式版本、macOS Intel/Apple Silicon 实机或物理听音。
 
 ## CI 状态
 
-`.github/workflows/ci.yml` 使用 `windows-2025` x64、`macos-15-intel` x64 和 `macos-15` arm64 三个独立 runner。P01 run `34749707166`、P02 run `34760475489`、P03/生命周期修复 run `34762062759` 均三个 job 成功。分页修复 `f2a39c9` 与 P04 `3b3fca2` 已推送；本轮未核实 P04 对应 CI 编号。P05 尚未提交，因此没有远端矩阵证据。macOS 15 CI 不能替代 macOS 13 最低版本实机验证，Windows Server runner 也不能替代 Windows 11 桌面人工验收。
+`.github/workflows/ci.yml` 使用 `windows-2025` x64、`macos-15-intel` x64 和 `macos-15` arm64 三个独立 runner。P05 提交 `b8b61d5` 的 run `34798063277` 三个 job 全部成功。P06 尚未提交，因此没有 P06 三目标 CI 结论；当前 Windows x64 build 26200 只提供本地生产构建、源码/目录包 Electron 冒烟与截图证据。macOS 15 CI 不能替代 macOS 13 最低版本实机验证，Windows runner 和当前主机自动化也不能替代安装器、物理听音与完整人工验收。
 
 来源：https://docs.github.com/en/actions/reference/runners/github-hosted-runners

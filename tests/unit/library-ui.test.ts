@@ -15,7 +15,8 @@ describe('P05 音乐库界面', () => {
     const artists: ArtistSummary[] = Array.from({ length: 10_000 }, (_, index) => ({
       id: String(index),
       name: `艺术家 ${index} — 很长的中英文混排 Artist Name`,
-      albumCount: index % 12
+      albumCount: index % 12,
+      starred: false
     }))
     const wrapper = mount(VirtualArtistList, { props: { artists } })
 

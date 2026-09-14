@@ -2,6 +2,7 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
 import { computed } from 'vue'
 import type { AlbumListType, AlbumSummary, TrackSummary } from '../../../shared/library'
+import { useStarredMutation } from '../composables/use-starred-mutation'
 import { getAlbum, listAlbums } from '../services/library'
 import { usePlayerStore } from '../stores/player'
 import { Button } from './ui/button'
@@ -19,6 +20,9 @@ const emit = defineEmits<{
   'update:selectedAlbumId': [albumId: string | null]
 }>()
 const player = usePlayerStore()
+const { errorMessage: starredError, pendingKey, toggleStarred } = useStarredMutation(
+  () => props.sessionId
+)
 const ALBUM_PAGE_SIZE = 30
 
 const albumsQuery = useInfiniteQuery({
@@ -88,6 +92,14 @@ function appendTrack(track: TrackSummary): void {
       </div>
       <div class="flex gap-2">
         <Button
+          v-if="selectedAlbumId && albumQuery.data.value"
+          variant="outline"
+          :disabled="pendingKey === `album:${albumQuery.data.value.id}`"
+          @click="toggleStarred('album', albumQuery.data.value.id, !albumQuery.data.value.starred)"
+        >
+          {{ albumQuery.data.value.starred ? '取消收藏专辑' : '收藏专辑' }}
+        </Button>
+        <Button
           v-if="selectedAlbumId"
           variant="outline"
           @click="emit('update:selectedAlbumId', null)"
@@ -135,6 +147,14 @@ function appendTrack(track: TrackSummary): void {
               <small class="block truncate text-sonavi-muted">{{ track.artist }}</small>
             </span>
             <span class="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                :disabled="pendingKey === `track:${track.id}`"
+                @click="toggleStarred('track', track.id, !track.starred)"
+              >
+                {{ track.starred ? '取消收藏' : '收藏' }}
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
@@ -196,5 +216,6 @@ function appendTrack(track: TrackSummary): void {
         已加载全部 {{ albums.length }} 张专辑
       </p>
     </template>
+    <p v-if="starredError" class="mutation-error" role="alert">{{ starredError }}</p>
   </section>
 </template>

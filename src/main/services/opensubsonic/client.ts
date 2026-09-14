@@ -11,10 +11,17 @@ import type {
   ArtistDetail,
   ArtistIndex,
   ArtistSummary,
+  PlaylistDetail,
+  PlaylistSummary,
   SearchResultPage,
+  StarTargetType,
   TrackSummary
 } from '../../../shared/library'
-import { buildEndpointUrl, type ConnectionEndpoint } from './request-url'
+import {
+  buildEndpointUrl,
+  type ConnectionEndpoint,
+  type EndpointParameters
+} from './request-url'
 import {
   ResponseLimitError,
   type ApiTransport,
@@ -40,7 +47,8 @@ const AlbumSchema = z.object({
   year: z.number().int().optional(),
   songCount: z.number().int().nonnegative().default(0),
   duration: z.number().nonnegative().default(0),
-  coverArt: z.union([z.string(), z.number()]).transform(String).optional()
+  coverArt: z.union([z.string(), z.number()]).transform(String).optional(),
+  starred: z.string().optional()
 })
 
 const TrackSchema = z.object({
@@ -52,14 +60,28 @@ const TrackSchema = z.object({
   track: z.number().int().positive().optional(),
   discNumber: z.number().int().positive().optional(),
   contentType: z.string().optional(),
-  coverArt: z.union([z.string(), z.number()]).transform(String).optional()
+  coverArt: z.union([z.string(), z.number()]).transform(String).optional(),
+  starred: z.string().optional()
 })
 
 const ArtistSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
   name: z.string(),
   albumCount: z.number().int().nonnegative().default(0),
-  coverArt: z.union([z.string(), z.number()]).transform(String).optional()
+  coverArt: z.union([z.string(), z.number()]).transform(String).optional(),
+  starred: z.string().optional()
+})
+
+const PlaylistSchema = z.object({
+  id: z.union([z.string(), z.number()]).transform(String),
+  name: z.string(),
+  owner: z.string().default(''),
+  public: z.boolean().default(false),
+  songCount: z.number().int().nonnegative().default(0),
+  duration: z.number().nonnegative().default(0),
+  comment: z.string().optional(),
+  created: z.string().optional(),
+  changed: z.string().optional()
 })
 
 const SubsonicResponseSchema = z.object({
@@ -104,7 +126,16 @@ const SubsonicResponseSchema = z.object({
         album: z.array(AlbumSchema).default([]),
         song: z.array(TrackSchema).default([])
       })
-      .optional()
+      .optional(),
+    starred2: z
+      .object({
+        artist: z.array(ArtistSchema).default([]),
+        album: z.array(AlbumSchema).default([]),
+        song: z.array(TrackSchema).default([])
+      })
+      .optional(),
+    playlists: z.object({ playlist: z.array(PlaylistSchema).default([]) }).optional(),
+    playlist: PlaylistSchema.extend({ entry: z.array(TrackSchema).default([]) }).optional()
   })
 })
 
@@ -256,6 +287,7 @@ function mapAlbum(album: z.infer<typeof AlbumSchema>): AlbumWithCover {
     ...(album.year ? { year: album.year } : {}),
     songCount: album.songCount,
     duration: album.duration,
+    starred: album.starred !== undefined,
     ...(album.coverArt ? { coverArtId: album.coverArt } : {})
   }
 }
@@ -265,6 +297,7 @@ function mapArtist(artist: z.infer<typeof ArtistSchema>): ArtistWithCover {
     id: artist.id,
     name: artist.name,
     albumCount: artist.albumCount,
+    starred: artist.starred !== undefined,
     ...(artist.coverArt ? { coverArtId: artist.coverArt } : {})
   }
 }
@@ -276,10 +309,25 @@ function mapTrack(track: z.infer<typeof TrackSchema>): TrackWithCover {
     artist: track.artist,
     album: track.album,
     duration: track.duration,
+    starred: track.starred !== undefined,
     ...(track.track ? { track: track.track } : {}),
     ...(track.discNumber ? { disc: track.discNumber } : {}),
     ...(track.contentType ? { contentType: track.contentType } : {}),
     ...(track.coverArt ? { coverArtId: track.coverArt } : {})
+  }
+}
+
+function mapPlaylist(playlist: z.infer<typeof PlaylistSchema>): PlaylistSummary {
+  return {
+    id: playlist.id,
+    name: playlist.name,
+    owner: playlist.owner,
+    public: playlist.public,
+    songCount: playlist.songCount,
+    duration: playlist.duration,
+    ...(playlist.comment !== undefined ? { comment: playlist.comment } : {}),
+    ...(playlist.created ? { created: playlist.created } : {}),
+    ...(playlist.changed ? { changed: playlist.changed } : {})
   }
 }
 
@@ -363,6 +411,7 @@ export class OpenSubsonicClient {
       ...(album.year ? { year: album.year } : {}),
       songCount: album.songCount,
       duration: album.duration,
+      starred: album.starred !== undefined,
       ...(album.coverArt ? { coverArtId: album.coverArt } : {}),
       tracks: album.song.map(mapTrack)
     }
@@ -437,12 +486,113 @@ export class OpenSubsonicClient {
     }
   }
 
+  async getStarred2(
+    baseUrl: string,
+    username: string,
+    password: string
+  ): Promise<{
+    artists: ArtistWithCover[]
+    albums: AlbumWithCover[]
+    tracks: TrackWithCover[]
+  }> {
+    const response = await this.request('getStarred2', baseUrl, username, password)
+    return {
+      artists: (response.starred2?.artist ?? []).map(mapArtist),
+      albums: (response.starred2?.album ?? []).map(mapAlbum),
+      tracks: (response.starred2?.song ?? []).map(mapTrack)
+    }
+  }
+
+  async setStarred(
+    baseUrl: string,
+    username: string,
+    password: string,
+    targetType: StarTargetType,
+    targetId: string,
+    starred: boolean
+  ): Promise<void> {
+    const parameter = targetType === 'track' ? 'id' : `${targetType}Id`
+    await this.request(starred ? 'star' : 'unstar', baseUrl, username, password, {
+      [parameter]: targetId
+    })
+  }
+
+  async getPlaylists(
+    baseUrl: string,
+    username: string,
+    password: string
+  ): Promise<PlaylistSummary[]> {
+    const response = await this.request('getPlaylists', baseUrl, username, password)
+    return (response.playlists?.playlist ?? []).map(mapPlaylist)
+  }
+
+  async getPlaylist(
+    baseUrl: string,
+    username: string,
+    password: string,
+    playlistId: string
+  ): Promise<Omit<PlaylistDetail, 'tracks'> & { tracks: TrackWithCover[] }> {
+    const response = await this.request('getPlaylist', baseUrl, username, password, {
+      id: playlistId
+    })
+    if (!response.playlist) {
+      throw new ConnectionFailure('invalid-response', '服务器未返回歌单详情。', false)
+    }
+    return { ...mapPlaylist(response.playlist), tracks: response.playlist.entry.map(mapTrack) }
+  }
+
+  async createPlaylist(
+    baseUrl: string,
+    username: string,
+    password: string,
+    name: string,
+    songIds: string[]
+  ): Promise<void> {
+    await this.request('createPlaylist', baseUrl, username, password, {
+      name,
+      ...(songIds.length > 0 ? { songId: songIds } : {})
+    })
+  }
+
+  async updatePlaylist(
+    baseUrl: string,
+    username: string,
+    password: string,
+    playlistId: string,
+    changes: {
+      name?: string | undefined
+      comment?: string | undefined
+      public?: boolean | undefined
+      songIdsToAdd?: string[] | undefined
+      songIndexesToRemove?: number[] | undefined
+    }
+  ): Promise<void> {
+    const parameters: EndpointParameters = { playlistId }
+    if (changes.name !== undefined) parameters.name = changes.name
+    if (changes.comment !== undefined) parameters.comment = changes.comment
+    if (changes.public !== undefined) parameters.public = changes.public
+    if (changes.songIdsToAdd?.length) parameters.songIdToAdd = changes.songIdsToAdd
+    if (changes.songIndexesToRemove?.length) {
+      parameters.songIndexToRemove = changes.songIndexesToRemove
+    }
+    await this.request('updatePlaylist', baseUrl, username, password, parameters)
+  }
+
+  async deletePlaylist(
+    baseUrl: string,
+    username: string,
+    password: string,
+    playlistId: string
+  ): Promise<void> {
+    await this.request('deletePlaylist', baseUrl, username, password, { id: playlistId })
+  }
+
   private async request(
     endpoint: ConnectionEndpoint,
     baseUrl: string,
     username: string,
     password: string,
-    parameters: Record<string, string | number> = {},
+    parameters: EndpointParameters = {},
     externalSignal?: AbortSignal
   ): Promise<ParsedResponse> {
     const timeoutController = new AbortController()

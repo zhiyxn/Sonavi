@@ -55,7 +55,8 @@ function track(id: string, title = id): TrackSummary {
     artist: 'Sonavi Artist',
     album: 'Queue Album',
     duration: 10,
-    streamUrl: `sonavi-media://${id}`
+    streamUrl: `sonavi-media://${id}`,
+    starred: false
   }
 }
 

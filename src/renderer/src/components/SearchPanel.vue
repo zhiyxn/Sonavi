@@ -2,6 +2,7 @@
 import { useInfiniteQuery } from '@tanstack/vue-query'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { AlbumSummary, ArtistSummary, TrackSummary } from '../../../shared/library'
+import { useStarredMutation } from '../composables/use-starred-mutation'
 import { searchLibrary } from '../services/library'
 import { usePlayerStore } from '../stores/player'
 import { Button } from './ui/button'
@@ -12,6 +13,9 @@ const emit = defineEmits<{
   openArtist: [artistId: string]
 }>()
 const player = usePlayerStore()
+const { errorMessage: starredError, pendingKey, toggleStarred } = useStarredMutation(
+  () => props.sessionId
+)
 const input = ref('')
 const debouncedQuery = ref('')
 let debounceTimer: ReturnType<typeof setTimeout> | undefined
@@ -152,6 +156,12 @@ function appendTrack(track: TrackSummary): void {
               <small>{{ track.artist }} · {{ track.album }}</small>
             </span>
             <span class="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                :disabled="pendingKey === `track:${track.id}`"
+                @click="toggleStarred('track', track.id, !track.starred)"
+              >{{ track.starred ? '取消收藏' : '收藏' }}</Button>
               <Button variant="outline" size="sm" @click="appendTrack(track)">加入队列</Button>
               <Button size="sm" @click="playTrack(track)">播放</Button>
             </span>
@@ -169,5 +179,6 @@ function appendTrack(track: TrackSummary): void {
         </Button>
       </div>
     </div>
+    <p v-if="starredError" class="mutation-error" role="alert">{{ starredError }}</p>
   </section>
 </template>

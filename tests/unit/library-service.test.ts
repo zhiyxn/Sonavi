@@ -56,3 +56,96 @@ describe('LibraryService 搜索生命周期', () => {
     expect(service.cancelSearch(SESSION_ID, requestId)).toBe(false)
   })
 })
+
+describe('LibraryService P06 写操作', () => {
+  function createService(clientOverrides: Partial<OpenSubsonicClient>): LibraryService {
+    const connectionService = {
+      getSession: (sessionId: string) =>
+        sessionId === SESSION_ID
+          ? {
+              sessionId,
+              credential: {
+                serverUrl: 'https://music.example.com',
+                username: 'listener',
+                password: 'secret'
+              }
+            }
+          : null
+    } as unknown as ConnectionService
+    return new LibraryService(
+      connectionService,
+      clientOverrides as OpenSubsonicClient,
+      new MediaHandleRegistry()
+    )
+  }
+
+  it('为收藏和歌单歌曲创建当前会话的不透明媒体句柄', async () => {
+    const client = {
+      getStarred2: vi.fn().mockResolvedValue({
+        artists: [{ id: 'artist-1', name: '艺术家', albumCount: 1, starred: true }],
+        albums: [{ id: 'album-1', name: '专辑', artist: '艺术家', songCount: 1, duration: 60, starred: true }],
+        tracks: [{ id: 'track-1', title: '歌曲', artist: '艺术家', album: '专辑', duration: 60, starred: true }]
+      }),
+      getPlaylist: vi.fn().mockResolvedValue({
+        id: 'playlist-1',
+        name: '歌单',
+        owner: 'listener',
+        public: false,
+        songCount: 2,
+        duration: 120,
+        tracks: [
+          { id: 'track-1', title: '歌曲', artist: '艺术家', album: '专辑', duration: 60, starred: false },
+          { id: 'track-1', title: '歌曲', artist: '艺术家', album: '专辑', duration: 60, starred: false }
+        ]
+      })
+    }
+    const service = createService(client)
+
+    await expect(service.listStarred(SESSION_ID)).resolves.toMatchObject({
+      ok: true,
+      value: { tracks: [{ id: 'track-1', streamUrl: expect.stringMatching(/^sonavi-media:/) }] }
+    })
+    await expect(service.getPlaylist(SESSION_ID, 'playlist-1')).resolves.toMatchObject({
+      ok: true,
+      value: {
+        tracks: [
+          { id: 'track-1', streamUrl: expect.stringMatching(/^sonavi-media:/) },
+          { id: 'track-1', streamUrl: expect.stringMatching(/^sonavi-media:/) }
+        ]
+      }
+    })
+  })
+
+  it('只在有效会话中调用收藏与歌单写端点', async () => {
+    const setStarred = vi.fn().mockResolvedValue(undefined)
+    const createPlaylist = vi.fn().mockResolvedValue(undefined)
+    const updatePlaylist = vi.fn().mockResolvedValue(undefined)
+    const deletePlaylist = vi.fn().mockResolvedValue(undefined)
+    const service = createService({ setStarred, createPlaylist, updatePlaylist, deletePlaylist })
+
+    await expect(service.setStarred(SESSION_ID, 'album', 'album-1', true)).resolves.toEqual({
+      ok: true,
+      value: { changed: true }
+    })
+    await service.createPlaylist(SESSION_ID, '重复歌曲', ['track-1', 'track-1'])
+    await service.updatePlaylist(SESSION_ID, 'playlist-1', {
+      songIdsToAdd: ['track-1'],
+      songIndexesToRemove: [1]
+    })
+    await service.deletePlaylist(SESSION_ID, 'playlist-1')
+
+    expect(createPlaylist).toHaveBeenCalledWith(
+      'https://music.example.com',
+      'listener',
+      'secret',
+      '重复歌曲',
+      ['track-1', 'track-1']
+    )
+    expect(updatePlaylist).toHaveBeenCalledOnce()
+    expect(deletePlaylist).toHaveBeenCalledOnce()
+    await expect(
+      service.setStarred('c6593ec1-803d-4a66-98a4-71730047c6f4', 'album', 'album-1', true)
+    ).resolves.toMatchObject({ ok: false, error: { code: 'not-connected' } })
+    expect(setStarred).toHaveBeenCalledOnce()
+  })
+})

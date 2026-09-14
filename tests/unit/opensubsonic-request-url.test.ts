@@ -44,4 +44,23 @@ describe('OpenSubsonic 请求 URL', () => {
     expect(requestUrl.toString()).not.toContain('绝不进入')
     expect(requestUrl.searchParams.has('p')).toBe(false)
   })
+
+  it('为歌单写操作保留重复参数的原始顺序', () => {
+    const requestUrl = new URL(
+      buildEndpointUrl(
+        'https://music.example.com',
+        'updatePlaylist',
+        'listener',
+        'secret',
+        'fixed-salt',
+        { playlistId: 'playlist-1', songIdToAdd: ['track-1', 'track-1', 'track-2'] }
+      )
+    )
+
+    expect(requestUrl.searchParams.getAll('songIdToAdd')).toEqual([
+      'track-1',
+      'track-1',
+      'track-2'
+    ])
+  })
 })

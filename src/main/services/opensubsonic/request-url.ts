@@ -12,10 +12,19 @@ export type ConnectionEndpoint =
   | 'getArtists'
   | 'getArtist'
   | 'search3'
+  | 'getStarred2'
+  | 'star'
+  | 'unstar'
+  | 'getPlaylists'
+  | 'getPlaylist'
+  | 'createPlaylist'
+  | 'updatePlaylist'
+  | 'deletePlaylist'
   | 'getCoverArt'
   | 'stream'
 
-export type EndpointParameters = Record<string, string | number>
+type EndpointParameter = string | number | boolean
+export type EndpointParameters = Record<string, EndpointParameter | readonly EndpointParameter[]>
 
 export class ServerUrlError extends Error {
   constructor(
@@ -77,7 +86,11 @@ export function buildEndpointUrl(
   url.searchParams.set('c', SUBSONIC_CLIENT_NAME)
   url.searchParams.set('f', 'json')
   for (const [name, value] of Object.entries(parameters)) {
-    url.searchParams.set(name, String(value))
+    if (Array.isArray(value)) {
+      for (const item of value) url.searchParams.append(name, String(item))
+    } else {
+      url.searchParams.set(name, String(value))
+    }
   }
   return url.toString()
 }

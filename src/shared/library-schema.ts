@@ -8,8 +8,16 @@ import type {
   ArtistLibrary,
   ArtistSummary,
   CancelSearchRequest,
+  CreatePlaylistRequest,
+  DeletePlaylistRequest,
+  MutationSuccess,
+  PlaylistDetail,
+  PlaylistSummary,
   SearchRequest,
   SearchResultPage,
+  SetStarredRequest,
+  StarredLibrary,
+  UpdatePlaylistRequest,
   LibraryResult
 } from './library'
 
@@ -23,6 +31,8 @@ export const AlbumPageRequestSchema = z.object({
 }) satisfies z.ZodType<AlbumPageRequest>
 
 export const ArtistIdSchema = z.string().min(1).max(1024)
+export const ResourceIdSchema = z.string().min(1).max(1024)
+export const PlaylistIdSchema = ResourceIdSchema
 export const RequestIdSchema = z.string().uuid()
 export const SearchRequestSchema = z.object({
   sessionId: SessionIdSchema,
@@ -46,7 +56,8 @@ export const AlbumSummarySchema = z.object({
   year: z.number().int().optional(),
   songCount: z.number().int().nonnegative(),
   duration: z.number().nonnegative(),
-  coverUrl: MediaUrlSchema.optional()
+  coverUrl: MediaUrlSchema.optional(),
+  starred: z.boolean()
 }) satisfies z.ZodType<AlbumSummary>
 
 export const AlbumDetailSchema = AlbumSummarySchema.extend({
@@ -61,7 +72,8 @@ export const AlbumDetailSchema = AlbumSummarySchema.extend({
       disc: z.number().int().positive().optional(),
       contentType: z.string().optional(),
       coverUrl: MediaUrlSchema.optional(),
-      streamUrl: MediaUrlSchema
+      streamUrl: MediaUrlSchema,
+      starred: z.boolean()
     })
   )
 }) satisfies z.ZodType<AlbumDetail>
@@ -70,7 +82,8 @@ export const ArtistSummarySchema = z.object({
   id: z.string().min(1),
   name: z.string(),
   albumCount: z.number().int().nonnegative(),
-  coverUrl: MediaUrlSchema.optional()
+  coverUrl: MediaUrlSchema.optional(),
+  starred: z.boolean()
 }) satisfies z.ZodType<ArtistSummary>
 
 export const ArtistLibrarySchema = z.object({
@@ -93,6 +106,72 @@ export const SearchResultPageSchema = z.object({
   nextOffset: z.number().int().nonnegative(),
   hasMore: z.boolean()
 }) satisfies z.ZodType<SearchResultPage>
+
+export const SetStarredRequestSchema = z.object({
+  sessionId: SessionIdSchema,
+  targetType: z.enum(['track', 'album', 'artist']),
+  targetId: ResourceIdSchema,
+  starred: z.boolean()
+}) satisfies z.ZodType<SetStarredRequest>
+
+export const StarredLibrarySchema = z.object({
+  artists: z.array(ArtistSummarySchema),
+  albums: z.array(AlbumSummarySchema),
+  tracks: AlbumDetailSchema.shape.tracks
+}) satisfies z.ZodType<StarredLibrary>
+
+export const PlaylistSummarySchema = z.object({
+  id: ResourceIdSchema,
+  name: z.string(),
+  owner: z.string(),
+  public: z.boolean(),
+  songCount: z.number().int().nonnegative(),
+  duration: z.number().nonnegative(),
+  comment: z.string().optional(),
+  created: z.string().optional(),
+  changed: z.string().optional()
+}) satisfies z.ZodType<PlaylistSummary>
+
+export const PlaylistDetailSchema = PlaylistSummarySchema.extend({
+  tracks: AlbumDetailSchema.shape.tracks
+}) satisfies z.ZodType<PlaylistDetail>
+
+const PlaylistNameSchema = z.string().trim().min(1).max(200)
+const PlaylistCommentSchema = z.string().max(2_000)
+const SongIdsSchema = z.array(ResourceIdSchema).max(1_000)
+
+export const CreatePlaylistRequestSchema = z.object({
+  sessionId: SessionIdSchema,
+  name: PlaylistNameSchema,
+  songIds: SongIdsSchema
+}) satisfies z.ZodType<CreatePlaylistRequest>
+
+export const UpdatePlaylistRequestSchema = z
+  .object({
+    sessionId: SessionIdSchema,
+    playlistId: PlaylistIdSchema,
+    name: PlaylistNameSchema.optional(),
+    comment: PlaylistCommentSchema.optional(),
+    public: z.boolean().optional(),
+    songIdsToAdd: SongIdsSchema.optional(),
+    songIndexesToRemove: z.array(z.number().int().nonnegative().max(1_000_000)).max(1_000).optional()
+  })
+  .refine(
+    ({ name, comment, public: isPublic, songIdsToAdd, songIndexesToRemove }) =>
+      name !== undefined ||
+      comment !== undefined ||
+      isPublic !== undefined ||
+      (songIdsToAdd?.length ?? 0) > 0 ||
+      (songIndexesToRemove?.length ?? 0) > 0,
+    { message: '歌单更新至少需要一个变更。' }
+  ) satisfies z.ZodType<UpdatePlaylistRequest>
+
+export const DeletePlaylistRequestSchema = z.object({
+  sessionId: SessionIdSchema,
+  playlistId: PlaylistIdSchema
+}) satisfies z.ZodType<DeletePlaylistRequest>
+
+export const MutationSuccessSchema = z.object({ changed: z.literal(true) }) satisfies z.ZodType<MutationSuccess>
 
 const LibraryErrorSchema = z.object({
   code: z.enum(['not-connected', 'invalid-input', 'network', 'server-response']),
@@ -130,3 +209,23 @@ export const SearchResultSchema = z.discriminatedUnion('ok', [
   z.object({ ok: z.literal(true), value: SearchResultPageSchema }),
   z.object({ ok: z.literal(false), error: LibraryErrorSchema })
 ]) satisfies z.ZodType<LibraryResult<SearchResultPage>>
+
+export const StarredLibraryResultSchema = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), value: StarredLibrarySchema }),
+  z.object({ ok: z.literal(false), error: LibraryErrorSchema })
+]) satisfies z.ZodType<LibraryResult<StarredLibrary>>
+
+export const PlaylistListResultSchema = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), value: z.array(PlaylistSummarySchema) }),
+  z.object({ ok: z.literal(false), error: LibraryErrorSchema })
+]) satisfies z.ZodType<LibraryResult<PlaylistSummary[]>>
+
+export const PlaylistDetailResultSchema = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), value: PlaylistDetailSchema }),
+  z.object({ ok: z.literal(false), error: LibraryErrorSchema })
+]) satisfies z.ZodType<LibraryResult<PlaylistDetail>>
+
+export const MutationResultSchema = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), value: MutationSuccessSchema }),
+  z.object({ ok: z.literal(false), error: LibraryErrorSchema })
+]) satisfies z.ZodType<LibraryResult<MutationSuccess>>
