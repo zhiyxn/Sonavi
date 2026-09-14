@@ -4,21 +4,21 @@
 
 ## 当前目标
 
-P01～P07 已按顺序落地，P06 实现提交 `a831be6` 的三目标 CI 已成功。P07 歌词与播放上报已通过当前 Windows x64 源码、Electron fixture 和目录包闸门，尚未提交或进入三目标 CI；目标系统实机、真实服务器和物理听音缺口继续保留，不提前实现 P08 网络诊断或 P09 队列持久化/后台播放。
+P01～P07 已按顺序落地，P06 实现提交 `a831be6` 的三目标 CI 已成功。P07 歌词与播放上报已通过当前 Windows x64 源码、Electron fixture 和目录包闸门，本地提交 `9e599fa` 已创建但尚未推送或进入三目标 CI；目标系统实机、真实服务器和物理听音缺口继续保留，不提前实现 P08 网络诊断或 P09 队列持久化/后台播放。
 
 ## 当前分支与最近已验证提交
 
 - 分支：`main`
 - P06 实现提交：`a831be6 feat(p06): 实现收藏与歌单管理`
-- 当前基线：`36802ec feat(brand): 接入 Sonavi 应用图标`；P07 工作区尚未提交
-- 远端：本地 `main` 与 `origin/main` 均为 `36802ec`
+- P07 实现提交：`9e599fa feat(p07): 实现歌词与播放上报`
+- 远端：本地 `main` 为 `9e599fa`，`origin/main` 仍为 `36802ec`；推送等待明确远端授权
 - P05 CI：run `34798063277` 的 Windows x64、macOS Intel x64、macOS arm64 三个 job 全部成功；未发布或上传安装包
 - P06 CI：run `34810276941` 的 Windows x64、macOS Intel x64、macOS arm64 三个 job 全部成功
 - 品牌提交 CI：run `34811268194` 的 Windows x64 与 macOS Intel x64 成功，macOS arm64 的 Electron smoke 失败；lint、typecheck、unit/component 均成功，公开 API 无 job 日志权限，根因尚未确认
 
 ## 工作区未提交改动
 
-本轮从干净的 `36802ec` 开始开发 P07。当前源码、测试与文档均为未提交改动；用户原有 `.gitignore` 与原始参考目录继续保留，`node_modules/`、`out/`、`release/`、`artifacts/` 和原始参考包不进入后续提交。
+本轮从干净的 `36802ec` 开始开发 P07，源码、测试和主体文档已提交为 `9e599fa`。本状态修正将单独提交；用户原有 `.gitignore` 与原始参考目录继续保留，`node_modules/`、`out/`、`release/`、`artifacts/` 和原始参考包未进入提交。
 
 ## 已完成代码
 
@@ -83,7 +83,7 @@ P01～P07 已按顺序落地，P06 实现提交 `a831be6` 的三目标 CI 已成
 
 ## 下一项可执行任务
 
-先审查当前 P07 未提交差异；若用户要求则提交并推送，观察三目标 CI，重点复核 macOS arm64 Electron smoke。随后仅在用户明确授权的实际服务验证歌词能力、旧版兜底和 scrobble 计数。P07 外部证据不足不影响按阶段进入 P08，但缺少的 Windows 11 正式版本、macOS Intel/arm64、最低系统和物理听音证据不得标成已通过。
+取得对 `git@github.com:zhiyxn/Sonavi.git` 的明确推送授权后，将 P07 功能与状态提交推送到 `origin/main`，观察三目标 CI并重点复核 macOS arm64 Electron smoke。随后仅在用户明确授权的实际服务验证歌词能力、旧版兜底和 scrobble 计数。P07 外部证据不足不影响按阶段进入 P08，但缺少的 Windows 11 正式版本、macOS Intel/arm64、最低系统和物理听音证据不得标成已通过。
 
 ## 不应重做或覆盖的内容
 
