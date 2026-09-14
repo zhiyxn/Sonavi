@@ -6,6 +6,9 @@ import { defineConfig } from 'electron-vite'
 export default defineConfig({
   main: {
     build: {
+      externalizeDeps: {
+        exclude: ['zod']
+      },
       rollupOptions: {
         input: resolve('src/main/index.ts')
       }

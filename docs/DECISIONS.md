@@ -201,3 +201,21 @@ Windows 与 macOS 默认关闭动作统一为隐藏既有 BrowserWindow，不销
 - https://www.electronjs.org/docs/latest/api/browser-window
 - https://www.electronjs.org/docs/latest/api/power-monitor
 - https://developer.chrome.com/docs/media-and-audio/media-session
+
+## D018：P10 只在原生目标验证包，并把签名状态作为显式证据
+
+- 日期：2026-09-15
+- 状态：已接受
+
+Windows x64、macOS x64 和 macOS arm64 继续由同一 electron-builder 配置生成，但每个候选必须在对应系统运行 `verify:package` 与打包应用 Electron 冒烟。验证器记录安装包 SHA-256、单一目标架构、应用标识、版本、核心资源与签名状态；CI 不上传包，跨主机生成文件也不等同于实机安装兼容。
+
+main 的唯一外部运行时依赖 Zod 在 electron-vite 中内联，electron-builder 排除全部 `node_modules`，避免把约 55 MiB 构建期依赖和 source map 带进 ASAR。ASAR 设 16 MiB 发布前上限作为回归门槛。macOS 删除 Electron 模板中 Sonavi 未使用的相机、麦克风、蓝牙与音频采集说明；Developer ID 候选只预置 JIT/可执行内存 entitlements，不为当前能力添加 `disable-library-validation`。
+
+签名、公证凭据只由本机密钥链或受保护 CI secret 提供。无凭据时产物必须标记为未签名开发测试包；正式候选使用 `SONAVI_REQUIRE_SIGNING=1` 使验证器拒绝未签名文件，并另行验证 macOS 公证 ticket。不会要求用户关闭 Gatekeeper、SmartScreen、TLS 或 Electron 安全开关。
+
+来源：
+
+- https://www.electronjs.org/docs/latest/tutorial/code-signing
+- https://www.electron.build/v26/docs/mac/
+- https://www.electron.build/docs/features/code-signing/code-signing-win/
+- https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution

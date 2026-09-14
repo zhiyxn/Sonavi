@@ -1,6 +1,6 @@
 # Sonavi 双平台设计映射
 
-更新日期：2026-09-14
+更新日期：2026-09-15
 
 ## 共用视觉来源
 
@@ -43,4 +43,4 @@
 - macOS Intel x64：必须在 Intel Mac 单独启动并截图。
 - macOS Apple Silicon arm64：必须在 Apple Silicon Mac 单独启动 arm64 包并截图。
 
-当前 P09 macOS Intel 截图位于 `artifacts/screenshots/p09-desktop-current-platform.png` 与 `artifacts/screenshots/p09-macos-x64-package.png`，已检查深色共享 token、中文/英文混排、原生窗口控制、导航、播放器和 x64 包内布局，无明显截断、重叠或应用级横向溢出。托盘下拉菜单、系统媒体键和睡眠/恢复未通过截图人工操作，继续标为未验证。P08 诊断截图、P07 Windows x64 歌词截图及历史 P05/P06 截图继续保留；任何单平台截图都不作为另一平台验收结论。
+当前 P10 macOS Intel DMG 临时安装截图位于 `artifacts/screenshots/p10-macos-x64-dmg-installed.png` 与 `p10-macos-x64-dmg-installed-desktop.png`，已检查浅色/深色共享 token、中文/英文混排、导航、播放器和 960×640 布局，无明显截断、重叠或应用级横向溢出。截图没有覆盖 Finder 中的 DMG 窗口、Dock 图标系统遮罩、菜单栏下拉、物理媒体键和睡眠/恢复，因此这些项目仍标未验证。Windows 与 Apple Silicon 仍必须分别安装并截图；任何单平台截图都不作为另一平台验收结论。

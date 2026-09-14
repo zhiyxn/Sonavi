@@ -21,12 +21,15 @@ jobs:
           - name: Windows x64
             os: windows-2025
             package-command: npm run build:win
+            package-target: win-x64
           - name: macOS Intel x64
             os: macos-15-intel
             package-command: npm run build:mac:x64
+            package-target: mac-x64
           - name: macOS Apple Silicon arm64
             os: macos-15
             package-command: npm run build:mac:arm64
+            package-target: mac-arm64
 
     steps:
       - name: Checkout
@@ -55,3 +58,9 @@ jobs:
 
       - name: Build platform package without publishing
         run: ${{ matrix.package-command }}
+
+      - name: Verify package metadata and architecture
+        run: npm run verify:package -- ${{ matrix.package-target }}
+
+      - name: Packaged Electron smoke
+        run: npm run test:e2e:package -- ${{ matrix.package-target }}

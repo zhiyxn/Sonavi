@@ -14,6 +14,7 @@ export default tseslint.config(
     files: [
       'src/main/**/*.ts',
       'src/preload/**/*.ts',
+      'scripts/**/*.mjs',
       'tests/**/*.{ts,mjs}',
       'electron.vite.config.ts'
     ],
@@ -30,9 +31,19 @@ export default tseslint.config(
       }
     },
     rules: {
+      'vue/no-v-html': 'error',
       'no-restricted-globals': [
         'error',
-        { name: 'process', message: 'renderer 必须通过受限 preload API 获取平台信息。' }
+        { name: 'process', message: 'renderer 必须通过受限 preload API 获取平台信息。' },
+        { name: 'localStorage', message: 'renderer 持久化必须通过受限 preload 业务接口。' },
+        { name: 'sessionStorage', message: 'renderer 持久化必须通过受限 preload 业务接口。' }
+      ],
+      'no-restricted-properties': [
+        'error',
+        { object: 'window', property: 'localStorage', message: 'renderer 持久化必须通过受限 preload 业务接口。' },
+        { object: 'window', property: 'sessionStorage', message: 'renderer 持久化必须通过受限 preload 业务接口。' },
+        { object: 'globalThis', property: 'localStorage', message: 'renderer 持久化必须通过受限 preload 业务接口。' },
+        { object: 'globalThis', property: 'sessionStorage', message: 'renderer 持久化必须通过受限 preload 业务接口。' }
       ],
       'no-restricted-imports': [
         'error',

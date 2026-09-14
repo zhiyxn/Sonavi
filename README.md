@@ -1,6 +1,6 @@
 # Sonavi
 
-Sonavi 是一套同时正式面向 Windows 11 x64、macOS 13+ Intel x64 与 macOS 13+ Apple Silicon arm64 的 Navidrome 桌面客户端。两个平台共享同一套 Electron/Vue 工程、renderer 和业务代码；当前 P01～P09 已按顺序落地，P06 已通过三目标 CI，P09 已通过当前 macOS Intel 源码与 x64 目录包代码闸门，三目标 CI、真实服务器与其余目标实机证据仍分别记录。
+Sonavi 是一套同时正式面向 Windows 11 x64、macOS 13+ Intel x64 与 macOS 13+ Apple Silicon arm64 的 Navidrome 桌面客户端。两个平台共享同一套 Electron/Vue 工程、renderer 和业务代码；当前 P01～P10 已按顺序落地到发布前代码闸门。macOS Intel 已完成未签名 x64 DMG 的生成、挂载、临时安装与全链路 Electron 冒烟；Windows x64 和 macOS arm64 的最新已推送 P08/P09 CI 成功，但当前 P10 增量尚待提交后运行三目标 CI 和对应实机安装验收。
 
 ## 当前能力
 
@@ -21,6 +21,7 @@ Sonavi 是一套同时正式面向 Windows 11 x64、macOS 13+ Intel x64 与 macO
 - P09 提供同一 AudioEngine 宿主的关闭隐藏/重新激活、托盘播放控制、明确真正退出、Media Session 媒体键、主题/音量/窗口/暂停队列持久化，以及账号隔离的限量封面缓存；
 - Tailwind CSS 4 与项目持有的 shadcn-vue 组件源码，共用 Sonavi tokens；
 - 集中的 Windows/macOS 菜单、快捷键提示与窗口生命周期适配入口；
+- P10 安装包元数据、目标架构、ASAR、资源、签名状态与 SHA-256 验证，以及打包应用 Electron 冒烟入口；
 - lint、类型检查、单元/组件测试、Electron 冒烟和 electron-builder 配置。
 
 ## 开发环境
@@ -30,7 +31,7 @@ nvm use
 npm ci
 ```
 
-项目固定 Node.js 22.19.0 与 npm 10.9.3。`electron-vite@5` 和 Vite 8 要求 Node.js 20.19+ 或 22.12+；不要误用 `/usr/local/bin/node`。
+项目固定 Node.js 22.19.0 与 npm 10.9.3，并锁定 electron-vite 5 与 Vite 7 兼容线；不要误用 `/usr/local/bin/node`。
 
 ## 开发与检查
 
@@ -62,6 +63,15 @@ npm run build:mac:arm64
 
 产物写入 `release/<version>/`。当前配置生成未签名开发测试包，不发布 Release、不上传安装包。可以在当前主机用 `npm run pack:dir` 做最小目录打包检查，但跨平台打包成功不作为相应平台兼容证明。
 
-`.github/workflows/ci.yml` 为 Windows x64、macOS Intel x64 与 macOS Apple Silicon arm64 建立独立检查/打包 job，不上传产物。P06 提交 `a831be6` 的 run `34810276941` 三个目标全部成功；P08/P09 当前尚未提交或触发 CI，现有最新证据是 macOS Intel 的生产构建、Electron 冒烟和 x64 目录包冒烟。
+每个目标构建后还应在同一目标系统执行：
+
+```sh
+npm run verify:package -- win-x64      # 或 mac-x64 / mac-arm64
+npm run test:e2e:package -- win-x64    # 或 mac-x64 / mac-arm64
+```
+
+验证器生成本地 manifest，记录架构、应用标识、资源、签名状态与 SHA-256。签名、公证、安装和发布闸门见 [发布前清单](docs/RELEASE-CHECKLIST.md)。
+
+`.github/workflows/ci.yml` 为 Windows x64、macOS Intel x64 与 macOS Apple Silicon arm64 建立独立检查/打包/包验证 job，不上传产物。P08/P09 提交 `fb430a1` 的 run `34842121215` 中 Windows x64 与 macOS arm64 成功，macOS Intel 在源码 Electron 冒烟失败并跳过打包；当前 P10 改动尚未提交或触发新 CI，不能写成三目标全通过。
 
 更多状态与边界见 [兼容性](docs/COMPATIBILITY.md)、[测试报告](docs/TEST-REPORT.md) 和 [交接](docs/HANDOFF.md)。

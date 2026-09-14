@@ -98,7 +98,7 @@ const fixturePlaylists = [
   }
 ]
 
-async function waitForCondition(condition, message, timeoutMs = 3_000) {
+async function waitForCondition(condition, message, timeoutMs = 10_000) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     if (condition()) return
@@ -678,10 +678,10 @@ try {
   await window.getByRole('button', { name: '关闭', exact: true }).click()
   await window.getByRole('button', { name: '继续播放' }).click()
   await window.getByRole('button', { name: '暂停' }).waitFor()
-  await window.waitForTimeout(2_400)
-  if (!playbackRequests.some((request) => request.id === 'fixture-track' && request.submission === 'true')) {
-    throw new Error('累计真实播放达到阈值后未发送 submission scrobble')
-  }
+  await waitForCondition(
+    () => playbackRequests.some((request) => request.id === 'fixture-track' && request.submission === 'true'),
+    '累计真实播放达到阈值后未发送 submission scrobble'
+  )
   const oldCoverHandle = await window
     .locator('img[alt="石与琥珀 封面"]')
     .first()

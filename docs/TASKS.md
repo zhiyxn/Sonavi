@@ -148,14 +148,14 @@ P02 基础提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`�
 - [ ] Windows 11 x64 与 macOS arm64 分别验证托盘、关闭/最小化/真正退出、媒体键、锁屏/睡眠、窗口恢复、截图和性能。
 - [ ] 当前 macOS Intel 人工点击托盘菜单、物理媒体键、锁屏/睡眠、真正退出与扬声器听音。
 - [ ] 使用真实大型资料库记录首屏、滚动、快速切歌、请求与内存趋势；合成数据不可替代生产测量。
-- [ ] P08/P09 提交后运行 Windows x64、macOS Intel x64、macOS arm64 三目标 CI。
+- [x] P08/P09 提交 `fb430a1` 已触发三目标 CI：Windows x64、macOS arm64 成功，macOS Intel 源码 Electron 冒烟失败，未形成全绿矩阵。
 
 ## 后续阶段（顺序保留）
 
 跨阶段品牌资产：
 
 - [x] 将用户指定 PNG 原样纳入仓库，接入共享侧栏、页面图标及 electron-builder Windows/macOS 图标配置。
-- [ ] 在 Windows 安装器、macOS Intel/Apple Silicon 应用包、Dock/Finder/开始菜单中分别目视验证缩放与系统遮罩效果；该项继续属于 P10 发布验收。
+- [ ] 在 Windows 安装器与 macOS Apple Silicon 应用包中目视验证缩放与系统遮罩；当前 Intel DMG 只验证了应用内截图，Finder/Dock 图标仍待人工验收。
 
 - [ ] P02：真实服务器、Windows 11 与 Apple Silicon 外部环境验证（本机代码闸门已完成）。
 - [ ] P03：外部服务器分页/格式及另两目标实机验证（本机实现已完成）。
@@ -165,15 +165,22 @@ P02 基础提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`�
 - [ ] P07：三目标 CI、真实服务器与各目标实机歌词/scrobble 验证（本机代码闸门已完成）。
 - [ ] P08：真实服务器、Windows 11、Apple Silicon 与三目标 CI 外部验证（当前 macOS Intel 代码闸门已完成）。
 - [ ] P09：Windows/Apple Silicon 实机、三目标 CI、人工托盘/媒体键/睡眠与真实大型资料库性能（当前 macOS Intel 代码闸门已完成）。
-- [ ] P10：安装包、签名/公证占位、兼容性与发布前审计。
+- [x] P10：增加三目标包元数据/架构/资源/签名/SHA-256 验证器与打包应用 Electron 冒烟入口。
+- [x] P10：macOS 删除未使用隐私权限说明，增加最小签名 entitlements；ASAR 排除构建期依赖并设置 16 MiB 上限。
+- [x] P10：当前 Intel Mac 生成未签名 x64 DMG，完成只读挂载、临时安装、包内完整冒烟与截图验证。
+- [x] P10：补齐签名/公证接口说明、安装升级矩阵、发布闸门、回滚方式与 0.1.0 变更摘要。
+- [ ] P10 增量提交后运行 Windows x64、macOS Intel x64、macOS arm64 三目标 CI，确认包验证与包内冒烟全绿。
+- [ ] Windows 11 x64 安装 NSIS 并完成人工图标、开始菜单、卸载保留 userData、桌面行为与物理听音验收。
+- [ ] macOS Apple Silicon 原生构建/安装 arm64 DMG 并完成人工图标、Dock/菜单栏、桌面行为与物理听音验收。
+- [ ] 使用正式证书验证 Windows Authenticode、macOS Developer ID、公证与 stapling；未经授权不索取或使用密钥。
 
 ## 尚需外部环境验证
 
 - Windows 11 x64：依赖安装、开发启动、单元测试、生产构建、NSIS 打包、截图、菜单/关闭/重启。
 - Apple Silicon macOS 13+：原生 arm64 依赖安装、开发启动、DMG 打包、截图、菜单/Dock/关闭与重激活。
-- Intel Mac 的未签名 DMG 安装打开验证（目录包与开发启动不等于安装器验收）。
+- Intel Mac 的正式签名/公证 DMG、隔离属性下 Gatekeeper、Finder/Dock 图标及人工桌面行为；未签名 DMG 挂载、临时安装和包内启动已通过。
 - P05 提交 `b8b61d5` 的 GitHub Actions run `34798063277` 已在 Windows x64、macOS Intel x64、macOS arm64 三个 job 成功；CI 仍不替代对应桌面系统与最低系统版本实机验收。
 
 ## 当前闸门结论
 
-P01 已达到验收条件。P02～P09 的当前代码闸门已通过；P09 在 macOS Intel 上通过 96 项测试、受控 Electron fixture、x64 目录打包及包内冒烟，证明同宿主隐藏/恢复、Media Session、状态/队列持久化、账号隔离封面缓存和受控性能采样可运行。P06 实现提交 `a831be6` 的三目标 CI 已成功；当前 P08/P09 尚未提交或运行三目标 CI。真实服务器/大型资料库、Windows 11、Apple Silicon、手工托盘/媒体键/睡眠、最低系统版本和物理听音仍未完成，因此不能宣称 P02～P09 双平台最终验收完成。
+P01 已达到验收条件，P02～P10 已按序达到当前可用环境的代码闸门。P10 在 macOS Intel 上通过 102 项测试、依赖审计、x64 DMG 构建/校验/挂载/临时安装及包内完整冒烟；P08/P09 提交 `fb430a1` 的 Windows x64 和 macOS arm64 CI 成功，但 macOS Intel 源码 Electron 冒烟失败，未形成全绿矩阵。当前 P10 尚未提交/运行三目标 CI，且真实服务器/大型资料库、Windows/Apple Silicon 安装、签名/公证、手工桌面行为、最低系统和物理听音仍未完成，因此不能宣称双平台正式发布验收完成。
