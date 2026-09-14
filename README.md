@@ -5,6 +5,7 @@ Sonavi 是一套同时正式面向 Windows 11 x64、macOS 13+ Intel x64 与 macO
 ## 当前能力
 
 - 原生系统窗口边框与控制按钮；
+- 用户指定的 Sonavi 标志已用于应用内品牌位、页面图标及 Windows/macOS 打包图标；
 - 共享的真实连接表单与应用外壳；
 - `main → preload → renderer` 类型化应用信息与连接 IPC；
 - `contextIsolation`、sandbox、CSP、导航/窗口/权限限制；

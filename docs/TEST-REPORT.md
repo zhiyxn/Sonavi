@@ -41,6 +41,7 @@ GitHub Actions run：`34749707166`，结论 `success`，运行页面：https://g
 | `npm run test:e2e` | 通过 | 真实 Electron 连接本地 fixture；既有 P02～P05 流程与 P06 收藏同步、歌单 CRUD、重复歌曲索引移除全部通过 |
 | `npm run pack:dir` | 通过 | 重新生成包含 P06 的 Windows x64 `release/0.1.0/win-unpacked` |
 | 包内 Electron 冒烟 | 通过 | Windows x64 目录包完成连接、P02～P05 回归、P06 收藏/歌单、会话/凭据、safeStorage、960×640 布局与截图 |
+| 品牌图标 | 通过（Windows x64 目录包） | renderer Logo 加载检查通过；`Sonavi.exe` 提取出的 32×32 图标与指定橙色音符一致；NSIS 与 macOS 待验证 |
 
 ## P02/P03 覆盖范围
 
@@ -114,7 +115,7 @@ GitHub Actions run：`34749707166`，结论 `success`，运行页面：https://g
 ## 截图证据
 
 - macOS Intel x64：历史 P05 开发构建与目录包截图已检查；P06 未在该平台运行或截图。
-- Windows x64：当前 build 26200 主机已生成并目视检查 `artifacts/screenshots/p06-windows-x64-package.png`；歌单页在 960×640 无明显截断、重叠或应用级横向溢出。P06 未生成/安装 NSIS，系统正式版本与物理听音仍待人工确认。
+- Windows x64：当前 build 26200 主机已生成并目视检查 `artifacts/screenshots/p06-windows-x64-package.png` 与 `logo-windows-x64-package.png`；歌单页在 960×640 无明显截断、重叠或应用级横向溢出，侧栏 Logo 清晰可见。P06 未生成/安装 NSIS，系统正式版本与物理听音仍待人工确认。
 - macOS Apple Silicon arm64：未验证，无 Apple Silicon 实机。
 
 ## 当前结论

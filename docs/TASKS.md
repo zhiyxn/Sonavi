@@ -107,6 +107,11 @@ P02 基础提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`�
 
 ## 后续阶段（顺序保留）
 
+跨阶段品牌资产：
+
+- [x] 将用户指定 PNG 原样纳入仓库，接入共享侧栏、页面图标及 electron-builder Windows/macOS 图标配置。
+- [ ] 在 Windows 安装器、macOS Intel/Apple Silicon 应用包、Dock/Finder/开始菜单中分别目视验证缩放与系统遮罩效果；该项继续属于 P10 发布验收。
+
 - [ ] P02：真实服务器、Windows 11 与 Apple Silicon 外部环境验证（本机代码闸门已完成）。
 - [ ] P03：外部服务器分页/格式及另两目标实机验证（本机实现已完成）。
 - [ ] P04：Windows 11、Apple Silicon 与真实服务器队列/事件差异验证（本机代码闸门已完成）。

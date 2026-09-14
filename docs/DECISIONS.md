@@ -137,3 +137,12 @@ AudioEngine 使用单一枚举状态而非跨组件布尔组合，并以 generat
 - https://opensubsonic.netlify.app/docs/endpoints/createplaylist/
 - https://opensubsonic.netlify.app/docs/endpoints/updateplaylist/
 - https://opensubsonic.netlify.app/docs/endpoints/deleteplaylist/
+
+## D014：用户指定图片作为统一品牌源
+
+- 日期：2026-09-14
+- 状态：已接受
+
+用户提供的 1254×1254 不透明 PNG 直接作为 Sonavi 当前标志，不做生成式改绘。仓库保留 `build/icon.png` 作为打包品牌源，并保留内容相同的 renderer 资源用于侧栏品牌位和页面图标；两份文件以 SHA-256 校验确认与用户源图一致。
+
+Windows 与 macOS 继续使用同一源图，分别由 electron-builder 的现有平台构建流程转换为所需应用图标格式，不建立平台专属品牌设计。此变更只接入品牌资源，不代表已完成 P10 的安装器、签名、公证或发布验收。

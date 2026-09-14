@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useQueryClient } from '@tanstack/vue-query'
 import { computed, onMounted, ref } from 'vue'
+import sonaviLogoUrl from './assets/sonavi-logo.png'
 import ConnectPanel from './components/ConnectPanel.vue'
 import FavoritesPanel from './components/FavoritesPanel.vue'
 import ArtistsPanel from './components/ArtistsPanel.vue'
@@ -108,7 +109,10 @@ async function handleForget(): Promise<void> {
   <main class="application-shell">
     <aside class="sidebar" aria-label="主导航">
       <div>
-        <a class="brand" href="#main-content" aria-label="Sonavi 首页">Sonavi</a>
+        <a class="brand" href="#main-content" aria-label="Sonavi 首页">
+          <img class="brand-logo" :src="sonaviLogoUrl" alt="" aria-hidden="true" />
+          <span>Sonavi</span>
+        </a>
         <p class="brand-caption">YOUR MUSIC. YOUR SPACE.</p>
       </div>
 

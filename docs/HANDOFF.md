@@ -38,6 +38,7 @@ P01～P06 已按顺序落地。P05 已通过三目标 CI；P06 实现提交 `a83
 - P06 以公共 `getStarred2` / `star` / `unstar` 实现艺术家、专辑和歌曲收藏；收藏页以及现有浏览/搜索页面共用服务器事实刷新策略。
 - P06 以公共歌单端点实现列表、详情、创建、重命名、公开状态、删除、追加当前队列、按索引删除重复歌曲和整单播放；旧服务器空成功响应不用于伪造本地实体。
 - P06 共享类型、Zod 输入/输出 schema、受信 IPC/preload、main 会话/权限错误路径均已接通；renderer 仍不接触凭据、原始 IPC 或任意 URL。
+- 用户指定的橙色音符 PNG 已作为统一品牌源接入侧栏、页面图标和 Windows/macOS electron-builder 配置；原图内容未改绘。
 
 ## 已执行自动验证
 
@@ -48,6 +49,7 @@ P01～P06 已按顺序落地。P05 已通过三目标 CI；P06 实现提交 `a83
 - `npm run pack:dir`：通过，重新生成含 P06 的 `release/0.1.0/win-unpacked`（Windows x64 目录包）。
 - 生产构建冒烟：真实 Electron Session 连接本地 `127.0.0.1` fixture；既有 P02～P05 链路继续通过，新增验证收藏同步、歌单创建/读取/重命名/公开/追加/按索引移除重复歌曲/删除。
 - 包内冒烟：Windows x64 `win-unpacked` 完整复跑 P06 流程，并通过 960×640 无应用级横向溢出检查；截图为 `artifacts/screenshots/p06-windows-x64-package.png`。
+- Logo 验证：Windows x64 目录包内 renderer 图片加载通过；从 `Sonavi.exe` 提取的 32×32 系统图标与用户指定图一致，截图为 `artifacts/screenshots/logo-windows-x64-package.png`。NSIS、macOS Intel/arm64 系统图标仍待对应环境验证。
 - P05 远端 CI run `34798063277`：Windows x64、macOS Intel x64、macOS arm64 均完成 install、lint、typecheck、unit/component、Electron smoke 和对应平台打包。
 - 当前 Windows x64 主机：生产构建、源码 Electron 冒烟、目录包冒烟、P05 截图、在线 `npm audit` 与 NSIS 生成通过；Node 使用 22.21.1，符合 engines 但不同于 `.nvmrc` 的精确 22.19.0。
 

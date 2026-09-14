@@ -96,6 +96,7 @@ describe('共享应用外壳', () => {
 
     expect(wrapper.text()).toContain('Windows · v0.1.0')
     expect(wrapper.text()).toContain('设置快捷键 Ctrl+,')
+    expect(wrapper.get('img.brand-logo').attributes('src')).toContain('sonavi-logo.png')
     expect(wrapper.find('[data-testid="fake-macos-controls"]').exists()).toBe(false)
   })
 

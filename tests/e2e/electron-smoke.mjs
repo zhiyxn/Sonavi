@@ -418,6 +418,11 @@ try {
   window.on('console', (message) => runtimeMessages.push(`console:${message.type()}:${message.text()}`))
   window.on('pageerror', (error) => runtimeMessages.push(`pageerror:${error.message}`))
 
+  const logoLoaded = await window.locator('img.brand-logo').evaluate(
+    (image) => 'complete' in image && 'naturalWidth' in image && image.complete && image.naturalWidth > 0
+  )
+  if (!logoLoaded) throw new Error('Sonavi logo asset did not load')
+
   try {
     await window.getByRole('heading', { name: '连接你的音乐空间' }).waitFor()
   } catch (error) {

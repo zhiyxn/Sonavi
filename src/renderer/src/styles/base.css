@@ -57,11 +57,23 @@ input {
 }
 
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   color: inherit;
   font-size: 25px;
   font-weight: 650;
   letter-spacing: -0.03em;
   text-decoration: none;
+}
+
+.brand-logo {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border-radius: 11px;
+  object-fit: cover;
+  box-shadow: 0 5px 18px rgb(0 0 0 / 24%);
 }
 
 .brand-caption,
@@ -837,5 +849,12 @@ button.nav-item {
 
   .brand-caption {
     margin-top: 2px;
+  }
+
+  .brand-logo {
+    width: 36px;
+    height: 36px;
+    flex-basis: 36px;
+    border-radius: 9px;
   }
 }

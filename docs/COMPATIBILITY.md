@@ -49,6 +49,7 @@ Windows ARM64、Linux、macOS Universal 合并包不属于首版强制交付。�
 - P04 未增加依赖或原生模块。状态机、队列、随机历史和 UI 都位于共享 TypeScript/Vue renderer；使用浏览器标准 HTMLAudioElement、EventTarget 与 Web Crypto `randomUUID`。当前 Intel Mac 已验证，Windows 11 与 Apple Silicon 仍需实机验证相同媒体事件次序和音频输出。
 - P05 未增加依赖或原生模块。`getAlbumList2`、`getArtists`、`getArtist`、`search3` 使用共享 Electron Session 客户端；窗口化列表、防抖和 Query 取消位于共享 Vue renderer，Windows/macOS 不存在页面分叉。
 - P06 未增加依赖或原生模块。收藏与歌单复用共享 OpenSubsonic 客户端、Zod、TanStack Query 和 Vue renderer；重复查询参数由平台无关 URL API 构造，Windows/macOS 不存在业务或页面分叉。
+- 品牌图标使用单一 1254×1254 PNG 源文件；electron-builder 26.15.3 在各自构建流程生成 Windows/macOS 图标资源，不引入图像处理依赖或平台专属 renderer 代码。当前 Windows x64 目录包转换通过，从 `Sonavi.exe` 提取的 32×32 系统图标及包内 renderer 品牌位均已目视确认；NSIS/开始菜单与 macOS x64/arm64 转换仍需对应安装器、CI 或实机验证。
 
 ## 当前主机
 

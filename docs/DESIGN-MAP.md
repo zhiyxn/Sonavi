@@ -4,11 +4,12 @@
 
 ## 共用视觉来源
 
-`Sonavi_UI_v0.1/` 是视觉参考包。共享 renderer 从 `tokens.css` 复用石色画布、白色抬升面、深色侧栏、琥珀强调、圆角和间距，并在 `src/renderer/src/styles/tokens.css` 增加跨平台中英文字体回退。Tailwind CSS theme 映射这些 Sonavi tokens，shadcn-vue 组件源码按相同视觉调整。连接页继续复用既有 CSS；P03 专辑/播放器增量使用 Tailwind 与 shadcn-vue Button，不复制平台页面。
+`Sonavi_UI_v0.1/` 是视觉参考包。共享 renderer 从 `tokens.css` 复用石色画布、白色抬升面、深色侧栏、琥珀强调、圆角和间距，并在 `src/renderer/src/styles/tokens.css` 增加跨平台中英文字体回退。用户在 2026-09-14 指定的方形橙色音符图作为当前 Sonavi 标志，原始像素副本保存在 `build/icon.png`，应用内副本保存在 `src/renderer/src/assets/sonavi-logo.png`。Tailwind CSS theme 映射既有 tokens，shadcn-vue 组件源码按相同视觉调整。
 
 | 参考内容 | 共享实现 | 平台差异 |
 | --- | --- | --- |
 | 石色/琥珀 tokens | renderer CSS 变量 | 无 |
+| Sonavi 标志 | 侧栏品牌位与 HTML 页面图标使用同一 PNG；electron-builder 以原图生成平台图标 | Windows 生成 ICO 资源，macOS 生成 ICNS 资源；外观需分别验收 |
 | 左导航、内容区、底部播放器 | 单一 App.vue 外壳 | 无 |
 | 连接表单 | 单一 ConnectPanel.vue | 设备名称由 preload 提供 |
 | P03 专辑列表/详情 | 单一 LibraryPanel.vue；每页 30 张并显式加载更多 | 无；结果按平台分别截图验收 |

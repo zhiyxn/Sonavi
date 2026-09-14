@@ -12,6 +12,7 @@ removePackageScripts: true
 publish: null
 
 win:
+  icon: build/icon.png
   target:
     - target: nsis
       arch:
@@ -25,6 +26,7 @@ nsis:
   deleteAppDataOnUninstall: false
 
 mac:
+  icon: build/icon.png
   target:
     - target: dmg
       arch:
