@@ -5,8 +5,8 @@ export const macosAdapter: PlatformAdapter = {
     platform: 'macos',
     platformLabel: 'macOS',
     shortcutModifier: 'Cmd',
-    closeBehavior: 'close-window',
-    canHideToBackground: false
+    closeBehavior: 'hide-window',
+    canHideToBackground: true
   },
   quitWhenAllWindowsClosed: false,
   createWindowOptions: () => ({

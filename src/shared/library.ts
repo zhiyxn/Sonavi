@@ -43,6 +43,12 @@ export interface TrackSummary {
   contentType?: string | undefined
   coverUrl?: string | undefined
   streamUrl: string
+  fallbackStreamUrl?: string | undefined
+  playback: {
+    streamMode: import('./network').PlaybackStreamMode
+    seekMode: import('./network').PlaybackSeekMode
+    reason: string
+  }
   starred: boolean
 }
 

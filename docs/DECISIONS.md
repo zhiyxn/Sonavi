@@ -39,7 +39,7 @@ BrowserWindow 使用 `frame: true` 与 `titleBarStyle: default`。设计图的 m
 - 日期：2026-09-13
 - 状态：已接受
 
-当前 Windows 关闭最后窗口即退出；macOS 遵循常见应用生命周期，关闭窗口后保留进程并可从 Dock 重建窗口。托盘/隐藏继续播放、播放宿主保活与真正退出的完整状态机属于 P09。P01 界面明确 AudioEngine 仍是占位。
+P01 当时采用 Windows 关闭即退出、macOS 关闭后可重建窗口的基础行为；该段生命周期决定已由 D017 的 P09 正式规则取代。P01 界面当时的 AudioEngine 仍是占位。
 
 ## D006：原始解压资料保持只读参考
 
@@ -100,7 +100,7 @@ renderer 不获得上游地址、用户名、salt 或 token，只获得绑定当
 
 AudioEngine 使用单一枚举状态而非跨组件布尔组合，并以 generationId 隔离每次媒体来源。切歌会释放旧 HTMLAudioElement 的事件监听；play/pause 命令另有递增序号，迟到的旧 Promise 不能把当前曲目或加载中暂停改为错误。全局仍只有一个引擎和一个活动音频宿主，页面组件不创建 Audio。
 
-队列唯一性以随机 `queueEntryId` 为准，服务端 `trackId` 只标识歌曲，所以重复歌曲可独立删除和重排。队列项携带当前 server/account/session 范围，不跨失效会话恢复媒体句柄。随机顺序在当前队列生命周期内稳定，上一首沿实际播放历史返回。自然 ended 遵循单曲循环；手动下一首忽略单曲循环。队列持久化与后台播放仍留在 P09。
+队列唯一性以随机 `queueEntryId` 为准，服务端 `trackId` 只标识歌曲，所以重复歌曲可独立删除和重排。队列项携带当前 server/account/session 范围，不跨失效会话恢复媒体句柄。随机顺序在当前队列生命周期内稳定，上一首沿实际播放历史返回。自然 ended 遵循单曲循环；手动下一首忽略单曲循环。P04 当时未持久化队列；P09 的恢复设计见 D017。
 
 ## D012：P05 使用公共只读端点和可取消搜索
 
@@ -161,3 +161,43 @@ Windows 与 macOS 继续使用同一源图，分别由 electron-builder 的现�
 - https://opensubsonic.netlify.app/docs/endpoints/getlyricsbysongid/
 - https://opensubsonic.netlify.app/docs/endpoints/getlyrics/
 - https://opensubsonic.netlify.app/docs/endpoints/scrobble/
+
+## D016：P08 使用单一 Electron Session、显式播放策略与能力约束转码 seek
+
+- 日期：2026-09-14
+- 状态：已接受
+
+API、封面与音频统一使用 `session.defaultSession`，代理配置只有 system、direct、fixed_servers 三种互斥状态。代理切换执行 `setProxy` 后调用 `closeAllConnections`，并撤销现有媒体句柄、停止当前播放；代理应用失败即失败，不静默改为直连。手动代理首版不接受 URL 内嵌凭据，避免代理密码进入 renderer、日志或设置文件。
+
+播放策略分为原始、MP3 兼容转码和自动。码率仅允许 128/192/256/320 kbps。自动策略不是无限格式探测器：已知 Chromium 媒体类型先使用原始流并最多回退一次 MP3，未知类型直接转码。实际策略和原因随 TrackSummary 返回，避免界面把所有格式写成“兼容”。
+
+音乐转码 seek 只在服务器连接探测已返回 `transcodeOffset` 扩展时开放。每次 seek 由 main 生成新的 `stream(timeOffset)` 不透明句柄；AudioEngine 用偏移加片段进度维持完整歌曲时间线，歌词和 scrobble 不读取片段局部时间。未声明能力时禁用，而不是发送猜测参数。
+
+诊断日志采用 main 内存环形结构，只保留阶段、状态、内容类型、分类、耗时和建议，最多 200 条且导出不超过 256 KiB。URL、账号、认证参数、代理地址、资源 ID 和响应正文不记录。TLS 和证书验证保持 Electron 默认安全行为。
+
+来源：
+
+- https://opensubsonic.netlify.app/docs/endpoints/stream/
+- https://opensubsonic.netlify.app/docs/extensions/
+- https://www.electronjs.org/docs/latest/api/session
+- https://www.electronjs.org/docs/latest/api/structures/proxy-config
+
+## D017：P09 隐藏同一播放宿主、Media Session 与账号隔离缓存
+
+- 日期：2026-09-14
+- 状态：已接受；取代 P01 的关闭窗口生命周期规则
+
+Windows 与 macOS 默认关闭动作统一为隐藏既有 BrowserWindow，不销毁承载唯一 AudioEngine 的 renderer。用户可将关闭动作改为 `quit`；托盘/菜单栏提供独立“真正退出”，macOS Cmd+Q 和应用退出菜单同样调用 `app.quit()`。最小化保留原生行为。Windows 从托盘、macOS 从菜单栏或 Dock 显示同一窗口，不复制 UI，也不在组件散布平台判断。
+
+媒体键与系统媒体信息只使用 Chromium Media Session，不注册 Electron `globalShortcut` 的媒体键，避免双重触发。应用内部只绑定无修饰键 Space，并排除输入框、文本区、选择框、按钮、链接、contenteditable 和 textbox。睡眠/锁屏只暂停；恢复/解锁清理旧连接和媒体句柄、刷新数据并保持暂停，不绕过用户意图自动续播。
+
+`DesktopStateService` 只在 `userData` 保存主题、音量、关闭动作、窗口状态和暂停队列的纯元数据。队列文件不含 sessionId、密码、认证 URL 或媒体句柄，以 main 从规范服务地址和用户名生成的 SHA-256 账号哈希隔离；恢复必须先有当前有效连接并重新生成媒体句柄。忘记账号会删除队列与该账号封面缓存。
+
+封面缓存位于账号哈希目录，资源 ID 也只作哈希文件名；单项 5 MiB、单账号 128 MiB并按最近访问时间淘汰。只有图片、HTTP 200、无 Range、Content-Length 已知且在上限内才可缓冲。音频不进入缓存并继续流式传输，因此该能力不构成离线下载。
+
+来源：
+
+- https://www.electronjs.org/docs/latest/api/tray
+- https://www.electronjs.org/docs/latest/api/browser-window
+- https://www.electronjs.org/docs/latest/api/power-monitor
+- https://developer.chrome.com/docs/media-and-audio/media-session

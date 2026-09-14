@@ -1,4 +1,9 @@
 import { session } from 'electron'
+import type { ProxyMode } from '../../../shared/network'
+import {
+  classifyNetworkError,
+  NetworkDiagnosticRecorder
+} from '../network-diagnostics'
 
 const MAX_RESPONSE_BYTES = 1024 * 1024
 
@@ -44,22 +49,67 @@ async function readLimitedBody(response: Response): Promise<string> {
   return body + decoder.decode()
 }
 
-export class ElectronSessionTransport implements ApiTransport {
-  async request(url: string, signal: AbortSignal): Promise<TransportResponse> {
-    const response = await session.defaultSession.fetch(url, {
-      method: 'GET',
-      cache: 'no-store',
-      credentials: 'omit',
-      redirect: 'manual',
-      referrerPolicy: 'no-referrer',
-      signal
-    })
+export function hasProtocolFailureBody(body: string): boolean {
+  return (
+    /["']status["']\s*:\s*["']failed["']/i.test(body) ||
+    /<subsonic-response\b[^>]*\bstatus=["']failed["']/i.test(body)
+  )
+}
 
-    return {
-      status: response.status,
-      contentType: response.headers.get('content-type') ?? '',
-      cloudflareMitigated: response.headers.get('cf-mitigated') === 'challenge',
-      body: await readLimitedBody(response)
+export class ElectronSessionTransport implements ApiTransport {
+  constructor(
+    private readonly diagnostics?: NetworkDiagnosticRecorder,
+    private readonly getProxyMode: () => ProxyMode = () => 'system'
+  ) {}
+
+  async request(url: string, signal: AbortSignal): Promise<TransportResponse> {
+    const startedAt = performance.now()
+    try {
+      const response = await session.defaultSession.fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+        credentials: 'omit',
+        redirect: 'manual',
+        referrerPolicy: 'no-referrer',
+        signal
+      })
+      const contentType = response.headers.get('content-type') ?? ''
+      const body = await readLimitedBody(response)
+      const errorCategory =
+        response.status === 401
+          ? 'http-authentication'
+          : response.status === 403
+            ? 'http-forbidden'
+            : response.status < 200 || response.status >= 300
+              ? 'http-status'
+              : hasProtocolFailureBody(body)
+                ? 'server-response'
+                : contentType.toLowerCase().includes('text/html')
+                ? 'unexpected-content'
+                : 'none'
+      this.diagnostics?.record({
+        stage: 'api',
+        proxyMode: this.getProxyMode(),
+        startedAt,
+        status: response.status,
+        ...(contentType ? { contentType } : {}),
+        errorCategory
+      })
+      return {
+        status: response.status,
+        contentType,
+        cloudflareMitigated: response.headers.get('cf-mitigated') === 'challenge',
+        body
+      }
+    } catch (error) {
+      this.diagnostics?.record({
+        stage: 'api',
+        proxyMode: this.getProxyMode(),
+        startedAt,
+        errorCategory:
+          error instanceof ResponseLimitError ? 'unexpected-content' : classifyNetworkError(error)
+      })
+      throw error
     }
   }
 }

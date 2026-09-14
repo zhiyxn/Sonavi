@@ -1,0 +1,107 @@
+import { randomUUID } from 'node:crypto'
+import type {
+  DiagnosticErrorCategory,
+  DiagnosticStage,
+  NetworkDiagnosticEntry,
+  ProxyMode
+} from '../../shared/network'
+
+const MAX_ENTRIES = 200
+const MAX_EXPORT_BYTES = 256 * 1024
+
+export function classifyNetworkError(error: unknown): DiagnosticErrorCategory {
+  const message = error instanceof Error ? error.message.toLowerCase() : ''
+  if (message.includes('abort') || message.includes('cancel')) return 'cancelled'
+  if (
+    message.includes('certificate') ||
+    message.includes('cert_') ||
+    message.includes('ssl') ||
+    message.includes('tls')
+  ) {
+    return 'certificate'
+  }
+  return 'network'
+}
+
+export function recommendationFor(category: DiagnosticErrorCategory): string {
+  switch (category) {
+    case 'none':
+      return '请求成功，无需操作。'
+    case 'certificate':
+      return '检查服务器证书、系统时间与证书链；Sonavi 不会忽略证书错误。'
+    case 'http-authentication':
+      return '服务器要求 HTTP 身份验证，请检查反向代理配置。'
+    case 'http-forbidden':
+      return '服务器拒绝访问，请检查账号权限与反向代理规则。'
+    case 'http-status':
+      return '检查服务器状态和反向代理日志后重试。'
+    case 'server-response':
+      return '服务器以 HTTP 200 返回了协议错误体，请检查服务端日志和该端点支持情况。'
+    case 'unexpected-content':
+      return '服务器返回了非预期内容，可能是登录页、代理错误页或协议错误体。'
+    case 'broken-stream':
+      return '音频流在传输中断开，请检查网络、代理和服务器转码日志。'
+    case 'cancelled':
+      return '请求已因切换连接、代理或播放项目而取消。'
+    case 'network':
+      return '检查网络与代理设置；代理失败时 Sonavi 不会静默改为直连。'
+  }
+}
+
+export interface DiagnosticRecordInput {
+  stage: DiagnosticStage
+  proxyMode: ProxyMode
+  startedAt: number
+  status?: number | undefined
+  contentType?: string | undefined
+  errorCategory: DiagnosticErrorCategory
+}
+
+export class NetworkDiagnosticRecorder {
+  private readonly entries: NetworkDiagnosticEntry[] = []
+
+  record(input: DiagnosticRecordInput): void {
+    const entry: NetworkDiagnosticEntry = {
+      id: randomUUID(),
+      timestamp: new Date().toISOString(),
+      stage: input.stage,
+      proxyMode: input.proxyMode,
+      ...(input.status ? { status: input.status } : {}),
+      ...(input.contentType ? { contentType: input.contentType.slice(0, 200) } : {}),
+      errorCategory: input.errorCategory,
+      durationMs: Math.max(0, Math.round(performance.now() - input.startedAt)),
+      recommendation: recommendationFor(input.errorCategory)
+    }
+    this.entries.unshift(entry)
+    if (this.entries.length > MAX_ENTRIES) this.entries.length = MAX_ENTRIES
+  }
+
+  list(): NetworkDiagnosticEntry[] {
+    return this.entries.map((entry) => ({ ...entry }))
+  }
+
+  exportText(): string {
+    const payload = JSON.stringify(
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        redaction: 'URL、账号、凭据、token、资源 ID 与响应正文未被记录。',
+        entries: this.entries
+      },
+      null,
+      2
+    )
+    return Buffer.byteLength(payload, 'utf8') <= MAX_EXPORT_BYTES
+      ? payload
+      : JSON.stringify(
+          {
+            schemaVersion: 1,
+            generatedAt: new Date().toISOString(),
+            redaction: 'URL、账号、凭据、token、资源 ID 与响应正文未被记录。',
+            entries: this.entries.slice(0, 100)
+          },
+          null,
+          2
+        )
+  }
+}

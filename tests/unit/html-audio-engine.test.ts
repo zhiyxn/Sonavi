@@ -123,4 +123,42 @@ describe('HtmlAudioEngine', () => {
     expect(element.volume).toBe(0.35)
     expect(engine.getSnapshot()).toMatchObject({ state: 'paused', volume: 0.35 })
   })
+
+  it('原始音频解码失败时最多切换一次兼容转码', async () => {
+    const element = new FakeAudio()
+    const engine = new HtmlAudioEngine(() => asAudio(element))
+    await engine.load(
+      {
+        trackId: 'fallback',
+        streamUrl: 'sonavi-media://original',
+        fallbackStreamUrl: 'sonavi-media://transcode',
+        duration: 60
+      },
+      true
+    )
+
+    element.dispatchEvent(new Event('error'))
+    expect(element.src).toBe('sonavi-media://transcode')
+    element.dispatchEvent(new Event('error'))
+    expect(engine.getSnapshot()).toMatchObject({ state: 'error', errorMessage: '音频流加载失败。' })
+  })
+
+  it('转码偏移片段继续使用完整歌曲时间线', async () => {
+    const element = new FakeAudio()
+    const engine = new HtmlAudioEngine(() => asAudio(element))
+    await engine.load(
+      {
+        trackId: 'offset',
+        streamUrl: 'sonavi-media://offset',
+        duration: 120,
+        timelineOffset: 40
+      },
+      false
+    )
+    element.currentTime = 5
+    element.dispatchEvent(new Event('timeupdate'))
+    element.duration = 80
+    element.dispatchEvent(new Event('durationchange'))
+    expect(engine.getSnapshot()).toMatchObject({ currentTime: 45, duration: 120 })
+  })
 })

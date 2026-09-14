@@ -2,11 +2,22 @@ import { randomUUID } from 'node:crypto'
 
 export type MediaKind = 'cover' | 'audio'
 
-export interface MediaHandle {
+export interface CoverMediaHandle {
   sessionId: string
-  kind: MediaKind
+  kind: 'cover'
   resourceId: string
 }
+
+export interface AudioMediaHandle {
+  sessionId: string
+  kind: 'audio'
+  resourceId: string
+  streamMode?: 'original' | 'transcode' | undefined
+  maxBitRate?: number | undefined
+  timeOffset?: number | undefined
+}
+
+export type MediaHandle = CoverMediaHandle | AudioMediaHandle
 
 const MAX_HANDLES = 2_000
 

@@ -35,6 +35,38 @@ import {
   type LyricsRequest,
   type PlaybackReportRequest
 } from '../shared/playback'
+import {
+  CREATE_TRANSCODE_SEEK_CHANNEL,
+  EXPORT_NETWORK_DIAGNOSTICS_CHANNEL,
+  GET_NETWORK_SETTINGS_CHANNEL,
+  LIST_NETWORK_DIAGNOSTICS_CHANNEL,
+  UPDATE_NETWORK_SETTINGS_CHANNEL,
+  type NetworkSettings,
+  type TranscodeSeekRequest
+} from '../shared/network'
+import {
+  CLEAR_COVER_CACHE_CHANNEL,
+  CLEAR_PAUSED_QUEUE_CHANNEL,
+  DESKTOP_COMMAND_CHANNEL,
+  GET_COVER_CACHE_INFO_CHANNEL,
+  GET_DESKTOP_PREFERENCES_CHANNEL,
+  RESTORE_PAUSED_QUEUE_CHANNEL,
+  SAVE_PAUSED_QUEUE_CHANNEL,
+  UPDATE_DESKTOP_PREFERENCES_CHANNEL,
+  UPDATE_PLAYBACK_STATUS_CHANNEL,
+  type DesktopPlaybackStatus,
+  type DesktopPreferences,
+  type DesktopCommand,
+  type SavePausedQueueRequest
+} from '../shared/desktop'
+
+const DESKTOP_COMMANDS = new Set<DesktopCommand>([
+  'toggle-playback',
+  'next',
+  'previous',
+  'pause-for-system',
+  'network-resumed'
+])
 
 const sonaviApi: SonaviApi = Object.freeze({
   application: Object.freeze({
@@ -72,6 +104,40 @@ const sonaviApi: SonaviApi = Object.freeze({
   playback: Object.freeze({
     getLyrics: (request: LyricsRequest) => ipcRenderer.invoke(GET_LYRICS_CHANNEL, request),
     report: (request: PlaybackReportRequest) => ipcRenderer.invoke(REPORT_PLAYBACK_CHANNEL, request)
+  }),
+  network: Object.freeze({
+    getSettings: () => ipcRenderer.invoke(GET_NETWORK_SETTINGS_CHANNEL),
+    updateSettings: (settings: NetworkSettings) =>
+      ipcRenderer.invoke(UPDATE_NETWORK_SETTINGS_CHANNEL, settings),
+    listDiagnostics: () => ipcRenderer.invoke(LIST_NETWORK_DIAGNOSTICS_CHANNEL),
+    exportDiagnostics: () => ipcRenderer.invoke(EXPORT_NETWORK_DIAGNOSTICS_CHANNEL),
+    createTranscodeSeek: (request: TranscodeSeekRequest) =>
+      ipcRenderer.invoke(CREATE_TRANSCODE_SEEK_CHANNEL, request)
+  }),
+  desktop: Object.freeze({
+    getPreferences: () => ipcRenderer.invoke(GET_DESKTOP_PREFERENCES_CHANNEL),
+    updatePreferences: (preferences: DesktopPreferences) =>
+      ipcRenderer.invoke(UPDATE_DESKTOP_PREFERENCES_CHANNEL, preferences),
+    updatePlaybackStatus: (status: DesktopPlaybackStatus) =>
+      ipcRenderer.invoke(UPDATE_PLAYBACK_STATUS_CHANNEL, status),
+    onCommand: (listener: (command: DesktopCommand) => void) => {
+      const wrapped = (_event: Electron.IpcRendererEvent, rawCommand: unknown): void => {
+        if (typeof rawCommand === 'string' && DESKTOP_COMMANDS.has(rawCommand as DesktopCommand)) {
+          listener(rawCommand as DesktopCommand)
+        }
+      }
+      ipcRenderer.on(DESKTOP_COMMAND_CHANNEL, wrapped)
+      return () => ipcRenderer.removeListener(DESKTOP_COMMAND_CHANNEL, wrapped)
+    },
+    savePausedQueue: (request: SavePausedQueueRequest) =>
+      ipcRenderer.invoke(SAVE_PAUSED_QUEUE_CHANNEL, request),
+    restorePausedQueue: (sessionId: string) =>
+      ipcRenderer.invoke(RESTORE_PAUSED_QUEUE_CHANNEL, sessionId),
+    clearPausedQueue: () => ipcRenderer.invoke(CLEAR_PAUSED_QUEUE_CHANNEL),
+    getCoverCacheInfo: (sessionId: string) =>
+      ipcRenderer.invoke(GET_COVER_CACHE_INFO_CHANNEL, sessionId),
+    clearCoverCache: (sessionId: string) =>
+      ipcRenderer.invoke(CLEAR_COVER_CACHE_CHANNEL, sessionId)
   })
 })
 

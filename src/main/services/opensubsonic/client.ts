@@ -302,7 +302,10 @@ export interface ConnectionProbeResult {
 
 type AlbumWithCover = AlbumSummary & { coverArtId?: string | undefined }
 type ArtistWithCover = ArtistSummary & { coverArtId?: string | undefined }
-type TrackWithCover = Omit<TrackSummary, 'coverUrl' | 'streamUrl'> & {
+type TrackWithCover = Omit<
+  TrackSummary,
+  'coverUrl' | 'streamUrl' | 'fallbackStreamUrl' | 'playback'
+> & {
   coverArtId?: string | undefined
 }
 

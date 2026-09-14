@@ -56,6 +56,11 @@ function track(id: string, title = id): TrackSummary {
     album: 'Queue Album',
     duration: 10,
     streamUrl: `sonavi-media://${id}`,
+    playback: {
+      streamMode: 'original',
+      seekMode: 'native',
+      reason: '测试原始音频。'
+    },
     starred: false
   }
 }
@@ -169,6 +174,41 @@ describe('P04 播放队列', () => {
     audio.dispatchEvent(new Event('seeked'))
     expect(player.currentTime).toBe(6)
     expect(player.state).toBe('paused')
+  })
+
+  it('转码跳转通过受限 API 换流，并保持完整时间线与暂停意图', async () => {
+    const createTranscodeSeek = vi.fn().mockResolvedValue({
+      ok: true,
+      streamUrl: 'sonavi-media://media/00000000-0000-4000-8000-000000000001',
+      timelineOffset: 6
+    })
+    Object.defineProperty(window, 'sonavi', {
+      value: { network: { createTranscodeSeek } },
+      configurable: true
+    })
+    const player = usePlayerStore()
+    const transcoded = {
+      ...track('transcoded'),
+      playback: {
+        streamMode: 'transcode' as const,
+        seekMode: 'transcode-offset' as const,
+        reason: '测试转码跳转。'
+      }
+    }
+    await player.replaceQueue([transcoded], 0, scope, false)
+
+    await player.seek(6)
+    expect(createTranscodeSeek).toHaveBeenCalledWith({
+      sessionId: scope.sessionId,
+      trackId: 'transcoded',
+      timeOffset: 6
+    })
+    expect(FakeAudio.instances.at(-1)).toMatchObject({
+      src: 'sonavi-media://media/00000000-0000-4000-8000-000000000001',
+      paused: true
+    })
+    expect(player.currentTime).toBe(6)
+    expect(player.duration).toBe(10)
   })
 
   it('连续点击播放控制不会创建第二个引擎或音频宿主', async () => {

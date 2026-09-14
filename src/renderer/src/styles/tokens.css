@@ -26,3 +26,19 @@
     "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB",
     "Noto Sans SC", "Noto Sans CJK SC", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
+
+:root[data-theme="dark"] {
+  --sonavi-canvas: #181916;
+  --sonavi-subtle: #22231f;
+  --sonavi-raised: #292a25;
+  --sonavi-ink: #eeeae2;
+  --sonavi-text-secondary: #b5afa4;
+  --sonavi-border: #3e3d36;
+  --sonavi-accent: #d18a43;
+  --sonavi-accent-hover: #e19a52;
+  --sonavi-accent-subtle: #4a3622;
+  --sonavi-night: #11120f;
+  --sonavi-night-secondary: #d7dbcc;
+  --sonavi-success: #91aa87;
+  --sonavi-danger: #e07a6d;
+}

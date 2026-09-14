@@ -15,8 +15,8 @@ function installPlatformApi(platform: 'windows' | 'macos'): void {
         platform,
         platformLabel: isMac ? 'macOS' : 'Windows',
         shortcutModifier: isMac ? 'Cmd' : 'Ctrl',
-        closeBehavior: isMac ? 'close-window' : 'quit',
-        canHideToBackground: false
+        closeBehavior: 'hide-window',
+        canHideToBackground: true
       })
     },
     connection: {
@@ -82,6 +82,27 @@ function installPlatformApi(platform: 'windows' | 'macos'): void {
     playback: {
       getLyrics: async () => ({ ok: true, value: { source: 'none', variants: [] } }),
       report: async () => ({ ok: true, value: { reported: true } })
+    },
+    network: {
+      getSettings: async () => ({
+        playback: { mode: 'automatic', maxBitRate: 320 },
+        proxy: { mode: 'system' }
+      }),
+      updateSettings: async (settings) => ({ settings, connectionsReset: false }),
+      listDiagnostics: async () => [],
+      exportDiagnostics: async () => ({ exported: false, cancelled: true }),
+      createTranscodeSeek: async () => ({ ok: false, message: 'not used' })
+    },
+    desktop: {
+      getPreferences: async () => ({ closeAction: 'hide', theme: 'system', volume: 1 }),
+      updatePreferences: async (preferences) => preferences,
+      updatePlaybackStatus: async () => true,
+      onCommand: () => () => undefined,
+      savePausedQueue: async () => true,
+      restorePausedQueue: async () => null,
+      clearPausedQueue: async () => true,
+      getCoverCacheInfo: async () => ({ itemCount: 0, totalBytes: 0, maxBytes: 134_217_728 }),
+      clearCoverCache: async () => ({ itemCount: 0, totalBytes: 0, maxBytes: 134_217_728 })
     }
   }
 

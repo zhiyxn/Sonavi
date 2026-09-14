@@ -5,12 +5,22 @@ import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 
+const applicationStartedAt = performance.now()
+
 const screenshotPath = resolve(
-  process.env.SONAVI_SCREENSHOT_PATH ?? 'artifacts/screenshots/p07-current-platform.png'
+  process.env.SONAVI_SCREENSHOT_PATH ?? 'artifacts/screenshots/p08-current-platform.png'
 )
 const lyricsScreenshotPath = resolve(
   process.env.SONAVI_LYRICS_SCREENSHOT_PATH ??
     'artifacts/screenshots/p07-lyrics-current-platform.png'
+)
+const diagnosticsScreenshotPath = resolve(
+  process.env.SONAVI_DIAGNOSTICS_SCREENSHOT_PATH ??
+    'artifacts/screenshots/p08-diagnostics-current-platform.png'
+)
+const desktopScreenshotPath = resolve(
+  process.env.SONAVI_DESKTOP_SCREENSHOT_PATH ??
+    'artifacts/screenshots/p09-desktop-current-platform.png'
 )
 
 const executablePath = process.env.SONAVI_EXECUTABLE_PATH
@@ -88,6 +98,15 @@ const fixturePlaylists = [
   }
 ]
 
+async function waitForCondition(condition, message, timeoutMs = 3_000) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    if (condition()) return
+    await new Promise((resolveWait) => setTimeout(resolveWait, 50))
+  }
+  throw new Error(message)
+}
+
 function playlistPayload(playlist) {
   const entries = playlist.songIds
     .map((songId) => fixtureTracks.find((track) => track.id === songId))
@@ -148,7 +167,10 @@ function fixtureResponse(endpoint, requestUrl) {
     return {
       'subsonic-response': {
         ...base,
-        openSubsonicExtensions: [{ name: 'songLyrics', versions: [1] }]
+        openSubsonicExtensions: [
+          { name: 'songLyrics', versions: [1] },
+          { name: 'transcodeOffset', versions: [1] }
+        ]
       }
     }
   }
@@ -461,6 +483,7 @@ try {
 
   try {
     await window.getByRole('heading', { name: '连接你的音乐空间' }).waitFor()
+    console.log(`P09 startup measurement: ${(performance.now() - applicationStartedAt).toFixed(0)} ms to connection UI`)
   } catch (error) {
     await mkdir(dirname(screenshotPath), { recursive: true })
     await window.screenshot({ path: screenshotPath, fullPage: true })
@@ -517,6 +540,19 @@ try {
     cancelSearch: typeof window.sonavi?.library?.cancelSearch,
     getLyrics: typeof window.sonavi?.playback?.getLyrics,
     reportPlayback: typeof window.sonavi?.playback?.report,
+    getNetworkSettings: typeof window.sonavi?.network?.getSettings,
+    updateNetworkSettings: typeof window.sonavi?.network?.updateSettings,
+    listNetworkDiagnostics: typeof window.sonavi?.network?.listDiagnostics,
+    exportNetworkDiagnostics: typeof window.sonavi?.network?.exportDiagnostics,
+    createTranscodeSeek: typeof window.sonavi?.network?.createTranscodeSeek,
+    getDesktopPreferences: typeof window.sonavi?.desktop?.getPreferences,
+    updateDesktopPreferences: typeof window.sonavi?.desktop?.updatePreferences,
+    updatePlaybackStatus: typeof window.sonavi?.desktop?.updatePlaybackStatus,
+    onDesktopCommand: typeof window.sonavi?.desktop?.onCommand,
+    savePausedQueue: typeof window.sonavi?.desktop?.savePausedQueue,
+    restorePausedQueue: typeof window.sonavi?.desktop?.restorePausedQueue,
+    getCoverCacheInfo: typeof window.sonavi?.desktop?.getCoverCacheInfo,
+    clearCoverCache: typeof window.sonavi?.desktop?.clearCoverCache,
     rendererProcess: typeof window.process
   }))
   if (
@@ -533,6 +569,19 @@ try {
     bridgeShape.cancelSearch !== 'function' ||
     bridgeShape.getLyrics !== 'function' ||
     bridgeShape.reportPlayback !== 'function' ||
+    bridgeShape.getNetworkSettings !== 'function' ||
+    bridgeShape.updateNetworkSettings !== 'function' ||
+    bridgeShape.listNetworkDiagnostics !== 'function' ||
+    bridgeShape.exportNetworkDiagnostics !== 'function' ||
+    bridgeShape.createTranscodeSeek !== 'function' ||
+    bridgeShape.getDesktopPreferences !== 'function' ||
+    bridgeShape.updateDesktopPreferences !== 'function' ||
+    bridgeShape.updatePlaybackStatus !== 'function' ||
+    bridgeShape.onDesktopCommand !== 'function' ||
+    bridgeShape.savePausedQueue !== 'function' ||
+    bridgeShape.restorePausedQueue !== 'function' ||
+    bridgeShape.getCoverCacheInfo !== 'function' ||
+    bridgeShape.clearCoverCache !== 'function' ||
     bridgeShape.rendererProcess !== 'undefined'
   ) {
     throw new Error(`preload 安全边界冒烟失败：${JSON.stringify(bridgeShape)}`)
@@ -559,6 +608,10 @@ try {
   await window.locator('#allow-insecure-http').check()
   await window.getByRole('button', { name: '测试连接' }).click()
   await window.getByRole('heading', { name: '最近添加' }).waitFor()
+  await window.keyboard.press(platformText.includes('macOS') ? 'Meta+Comma' : 'Control+Comma')
+  await window.getByRole('heading', { name: '设置', exact: true }).waitFor()
+  await window.getByRole('button', { name: '首页', exact: true }).click()
+  await window.getByRole('heading', { name: '最近添加' }).waitFor()
   await window.getByRole('button', { name: '加载更多专辑' }).click()
   await window.getByRole('button', { name: /分页专辑 31/ }).waitFor()
   if ((await window.getByRole('button', { name: '加载更多专辑' }).count()) !== 0) {
@@ -568,6 +621,17 @@ try {
   await window.getByRole('heading', { name: '专辑详情' }).waitFor()
   await window.getByRole('button', { name: '播放 跨平台试音' }).click()
   await window.getByRole('button', { name: '暂停' }).waitFor()
+  const mediaSessionState = await window.evaluate(() => ({
+    title: navigator.mediaSession?.metadata?.title,
+    playbackState: navigator.mediaSession?.playbackState
+  }))
+  if (mediaSessionState.title !== '跨平台试音' || mediaSessionState.playbackState !== 'playing') {
+    throw new Error(`Media Session 元数据未同步：${JSON.stringify(mediaSessionState)}`)
+  }
+  const globalMediaShortcutRegistered = await electronApplication.evaluate(({ globalShortcut }) =>
+    globalShortcut.isRegistered('MediaPlayPause')
+  )
+  if (globalMediaShortcutRegistered) throw new Error('不应同时注册全局媒体键与 Media Session')
   if (!mediaRequests.some((request) => request.path?.includes('/stream.view'))) {
     throw new Error('真实 HTMLAudioElement 未请求 fixture 音频流')
   }
@@ -575,10 +639,10 @@ try {
   await window.getByRole('heading', { name: '歌词', exact: true }).waitFor()
   await window.getByText('歌词第一行', { exact: true }).waitFor()
   await window.getByRole('button', { name: '关闭', exact: true }).click()
-  await window.waitForTimeout(300)
-  if (!playbackRequests.some((request) => request.id === 'fixture-track' && request.submission === 'false')) {
-    throw new Error('进入 playing 后未发送 now-playing scrobble')
-  }
+  await waitForCondition(
+    () => playbackRequests.some((request) => request.id === 'fixture-track' && request.submission === 'false'),
+    '进入 playing 后未发送 now-playing scrobble'
+  )
   await window.getByRole('button', { name: '加入队列 跨平台试音' }).click()
   await window.getByRole('button', { name: '播放队列', exact: true }).click()
   await window.getByRole('heading', { name: '播放队列' }).waitFor()
@@ -597,7 +661,7 @@ try {
   await window.getByRole('button', { name: '继续播放' }).waitFor()
   await window.locator('input[aria-label="播放进度"]').evaluate((element) => {
     element.value = '2'
-    element.dispatchEvent(new Event('input', { bubbles: true }))
+    element.dispatchEvent(new Event('change', { bubbles: true }))
   })
   await window.waitForFunction(() =>
     globalThis.document
@@ -694,6 +758,106 @@ try {
   console.log('P06 integration passed: favorites sync + playlist CRUD + duplicate track index removal')
 
   await window.getByRole('button', { name: '设置', exact: true }).click()
+  await window.getByRole('heading', { name: '设置', exact: true }).waitFor()
+  const playbackSettings = window.locator('fieldset').filter({ hasText: '播放策略' })
+  await playbackSettings.locator('select').first().selectOption('compatible')
+  await playbackSettings.locator('select').nth(1).selectOption('192')
+  const proxySettings = window.locator('fieldset').filter({ hasText: '网络代理' })
+  await proxySettings.locator('select').selectOption('direct')
+  await window.getByRole('button', { name: '保存播放与网络设置' }).click()
+  await window.getByText('代理已切换，旧连接和当前播放已安全停止。').waitFor()
+
+  await window.getByRole('button', { name: '首页', exact: true }).click()
+  await window.getByRole('button', { name: /石与琥珀/ }).first().click()
+  await window.getByRole('button', { name: '播放 跨平台试音' }).click()
+  await window.getByRole('button', { name: '暂停' }).waitFor()
+  await window.locator('input[aria-label="播放进度"]').evaluate((element) => {
+    element.value = '2'
+    element.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+  await window.waitForFunction(() =>
+    globalThis.document
+      .querySelector('footer[aria-label="播放器"]')
+      ?.textContent?.includes('0:02')
+  )
+  const transcodeRequest = mediaRequests
+    .map((request) => new URL(request.path, 'http://127.0.0.1'))
+    .find(
+      (requestUrl) =>
+        requestUrl.searchParams.get('format') === 'mp3' &&
+        requestUrl.searchParams.get('timeOffset') === '2'
+    )
+  if (transcodeRequest?.searchParams.get('maxBitRate') !== '192') {
+    throw new Error('兼容转码或 transcodeOffset 参数未按 P08 设置发送')
+  }
+  await window.getByRole('button', { name: '设置', exact: true }).click()
+  await window.getByRole('button', { name: '刷新', exact: true }).click()
+  await window.getByText('转码音频', { exact: true }).first().waitFor()
+  const desktopSettings = window.locator('fieldset').filter({ hasText: '桌面行为' })
+  await desktopSettings.locator('select').first().selectOption('hide')
+  await desktopSettings.locator('select').nth(1).selectOption('dark')
+  await window.getByRole('button', { name: '保存桌面设置' }).click()
+  await window.getByText('桌面设置已保存。关闭窗口时将按新规则执行。').waitFor()
+  if ((await window.locator('html').getAttribute('data-theme')) !== 'dark') {
+    throw new Error('深色主题偏好未应用到共享 renderer')
+  }
+  await window.getByText(/项 · .* MiB/).waitFor()
+  await mkdir(dirname(diagnosticsScreenshotPath), { recursive: true })
+  await window.screenshot({ path: diagnosticsScreenshotPath, fullPage: true })
+  console.log('P08 integration passed: shared proxy policy + compatible transcode + full-timeline seek + diagnostics')
+
+  await window.getByRole('button', { name: '首页', exact: true }).click()
+  await window.getByRole('button', { name: /石与琥珀/ }).first().click()
+  await window.getByRole('button', { name: '播放 跨平台试音' }).click()
+  await window.getByRole('button', { name: '暂停' }).waitFor()
+  const windowIdentityBeforeClose = await electronApplication.evaluate(({ BrowserWindow }) => {
+    const activeWindow = BrowserWindow.getAllWindows()[0]
+    return activeWindow ? { id: activeWindow.id, webContentsId: activeWindow.webContents.id } : null
+  })
+  await electronApplication.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.close())
+  await window.waitForTimeout(350)
+  const hiddenWindowState = await electronApplication.evaluate(({ BrowserWindow }) => {
+    const activeWindow = BrowserWindow.getAllWindows()[0]
+    return activeWindow
+      ? { id: activeWindow.id, webContentsId: activeWindow.webContents.id, visible: activeWindow.isVisible(), destroyed: activeWindow.isDestroyed() }
+      : null
+  })
+  if (
+    !hiddenWindowState || hiddenWindowState.visible || hiddenWindowState.destroyed ||
+    hiddenWindowState.id !== windowIdentityBeforeClose?.id ||
+    hiddenWindowState.webContentsId !== windowIdentityBeforeClose.webContentsId
+  ) {
+    throw new Error(`关闭到后台破坏了播放宿主：${JSON.stringify(hiddenWindowState)}`)
+  }
+  await electronApplication.evaluate(({ app }) => app.emit('activate'))
+  await window.getByRole('heading', { name: '专辑详情' }).waitFor()
+  await window.getByText('跨平台试音', { exact: true }).first().waitFor()
+  await mkdir(dirname(desktopScreenshotPath), { recursive: true })
+  await window.screenshot({ path: desktopScreenshotPath, fullPage: true })
+  console.log('P09 lifecycle passed: close hides and Dock/app activation restores the same AudioEngine host')
+
+  const memoryBefore = await electronApplication.evaluate(({ app }) =>
+    app.getAppMetrics().reduce((total, metric) => total + metric.memory.workingSetSize, 0)
+  )
+  const requestCountBeforeSwitching = mediaRequests.length
+  for (let index = 0; index < 20; index += 1) {
+    await window.getByRole('button', { name: '设置', exact: true }).click()
+    await window.getByRole('heading', { name: '设置', exact: true }).waitFor()
+    await window.getByRole('button', { name: '首页', exact: true }).click()
+    await window.getByRole('heading', { name: '最近添加', exact: true }).waitFor()
+  }
+  const memoryAfter = await electronApplication.evaluate(({ app }) =>
+    app.getAppMetrics().reduce((total, metric) => total + metric.memory.workingSetSize, 0)
+  )
+  const memoryDeltaKiB = memoryAfter - memoryBefore
+  const requestDelta = mediaRequests.length - requestCountBeforeSwitching
+  if (memoryDeltaKiB > 128 * 1024) {
+    throw new Error(`快速切页内存增量异常：${memoryDeltaKiB} KiB`)
+  }
+  console.log(`P09 rapid-switch measurement: memory delta ${memoryDeltaKiB} KiB, media requests +${requestDelta}`)
+
+  await window.getByRole('button', { name: '设置', exact: true }).click()
+  await window.getByRole('heading', { name: '设置', exact: true }).waitFor()
   await window.getByRole('button', { name: '断开连接' }).click()
   await window.getByRole('heading', { name: '连接你的音乐空间' }).waitFor()
   if ((await window.locator('#password').inputValue()) !== '') {
@@ -712,7 +876,13 @@ try {
   electronApplication = await launchApplication()
   window = await electronApplication.firstWindow()
   await window.getByRole('heading', { name: '最近添加' }).waitFor()
+  await window
+    .locator('footer[aria-label="播放器"] > div.min-w-0 > strong')
+    .getByText('跨平台试音')
+    .waitFor()
+  await window.getByRole('button', { name: '继续播放' }).waitFor()
   console.log('Credential restore passed: encrypted credential restored after application restart')
+  console.log('P09 queue restore passed: queue metadata restored paused with fresh media handles')
 
   window.once('dialog', (dialog) => dialog.accept())
   await window.getByRole('button', { name: '退出并忘记账号' }).click()
@@ -740,28 +910,6 @@ try {
       : 'safeStorage unavailable: plaintext fallback remains disabled'
   )
 
-  if (platformText.includes('macOS')) {
-    await electronApplication.evaluate(async ({ BrowserWindow }) => {
-      const activeWindow = BrowserWindow.getAllWindows()[0]
-      if (!activeWindow) throw new Error('macOS 生命周期测试找不到活动窗口')
-
-      await new Promise((resolveClosed) => {
-        activeWindow.once('closed', resolveClosed)
-        activeWindow.close()
-      })
-    })
-
-    const remainingWindows = await electronApplication.evaluate(
-      ({ BrowserWindow }) => BrowserWindow.getAllWindows().length
-    )
-    if (remainingWindows !== 0) throw new Error('macOS 关闭窗口后仍残留 BrowserWindow')
-
-    const reopenedWindowPromise = electronApplication.waitForEvent('window')
-    await electronApplication.evaluate(({ app }) => app.emit('activate'))
-    const reopenedWindow = await reopenedWindowPromise
-    await reopenedWindow.getByRole('heading', { name: '连接你的音乐空间' }).waitFor()
-    console.log('macOS lifecycle passed: close-window -> Dock activation -> recreate-window')
-  }
 } finally {
   await electronApplication.close()
   if (fixtureServer) {

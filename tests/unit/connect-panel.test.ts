@@ -9,8 +9,8 @@ const applicationInfo: ApplicationInfo = {
   platform: 'windows',
   platformLabel: 'Windows',
   shortcutModifier: 'Ctrl',
-  closeBehavior: 'quit',
-  canHideToBackground: false
+  closeBehavior: 'hide-window',
+  canHideToBackground: true
 }
 
 afterEach(() => {
@@ -60,6 +60,24 @@ describe('ConnectPanel', () => {
         playback: {
           getLyrics: vi.fn(),
           report: vi.fn()
+        },
+        network: {
+          getSettings: vi.fn(),
+          updateSettings: vi.fn(),
+          listDiagnostics: vi.fn(),
+          exportDiagnostics: vi.fn(),
+          createTranscodeSeek: vi.fn()
+        },
+        desktop: {
+          getPreferences: vi.fn(),
+          updatePreferences: vi.fn(),
+          updatePlaybackStatus: vi.fn(),
+          onCommand: vi.fn(),
+          savePausedQueue: vi.fn(),
+          restorePausedQueue: vi.fn(),
+          clearPausedQueue: vi.fn(),
+          getCoverCacheInfo: vi.fn(),
+          clearCoverCache: vi.fn()
         }
       } satisfies SonaviApi,
       configurable: true

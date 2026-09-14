@@ -11,16 +11,19 @@ afterEach(() => {
 })
 
 describe('P05 音乐库界面', () => {
-  it('只渲染超长艺术家列表的可见窗口', () => {
+  it('在固定 10,000 条合成数据下只渲染可见窗口并记录耗时', () => {
     const artists: ArtistSummary[] = Array.from({ length: 10_000 }, (_, index) => ({
       id: String(index),
       name: `艺术家 ${index} — 很长的中英文混排 Artist Name`,
       albumCount: index % 12,
       starred: false
     }))
+    const startedAt = performance.now()
     const wrapper = mount(VirtualArtistList, { props: { artists } })
+    const renderDurationMs = performance.now() - startedAt
 
     expect(wrapper.findAll('button').length).toBeLessThan(20)
+    expect(renderDurationMs).toBeLessThan(1_000)
     expect(wrapper.text()).toContain('艺术家 0')
     expect(wrapper.text()).not.toContain('艺术家 9999')
   })

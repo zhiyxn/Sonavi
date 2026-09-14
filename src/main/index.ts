@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain, Menu, protocol, session } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, screen, session } from 'electron'
+import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { APPLICATION_INFO_CHANNEL } from '../shared/application'
 import { ApplicationInfoSchema } from '../shared/application-schema'
@@ -88,8 +89,52 @@ import { MediaProtocolService } from './services/media-protocol'
 import { OpenSubsonicClient } from './services/opensubsonic/client'
 import { ElectronSessionTransport } from './services/opensubsonic/transport'
 import { PlaybackService } from './services/playback-service'
+import {
+  CREATE_TRANSCODE_SEEK_CHANNEL,
+  EXPORT_NETWORK_DIAGNOSTICS_CHANNEL,
+  GET_NETWORK_SETTINGS_CHANNEL,
+  LIST_NETWORK_DIAGNOSTICS_CHANNEL,
+  UPDATE_NETWORK_SETTINGS_CHANNEL,
+  type TranscodeSeekResult
+} from '../shared/network'
+import {
+  ExportDiagnosticsResultSchema,
+  NetworkDiagnosticsSchema,
+  NetworkSettingsSchema,
+  NetworkSettingsUpdateResultSchema,
+  TranscodeSeekRequestSchema,
+  TranscodeSeekResultSchema
+} from '../shared/network-schema'
+import { NetworkDiagnosticRecorder } from './services/network-diagnostics'
+import { NetworkPolicyService } from './services/network-policy-service'
+import {
+  CLEAR_COVER_CACHE_CHANNEL,
+  CLEAR_PAUSED_QUEUE_CHANNEL,
+  DESKTOP_COMMAND_CHANNEL,
+  GET_COVER_CACHE_INFO_CHANNEL,
+  GET_DESKTOP_PREFERENCES_CHANNEL,
+  RESTORE_PAUSED_QUEUE_CHANNEL,
+  SAVE_PAUSED_QUEUE_CHANNEL,
+  UPDATE_DESKTOP_PREFERENCES_CHANNEL,
+  UPDATE_PLAYBACK_STATUS_CHANNEL,
+  type DesktopCommand
+} from '../shared/desktop'
+import {
+  CoverCacheInfoSchema,
+  DesktopPlaybackStatusSchema,
+  DesktopPreferencesSchema,
+  RestoredPausedQueueResultSchema,
+  SavePausedQueueRequestSchema
+} from '../shared/desktop-schema'
+import { CoverCacheService } from './services/cover-cache-service'
+import {
+  DesktopStateService,
+  type PersistedWindowState
+} from './services/desktop-state-service'
+import { DesktopIntegrationController } from './platform/desktop-integration'
 
 const platformAdapter = getPlatformAdapter(process.platform)
+let mainWindow: BrowserWindow | null = null
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -114,7 +159,9 @@ function registerConnectionIpc(
   connectionService: ConnectionService,
   mediaHandles: MediaHandleRegistry,
   mediaProtocol: MediaProtocolService,
-  libraryService: LibraryService
+  libraryService: LibraryService,
+  desktopState: DesktopStateService,
+  coverCache: CoverCacheService
 ): void {
   ipcMain.handle(TEST_CONNECTION_CHANNEL, async (event, rawInput: unknown) => {
     assertTrustedIpcSender(event)
@@ -170,6 +217,7 @@ function registerConnectionIpc(
     const sessionId = SessionIdSchema.safeParse(rawSessionId)
     if (!sessionId.success || !connectionService.getSession(sessionId.data)) return false
 
+    const connected = connectionService.getSession(sessionId.data)
     libraryService.cancelSessionSearches(sessionId.data)
     const forgotten = SessionActionResultSchema.parse(
       await connectionService.forget(sessionId.data)
@@ -177,6 +225,10 @@ function registerConnectionIpc(
     if (forgotten) {
       mediaProtocol.revokeSession(sessionId.data)
       mediaHandles.revokeSession(sessionId.data)
+      await Promise.allSettled([
+        desktopState.clearPausedQueue(),
+        ...(connected ? [coverCache.clear(connected)] : [])
+      ])
     }
     return forgotten
   })
@@ -438,6 +490,157 @@ function registerPlaybackIpc(playbackService: PlaybackService): void {
   })
 }
 
+function registerNetworkIpc(
+  networkPolicy: NetworkPolicyService,
+  diagnostics: NetworkDiagnosticRecorder,
+  connectionService: ConnectionService,
+  mediaHandles: MediaHandleRegistry,
+  mediaProtocol: MediaProtocolService,
+  libraryService: LibraryService
+): void {
+  ipcMain.handle(GET_NETWORK_SETTINGS_CHANNEL, (event) => {
+    assertTrustedIpcSender(event)
+    return NetworkSettingsSchema.parse(networkPolicy.getSettings())
+  })
+
+  ipcMain.handle(UPDATE_NETWORK_SETTINGS_CHANNEL, async (event, rawSettings: unknown) => {
+    assertTrustedIpcSender(event)
+    const settings = NetworkSettingsSchema.parse(rawSettings)
+    const result = NetworkSettingsUpdateResultSchema.parse(await networkPolicy.update(settings))
+    const sessionId = connectionService.getCurrentSessionId()
+    if (sessionId) {
+      libraryService.cancelSessionSearches(sessionId)
+      mediaProtocol.revokeSession(sessionId)
+      mediaHandles.revokeSession(sessionId)
+    }
+    return result
+  })
+
+  ipcMain.handle(LIST_NETWORK_DIAGNOSTICS_CHANNEL, (event) => {
+    assertTrustedIpcSender(event)
+    return NetworkDiagnosticsSchema.parse(diagnostics.list())
+  })
+
+  ipcMain.handle(EXPORT_NETWORK_DIAGNOSTICS_CHANNEL, async (event) => {
+    assertTrustedIpcSender(event)
+    const parent = BrowserWindow.fromWebContents(event.sender) ?? undefined
+    const options = {
+      title: '导出 Sonavi 连接诊断',
+      defaultPath: `sonavi-diagnostics-${new Date().toISOString().slice(0, 10)}.json`,
+      filters: [{ name: 'JSON', extensions: ['json'] }]
+    }
+    const result = parent
+      ? await dialog.showSaveDialog(parent, options)
+      : await dialog.showSaveDialog(options)
+    if (result.canceled || !result.filePath) {
+      return ExportDiagnosticsResultSchema.parse({ exported: false, cancelled: true })
+    }
+    await writeFile(result.filePath, diagnostics.exportText(), { encoding: 'utf8', mode: 0o600 })
+    return ExportDiagnosticsResultSchema.parse({ exported: true, cancelled: false })
+  })
+
+  ipcMain.handle(CREATE_TRANSCODE_SEEK_CHANNEL, (event, rawRequest: unknown) => {
+    assertTrustedIpcSender(event)
+    const request = TranscodeSeekRequestSchema.safeParse(rawRequest)
+    let result: TranscodeSeekResult
+    if (!request.success) result = { ok: false, message: '转码跳转参数无效。' }
+    else {
+      const connected = connectionService.getSession(request.data.sessionId)
+      const supportsOffset = connected?.server.extensions.some(
+        (name) => name.toLowerCase() === 'transcodeoffset'
+      )
+      if (!connected || !supportsOffset) {
+        result = { ok: false, message: '当前服务器未确认支持转码跳转。' }
+      } else {
+        const settings = networkPolicy.getSettings()
+        result = {
+          ok: true,
+          streamUrl: mediaHandles.create({
+            sessionId: request.data.sessionId,
+            kind: 'audio',
+            resourceId: request.data.trackId,
+            streamMode: 'transcode',
+            maxBitRate: settings.playback.maxBitRate,
+            timeOffset: request.data.timeOffset
+          }),
+          timelineOffset: request.data.timeOffset
+        }
+      }
+    }
+    return TranscodeSeekResultSchema.parse(result)
+  })
+}
+
+function registerDesktopIpc(
+  desktopState: DesktopStateService,
+  desktopIntegration: DesktopIntegrationController,
+  connectionService: ConnectionService,
+  libraryService: LibraryService,
+  coverCache: CoverCacheService
+): void {
+  ipcMain.handle(GET_DESKTOP_PREFERENCES_CHANNEL, (event) => {
+    assertTrustedIpcSender(event)
+    return DesktopPreferencesSchema.parse(desktopState.getPreferences())
+  })
+
+  ipcMain.handle(UPDATE_DESKTOP_PREFERENCES_CHANNEL, async (event, rawPreferences: unknown) => {
+    assertTrustedIpcSender(event)
+    const preferences = DesktopPreferencesSchema.parse(rawPreferences)
+    return DesktopPreferencesSchema.parse(await desktopState.updatePreferences(preferences))
+  })
+
+  ipcMain.handle(UPDATE_PLAYBACK_STATUS_CHANNEL, (event, rawStatus: unknown) => {
+    assertTrustedIpcSender(event)
+    desktopIntegration.updatePlaybackStatus(DesktopPlaybackStatusSchema.parse(rawStatus))
+    return true
+  })
+
+  ipcMain.handle(SAVE_PAUSED_QUEUE_CHANNEL, async (event, rawRequest: unknown) => {
+    assertTrustedIpcSender(event)
+    const request = SavePausedQueueRequestSchema.parse(rawRequest)
+    const connected = connectionService.getSession(request.sessionId)
+    if (!connected) return false
+    if (request.tracks.length === 0) await desktopState.clearPausedQueue()
+    else await desktopState.savePausedQueue(request, connected)
+    return true
+  })
+
+  ipcMain.handle(RESTORE_PAUSED_QUEUE_CHANNEL, (event, rawSessionId: unknown) => {
+    assertTrustedIpcSender(event)
+    const sessionId = SessionIdSchema.parse(rawSessionId)
+    const connected = connectionService.getSession(sessionId)
+    if (!connected) return null
+    const restored = desktopState.restorePausedQueue(connected)
+    if (!restored) return null
+    return RestoredPausedQueueResultSchema.parse({
+      ...restored,
+      tracks: libraryService.rehydrateTracks(sessionId, restored.tracks)
+    })
+  })
+
+  ipcMain.handle(CLEAR_PAUSED_QUEUE_CHANNEL, async (event) => {
+    assertTrustedIpcSender(event)
+    await desktopState.clearPausedQueue()
+    return true
+  })
+
+  ipcMain.handle(GET_COVER_CACHE_INFO_CHANNEL, async (event, rawSessionId: unknown) => {
+    assertTrustedIpcSender(event)
+    const sessionId = SessionIdSchema.parse(rawSessionId)
+    const connected = connectionService.getSession(sessionId)
+    if (!connected) return CoverCacheInfoSchema.parse({ itemCount: 0, totalBytes: 0, maxBytes: 128 * 1024 * 1024 })
+    return CoverCacheInfoSchema.parse(await coverCache.getInfo(connected))
+  })
+
+  ipcMain.handle(CLEAR_COVER_CACHE_CHANNEL, async (event, rawSessionId: unknown) => {
+    assertTrustedIpcSender(event)
+    const sessionId = SessionIdSchema.parse(rawSessionId)
+    const connected = connectionService.getSession(sessionId)
+    if (!connected) return CoverCacheInfoSchema.parse({ itemCount: 0, totalBytes: 0, maxBytes: 128 * 1024 * 1024 })
+    return CoverCacheInfoSchema.parse(await coverCache.clear(connected))
+  })
+}
+
 function installSecurityPolicies(): void {
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
     callback(false)
@@ -446,10 +649,30 @@ function installSecurityPolicies(): void {
   session.defaultSession.setPermissionCheckHandler(() => false)
 }
 
-function createMainWindow(): BrowserWindow {
+function restoreWindowBounds(state: PersistedWindowState | null): Electron.Rectangle | undefined {
+  if (!state || state.x === undefined || state.y === undefined) return undefined
+  const candidate = { x: state.x, y: state.y, width: state.width, height: state.height }
+  const workArea = screen.getDisplayMatching(candidate).workArea
+  const width = Math.min(candidate.width, workArea.width)
+  const height = Math.min(candidate.height, workArea.height)
+  return {
+    width,
+    height,
+    x: Math.min(Math.max(candidate.x, workArea.x), workArea.x + workArea.width - width),
+    y: Math.min(Math.max(candidate.y, workArea.y), workArea.y + workArea.height - height)
+  }
+}
+
+function createMainWindow(
+  desktopState: DesktopStateService,
+  desktopIntegration: DesktopIntegrationController
+): BrowserWindow {
+  const windowState = desktopState.getWindowState()
+  const restoredBounds = restoreWindowBounds(windowState)
   const window = new BrowserWindow({
-    width: 1240,
-    height: 800,
+    width: restoredBounds?.width ?? windowState?.width ?? 1240,
+    height: restoredBounds?.height ?? windowState?.height ?? 800,
+    ...(restoredBounds ? { x: restoredBounds.x, y: restoredBounds.y } : {}),
     minWidth: 960,
     minHeight: 640,
     show: false,
@@ -469,6 +692,8 @@ function createMainWindow(): BrowserWindow {
       spellcheck: false
     }
   })
+  mainWindow = window
+  desktopIntegration.attachWindow(window)
 
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
 
@@ -476,7 +701,13 @@ function createMainWindow(): BrowserWindow {
     if (!isTrustedRendererUrl(url, process.env.ELECTRON_RENDERER_URL)) event.preventDefault()
   })
 
-  window.once('ready-to-show', () => window.show())
+  window.once('ready-to-show', () => {
+    if (windowState?.maximized) window.maximize()
+    window.show()
+  })
+  window.once('closed', () => {
+    if (mainWindow === window) mainWindow = null
+  })
 
   if (process.env.ELECTRON_RENDERER_URL) {
     void window.loadURL(process.env.ELECTRON_RENDERER_URL)
@@ -489,36 +720,92 @@ function createMainWindow(): BrowserWindow {
 
 registerApplicationIpc()
 
-void app.whenReady().then(() => {
+void app.whenReady().then(async () => {
   installSecurityPolicies()
-  const client = new OpenSubsonicClient(new ElectronSessionTransport())
+  const diagnostics = new NetworkDiagnosticRecorder()
+  const networkPolicy = new NetworkPolicyService(app.getPath('userData'), session.defaultSession)
+  await networkPolicy.initialize()
+  const desktopState = new DesktopStateService(app.getPath('userData'))
+  await desktopState.initialize()
+  const client = new OpenSubsonicClient(
+    new ElectronSessionTransport(diagnostics, () => networkPolicy.getProxyMode())
+  )
   const connectionService = new ConnectionService(
     client,
     new FileCredentialStore(app.getPath('userData'), new SafeStorageEncryptionProvider())
   )
   const mediaHandles = new MediaHandleRegistry()
-  const libraryService = new LibraryService(connectionService, client, mediaHandles)
+  const libraryService = new LibraryService(connectionService, client, mediaHandles, networkPolicy)
   const playbackService = new PlaybackService(connectionService, client)
+  const coverCache = new CoverCacheService(app.getPath('userData'))
   const mediaProtocol = new MediaProtocolService(
     connectionService,
     mediaHandles,
-    (url, init) => session.defaultSession.fetch(url, init)
+    (url, init) => session.defaultSession.fetch(url, init),
+    diagnostics,
+    () => networkPolicy.getProxyMode(),
+    coverCache
   )
+  const sendDesktopCommand = (command: DesktopCommand): void => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(DESKTOP_COMMAND_CHANNEL, command)
+    }
+  }
+  const desktopIntegration = new DesktopIntegrationController({
+    getWindow: () => mainWindow,
+    getPreferences: () => desktopState.getPreferences(),
+    saveWindowState: (state) => desktopState.saveWindowState(state),
+    sendCommand: sendDesktopCommand,
+    recoverNetwork: async () => {
+      const sessionId = connectionService.getCurrentSessionId()
+      if (sessionId) {
+        libraryService.cancelSessionSearches(sessionId)
+        mediaProtocol.revokeSession(sessionId)
+        mediaHandles.revokeSession(sessionId)
+      }
+      await session.defaultSession.closeAllConnections()
+    }
+  })
 
   protocol.handle('sonavi-media', (request) => mediaProtocol.handle(request))
-  registerConnectionIpc(connectionService, mediaHandles, mediaProtocol, libraryService)
+  registerConnectionIpc(
+    connectionService,
+    mediaHandles,
+    mediaProtocol,
+    libraryService,
+    desktopState,
+    coverCache
+  )
   registerLibraryIpc(libraryService)
   registerPlaybackIpc(playbackService)
+  registerNetworkIpc(
+    networkPolicy,
+    diagnostics,
+    connectionService,
+    mediaHandles,
+    mediaProtocol,
+    libraryService
+  )
+  registerDesktopIpc(
+    desktopState,
+    desktopIntegration,
+    connectionService,
+    libraryService,
+    coverCache
+  )
   Menu.setApplicationMenu(Menu.buildFromTemplate(platformAdapter.createMenuTemplate(app.name)))
-  createMainWindow()
+  desktopIntegration.initialize()
+  createMainWindow(desktopState, desktopIntegration)
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
+    if (!mainWindow || mainWindow.isDestroyed()) createMainWindow(desktopState, desktopIntegration)
+    else desktopIntegration.showWindow()
   })
 
   app.once('before-quit', () => {
     mediaProtocol.dispose()
     mediaHandles.clear()
+    desktopIntegration.dispose()
   })
 })
 

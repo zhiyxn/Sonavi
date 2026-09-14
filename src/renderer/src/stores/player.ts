@@ -3,6 +3,7 @@ import { computed, markRaw, ref } from 'vue'
 import type { TrackSummary } from '../../../shared/library'
 import { HtmlAudioEngine, isActivePlaybackState } from '../services/audio-engine/html-audio-engine'
 import type { AudioEngineSnapshot, AudioEngineState } from '../services/audio-engine/types'
+import { createTranscodeSeek } from '../services/network'
 
 export type PlaybackOrder = 'sequential' | 'shuffle'
 export type RepeatMode = 'off' | 'all' | 'one'
@@ -60,6 +61,7 @@ export const usePlayerStore = defineStore('player', () => {
   const isPlaying = computed(() => isActivePlaybackState(state.value))
   const canGoPrevious = computed(() => currentEntry.value !== null)
   const canGoNext = computed(() => getNextEntryId() !== null)
+  const canSeek = computed(() => track.value?.playback.seekMode !== 'unavailable')
 
   engine.subscribe((event) => {
     if (event.type === 'ended') {
@@ -113,7 +115,14 @@ export const usePlayerStore = defineStore('player', () => {
       playbackHistory.value.push(entry.queueEntryId)
     }
     await engine.load(
-      { trackId: entry.trackId, streamUrl: entry.track.streamUrl, duration: entry.track.duration },
+      {
+        trackId: entry.trackId,
+        streamUrl: entry.track.streamUrl,
+        ...(entry.track.fallbackStreamUrl
+          ? { fallbackStreamUrl: entry.track.fallbackStreamUrl }
+          : {}),
+        duration: entry.track.duration
+      },
       autoplay
     )
   }
@@ -139,6 +148,18 @@ export const usePlayerStore = defineStore('player', () => {
     await loadEntry(queue.value[safeIndex]!, autoplay)
   }
 
+  async function restoreQueue(
+    tracks: TrackSummary[],
+    startIndex: number,
+    scope: PlaybackScope,
+    restoredPlaybackOrder: PlaybackOrder,
+    restoredRepeatMode: RepeatMode
+  ): Promise<void> {
+    playbackOrder.value = restoredPlaybackOrder
+    repeatMode.value = restoredRepeatMode
+    await replaceQueue(tracks, startIndex, scope, false)
+  }
+
   function appendToQueue(tracks: TrackSummary[], scope: PlaybackScope): void {
     if (tracks.length === 0) return
     const additions = tracks.map((item) => createQueueEntry(item, scope))
@@ -162,7 +183,7 @@ export const usePlayerStore = defineStore('player', () => {
   async function previous(): Promise<void> {
     if (!currentEntry.value) return
     if (currentTime.value > 3) {
-      engine.seek(0)
+      await restartCurrent()
       return
     }
 
@@ -178,7 +199,7 @@ export const usePlayerStore = defineStore('player', () => {
         const wrappedEntry = entryById(order.at(-1) ?? null)
         if (wrappedEntry) await loadEntry(wrappedEntry, true)
       } else {
-        engine.seek(0)
+        await restartCurrent()
       }
       return
     }
@@ -193,7 +214,7 @@ export const usePlayerStore = defineStore('player', () => {
           ? queue.value.length - 1
           : -1
     if (previousIndex >= 0) await loadEntry(queue.value[previousIndex]!, true)
-    else engine.seek(0)
+    else await restartCurrent()
   }
 
   function removeQueueEntry(queueEntryId: string): void {
@@ -237,8 +258,46 @@ export const usePlayerStore = defineStore('player', () => {
     else void engine.play()
   }
 
-  function seek(seconds: number): void {
-    engine.seek(seconds)
+  function pause(): void {
+    engine.pause()
+  }
+
+  async function seek(seconds: number): Promise<void> {
+    const entry = currentEntry.value
+    if (!entry || !Number.isFinite(seconds)) return
+    if (entry.track.playback.seekMode === 'native') {
+      engine.seek(seconds)
+      return
+    }
+    if (entry.track.playback.seekMode === 'unavailable') return
+
+    const wasActive = isActivePlaybackState(state.value)
+    const result = await createTranscodeSeek({
+      sessionId: entry.scope.sessionId,
+      trackId: entry.trackId,
+      timeOffset: Math.floor(Math.min(Math.max(0, seconds), entry.track.duration))
+    })
+    if (currentEntryId.value !== entry.queueEntryId) return
+    if (!result.ok) {
+      errorMessage.value = result.message
+      return
+    }
+    await engine.load(
+      {
+        trackId: entry.trackId,
+        streamUrl: result.streamUrl,
+        duration: entry.track.duration,
+        timelineOffset: result.timelineOffset
+      },
+      wasActive
+    )
+  }
+
+  async function restartCurrent(): Promise<void> {
+    const entry = currentEntry.value
+    if (!entry) return
+    if (entry.track.playback.seekMode === 'native') engine.seek(0)
+    else await loadEntry(entry, isActivePlaybackState(state.value), false)
   }
 
   function setVolume(nextVolume: number): void {
@@ -262,7 +321,7 @@ export const usePlayerStore = defineStore('player', () => {
   async function handleNaturalEnded(): Promise<void> {
     if (!currentEntry.value) return
     if (repeatMode.value === 'one') {
-      engine.seek(0)
+      await restartCurrent()
       await engine.play()
       return
     }
@@ -290,7 +349,9 @@ export const usePlayerStore = defineStore('player', () => {
     isPlaying,
     canGoPrevious,
     canGoNext,
+    canSeek,
     replaceQueue,
+    restoreQueue,
     appendToQueue,
     playQueueEntry,
     next,
@@ -299,6 +360,7 @@ export const usePlayerStore = defineStore('player', () => {
     moveQueueEntry,
     clearQueue,
     toggle,
+    pause,
     seek,
     setVolume,
     togglePlaybackOrder,

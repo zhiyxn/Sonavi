@@ -73,6 +73,12 @@ export const AlbumDetailSchema = AlbumSummarySchema.extend({
       contentType: z.string().optional(),
       coverUrl: MediaUrlSchema.optional(),
       streamUrl: MediaUrlSchema,
+      fallbackStreamUrl: MediaUrlSchema.optional(),
+      playback: z.object({
+        streamMode: z.enum(['original', 'transcode']),
+        seekMode: z.enum(['native', 'transcode-offset', 'unavailable']),
+        reason: z.string().min(1).max(500)
+      }),
       starred: z.boolean()
     })
   )

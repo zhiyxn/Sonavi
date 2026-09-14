@@ -11,7 +11,9 @@ export type AudioEngineState =
 export interface AudioEngineSource {
   trackId: string
   streamUrl: string
+  fallbackStreamUrl?: string | undefined
   duration: number
+  timelineOffset?: number | undefined
 }
 
 export interface AudioEngineSnapshot {

@@ -26,8 +26,8 @@
 ## 当前目录职责
 
 - `src/main/`：窗口、安全策略、IPC 注册、OpenSubsonic 网络客户端与 CredentialStore；允许使用 Node.js/Electron。
-- `src/main/platform/`：最小平台差异。P01 只含原生窗口选项、菜单、快捷键标签和最后窗口生命周期。
-- `src/preload/`：唯一 renderer 桥；暴露类型明确的应用信息、连接/恢复/退出和固定音乐库方法，不暴露原始 IPC 或 Node 对象。
+- `src/main/platform/`：最小平台差异。包含原生窗口选项/菜单，以及 P09 的托盘、关闭隐藏、Dock/应用重激活、电源事件和真正退出生命周期。
+- `src/preload/`：唯一 renderer 桥；暴露类型明确的应用信息、连接/恢复/退出、固定音乐库、播放辅助、网络与桌面状态方法，不暴露原始 IPC、任意网络或 Node 对象。
 - `src/shared/`：IPC channel、TypeScript 类型与 Zod 运行时 schema。
 - `src/renderer/`：一套 Vue + Tailwind CSS 应用，shadcn-vue 组件源码与 Sonavi tokens 共用；平台展示数据来自 preload，不读取 `process`。
 - `src/renderer/src/services/audio-engine/`：P04 的 AudioEngine 契约与唯一 HTMLAudioElement 宿主；切歌时释放旧宿主监听并以 generation/命令序号隔离迟到事件与 Promise。
@@ -44,7 +44,7 @@ P02 的连接客户端位于 `src/main/services/opensubsonic/`，使用 Electron
 
 统一 `CredentialStore` 位于 `src/main/services/credentials/`，只在 app ready 后调用 Electron 44 的异步 safeStorage。持久化文件放在 `app.getPath('userData')`，通过同目录临时密文文件替换保存；密码字段只写入系统加密密文。加密或写入失败时保留 main 进程会话凭据并明确返回 `session-only`，不回退明文。启动时可解密恢复，safeStorage 请求密钥轮换时先重加密；“退出并忘记账号”显式删除持久化文件。
 
-P03 的 `MediaHandleRegistry` 只向 renderer 返回随机、不透明的 `sonavi-media://media/<uuid>`。自定义 scheme 在 app ready 前注册为 standard/secure/fetch/stream，但不启用 bypassCSP；处理器在 default Session 上注册。main 根据当前会话解析句柄并重新生成认证 URL，拒绝重定向、非法/多段 Range、非媒体内容类型与非 200/206/416 响应。响应体以保留背压的 Web Stream 传递，不调用 `arrayBuffer()`、不做 Base64 IPC。退出、忘记账号、切换账号与真正退出会撤销对应句柄并通过 AbortController 中止尚未完成的上游流。CSP 只为 `img-src` 和 `media-src` 增加该 scheme。
+P03 的 `MediaHandleRegistry` 只向 renderer 返回随机、不透明的 `sonavi-media://media/<uuid>`。P08 在 main 内为音频句柄增加原始/转码、码率和可选时间偏移元数据，但 URL 形状不变，renderer 仍看不到上游地址或认证参数。自定义 scheme 在 app ready 前注册为 standard/secure/fetch/stream，但不启用 bypassCSP；处理器在 default Session 上注册。main 根据当前会话解析句柄并重新生成认证 URL，拒绝重定向、非法/多段 Range、非媒体内容类型与非 200/206/416 响应。音频响应体始终以保留背压的 Web Stream 传递，不调用 `arrayBuffer()`、不做 Base64 IPC；P09 只有带已知 Content-Length 且不超过 5 MiB 的图片响应可被有界缓冲并写入封面缓存。退出、忘记账号、切换账号、代理/播放策略切换与真正退出会撤销对应句柄并通过 AbortController 中止尚未完成的上游流。
 
 ## P04 播放核心
 
@@ -52,7 +52,7 @@ AudioEngine 快照只有一个枚举状态：`idle/loading/playing/paused/buffer
 
 Pinia player store 管理队列。每个条目使用随机 `queueEntryId`，将服务端 `trackId`、不透明媒体句柄和当前 `serverId/accountId/sessionId` 范围绑定在一起；重复 track 可以形成不同队列项。顺序与随机都以 queueEntryId 导航，随机模式在队列不变时保留稳定顺序，并以实际播放历史实现上一首。自然 ended 在单曲循环下重播当前项；手动下一首忽略单曲循环并选择后继。删除当前项优先选择其播放顺序中的后继、否则前项，并保留播放/暂停意图；空队列停止引擎并回到 idle。
 
-P04 队列只存在于当前 renderer 会话。恢复持久化队列时必须重新向有效账号申请媒体句柄且默认暂停；该落盘能力、后台宿主、托盘和媒体键仍属于 P09，不在 P04 提前实现。
+P09 将非敏感队列元数据保存到 main 的 `desktop-state.v1.json`，不保存 sessionId、密码、认证参数或 `sonavi-media` URL。main 以服务地址和用户名计算账号哈希并校验当前连接；恢复时由 `LibraryService` 重新生成短期媒体句柄，renderer 以暂停状态和曲目起点重建队列。P04 的运行时队列和 AudioEngine 仍只有一份。
 
 ## P05 音乐库与搜索
 
@@ -60,7 +60,7 @@ P04 队列只存在于当前 renderer 会话。恢复持久化队列时必须重
 
 搜索只调用公共 `search3`，艺术家、专辑和歌曲使用相同 offset/size 分页。输入在 renderer 防抖 300ms，TanStack Query 为每个查询提供 AbortSignal；renderer 生成随机 requestId，通过固定 `cancel-search` preload 方法请求 main 中止对应 AbortController。main 同时校验 sessionId/requestId，断开或轮换账号时取消该会话的全部活动搜索。搜索结果只返回纯文本元数据及随机媒体句柄，不允许 renderer 访问任意 URL。
 
-设置页当前只呈现平台、服务器、协议与安全退出操作；托盘/Dock、后台播放及缓存设置仍按后续阶段实现。
+设置页在同一共享组件中呈现平台、服务器、协议、播放/网络策略、关闭动作、主题、当前账号封面缓存与安全退出；平台行为由 preload/main 适配，不在 Vue 组件读取 `process`。
 
 ## P06 收藏与歌单
 
@@ -78,6 +78,24 @@ P04 队列只存在于当前 renderer 会话。恢复持久化队列时必须重
 
 播放上报控制器不依赖播放器组件生命周期。队列项首次真正进入 `playing` 时发送 `scrobble(submission=false)` 并记录开始时间；仅累计相邻不超过 5 秒的正向播放进度，seek、倒退和大幅跳转不计入听取时长。累计达到 `min(duration × 50%, 240 秒)` 时发送一次 `submission=true`，两次上报使用同一播放开始时间，并按 `queueEntryId` 去重。失败只显示非阻断状态，不停止 AudioEngine。P07 不持久化上报队列，离线重试、后台宿主与队列恢复仍留待后续阶段。
 
+## P08 转码、网络策略与诊断
+
+`NetworkPolicyService` 是 main 中唯一播放/代理策略来源。播放策略生成每首曲目的实际 `streamMode`、`seekMode` 和用户可见原因：原始模式使用 `format=raw`；兼容模式固定使用 MP3 与受限码率；自动模式对已知媒体类型优先原始流并只附带一个兼容回退句柄，未知类型直接转码。HTMLAudioEngine 只在第一次解码错误切换 fallback，第二次失败进入错误态，避免无限重试。
+
+兼容转码只有在连接阶段验证的扩展名包含 `transcodeOffset` 时才允许 seek。renderer 通过固定方法提交 session、track 和秒数；main 复核会话与能力后生成带 `timeOffset` 的新不透明句柄。AudioEngine 保存 `timelineOffset`，对外进度始终为 `timelineOffset + segment.currentTime`，并保留歌曲总 duration；player store、歌词和播放上报因此共享完整歌曲时间线。未确认能力时 UI 禁用 seek 并解释，不猜测服务器行为。
+
+API、封面和音频都使用 `session.defaultSession`，由 `NetworkPolicyService` 以 `system`、`direct` 或 `fixed_servers` 三种互斥配置统一控制。代理变更先调用 `setProxy`，再 `closeAllConnections`，随后撤销媒体句柄、停止播放和清查询缓存；任何失败都直接返回，不叠加系统/手动代理，也不降级直连。设置 JSON 位于 Electron `userData`，不含凭据。
+
+`NetworkDiagnosticRecorder` 在 main 内维护最多 200 条结构化记录，阶段限定为 API、封面、原始音频和转码音频。记录只含代理模式、HTTP 状态、内容类型、错误分类、耗时和建议；URL、账号、token/salt、代理地址、资源 ID 与响应正文从不进入记录。导出由 main 的保存对话框完成并限制在 256 KiB。证书错误只给出解释和建议，不关闭 TLS 校验。
+
+## P09 桌面宿主、状态与缓存
+
+`DesktopIntegrationController` 保持一个强引用 BrowserWindow 和 Tray。默认关闭事件被拦截并隐藏既有窗口，因此 renderer 内唯一 AudioEngine 不会被销毁；设置为 `quit`、托盘“真正退出”或系统退出角色会进入 `app.quit()`，`before-quit` 再允许窗口关闭并释放媒体请求/句柄。最小化使用系统原生行为。macOS Dock/应用激活与托盘点击均显示并聚焦同一窗口；不存在 Windows/Mac 页面副本。
+
+播放状态由 renderer 通过固定 IPC 同步给 main，仅用于更新托盘菜单；main 到 preload 的命令事件只接受固定枚举。系统媒体键与媒体信息使用 Chromium Media Session，项目不注册 `globalShortcut` 的媒体键，避免同一次按键被执行两次。设置按 preload 提供的平台修饰键匹配 `Ctrl+,` 或 `Cmd+,`，空格播放键与设置键都只在非编辑目标上生效。`powerMonitor` 的 suspend/lock 只发暂停，resume/unlock 会关闭旧连接、撤销媒体句柄并刷新队列句柄，但保持暂停。
+
+`DesktopStateService` 在 Electron `userData` 下原子写入主题、音量、关闭动作、窗口 normal bounds/maximized 和暂停队列元数据。窗口恢复先按当前显示器工作区裁剪，避免拔掉显示器后窗口留在屏外。`CoverCacheService` 使用账号哈希目录和资源 ID 哈希文件名，单项 5 MiB、单账号 128 MiB，按文件访问时间执行 LRU；忘记账号和用户清理只删除当前账号目录。它不缓存音频，也不是离线播放层。
+
 ## 平台生命周期规则
 
 | 行为 | Windows | macOS | P01 状态 |
@@ -85,12 +103,13 @@ P04 队列只存在于当前 renderer 会话。恢复持久化队列时必须重
 | 窗口装饰 | 系统原生边框/按钮 | 系统原生边框/按钮 | 已实现 |
 | 菜单 | 文件/编辑/窗口 | 应用/编辑/窗口 | 已实现基础模板 |
 | 快捷键提示 | Ctrl | Cmd | 已通过 preload 集中提供 |
-| 关闭最后窗口 | 退出进程 | 关闭窗口，保留 Dock 应用 | 已实现 |
-| 重新激活 | 重新启动后创建窗口 | Dock 激活时重建窗口 | macOS 已实现 |
-| 托盘/隐藏继续播放 | P09 定义 | P09 定义 | 未实现 |
-| 真正退出 | 关闭最后窗口或菜单退出 | 应用菜单/Cmd+Q | 已实现基础角色菜单 |
+| 关闭窗口（默认） | 隐藏同一窗口到托盘 | 隐藏同一窗口到菜单栏/Dock | P09 已实现；Windows 待实机 |
+| 重新激活 | 托盘点击显示既有窗口 | 菜单栏/Dock 激活显示既有窗口 | macOS Intel 已实测 |
+| 最小化 | 保留 AudioEngine | 保留 AudioEngine | 共享原生行为；需分平台人工复验 |
+| 托盘/菜单栏播放控制 | 播放/暂停/前后切歌/显示/真正退出 | 同左 | 已实现；macOS Intel 自动化覆盖宿主生命周期 |
+| 真正退出 | 设置关闭即退出、文件菜单或托盘退出 | 设置关闭即退出、Cmd+Q 或菜单栏退出 | 已实现；交互需分平台人工复验 |
 
-窗口重建不能在未来破坏单一 AudioEngine 宿主。P09 实现后台播放前必须先决定宿主生命周期，不能通过销毁 renderer 达成“隐藏”。
+当前关闭隐藏不会重建窗口或 AudioEngine；只有真正退出才销毁宿主。若窗口因崩溃被销毁，应用不会声称仍可继续播放。
 
 ## 构建边界
 

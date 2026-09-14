@@ -31,6 +31,11 @@ function installTrack(currentTime = 0): ReturnType<typeof createPinia> {
         album: '石与琥珀',
         duration: 4,
         streamUrl: 'sonavi-media://media/6fa932b2-9793-4d89-9a49-f79b942132c5',
+        playback: {
+          streamMode: 'original',
+          seekMode: 'native',
+          reason: '测试原始音频。'
+        },
         starred: false
       }
     }

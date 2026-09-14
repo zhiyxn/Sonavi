@@ -1,6 +1,6 @@
 # Sonavi
 
-Sonavi 是一套同时正式面向 Windows 11 x64、macOS 13+ Intel x64 与 macOS 13+ Apple Silicon arm64 的 Navidrome 桌面客户端。两个平台共享同一套 Electron/Vue 工程、renderer 和业务代码；当前 P01～P07 已按顺序落地，P06 已通过三目标 CI，P07 已通过本地 Windows x64 源码与目录包闸门，当前三目标 CI、真实服务器与各目标实机证据仍分别记录。
+Sonavi 是一套同时正式面向 Windows 11 x64、macOS 13+ Intel x64 与 macOS 13+ Apple Silicon arm64 的 Navidrome 桌面客户端。两个平台共享同一套 Electron/Vue 工程、renderer 和业务代码；当前 P01～P09 已按顺序落地，P06 已通过三目标 CI，P09 已通过当前 macOS Intel 源码与 x64 目录包代码闸门，三目标 CI、真实服务器与其余目标实机证据仍分别记录。
 
 ## 当前能力
 
@@ -17,6 +17,8 @@ Sonavi 是一套同时正式面向 Windows 11 x64、macOS 13+ Intel x64 与 macO
 - P05 首页、字母序专辑分页、艺术家/详情、窗口化长列表、可取消分页搜索和基础设置页；
 - P06 服务器事实驱动的艺术家/专辑/歌曲收藏，以及歌单列表、详情、创建、编辑、删除、队列追加、按索引移除与整单播放；
 - P07 按服务器能力选择结构化/旧版歌词，同步行高亮、多版本切换，以及基于真实播放累计时间且过滤 seek 的 now-playing/submission 上报；
+- P08 提供原始/MP3 兼容/自动播放策略、受能力约束的转码 seek、统一系统/直连/手动代理和脱敏连接诊断；
+- P09 提供同一 AudioEngine 宿主的关闭隐藏/重新激活、托盘播放控制、明确真正退出、Media Session 媒体键、主题/音量/窗口/暂停队列持久化，以及账号隔离的限量封面缓存；
 - Tailwind CSS 4 与项目持有的 shadcn-vue 组件源码，共用 Sonavi tokens；
 - 集中的 Windows/macOS 菜单、快捷键提示与窗口生命周期适配入口；
 - lint、类型检查、单元/组件测试、Electron 冒烟和 electron-builder 配置。
@@ -41,7 +43,7 @@ npm run build
 npm run test:e2e
 ```
 
-`test:e2e` 会先构建，再启动真实 Electron 窗口和本地受控 OpenSubsonic fixture，验证连接、分页专辑、封面、合成 WAV 流式播放、队列、歌词同步、scrobble、收藏/歌单、preload 隔离、safeStorage 与当前平台生命周期，并将截图写入 `artifacts/screenshots/`。它不连接真实 Navidrome，也不等价于物理听音或另一操作系统的人工验收。
+`test:e2e` 会先构建，再启动真实 Electron 窗口和本地受控 OpenSubsonic fixture，验证连接、分页专辑、封面、合成 WAV 流式播放、队列、歌词同步、scrobble、收藏/歌单、preload 隔离、safeStorage、Media Session、关闭隐藏/恢复、暂停队列恢复与当前平台性能采样，并将截图写入 `artifacts/screenshots/`。它不连接真实 Navidrome，也不等价于物理听音或另一操作系统的人工验收。
 
 ## 平台构建入口
 
@@ -60,6 +62,6 @@ npm run build:mac:arm64
 
 产物写入 `release/<version>/`。当前配置生成未签名开发测试包，不发布 Release、不上传安装包。可以在当前主机用 `npm run pack:dir` 做最小目录打包检查，但跨平台打包成功不作为相应平台兼容证明。
 
-`.github/workflows/ci.yml` 为 Windows x64、macOS Intel x64 与 macOS Apple Silicon arm64 建立独立检查/打包 job，不上传产物。P06 提交 `a831be6` 的 run `34810276941` 三个目标全部成功；P07 实现提交 `9e599fa` 已推送并通过当前 Windows x64 生产构建、Electron 冒烟和目录包冒烟，三目标 CI 待确认。
+`.github/workflows/ci.yml` 为 Windows x64、macOS Intel x64 与 macOS Apple Silicon arm64 建立独立检查/打包 job，不上传产物。P06 提交 `a831be6` 的 run `34810276941` 三个目标全部成功；P08/P09 当前尚未提交或触发 CI，现有最新证据是 macOS Intel 的生产构建、Electron 冒烟和 x64 目录包冒烟。
 
 更多状态与边界见 [兼容性](docs/COMPATIBILITY.md)、[测试报告](docs/TEST-REPORT.md) 和 [交接](docs/HANDOFF.md)。

@@ -752,6 +752,94 @@ button.nav-item {
   overflow-wrap: anywhere;
 }
 
+.settings-form {
+  display: grid;
+  gap: 18px;
+  margin-top: 24px;
+}
+
+.settings-form fieldset,
+.diagnostics-card {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 18px;
+  border: 1px solid var(--sonavi-border);
+  border-radius: var(--sonavi-card-radius);
+  background: var(--sonavi-raised);
+}
+
+.settings-form legend,
+.diagnostics-card h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.settings-form label {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  color: var(--sonavi-text-secondary);
+}
+
+.settings-form select,
+.settings-form input {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 1px solid var(--sonavi-border);
+  border-radius: 8px;
+  color: var(--sonavi-text-primary);
+  background: var(--sonavi-surface);
+  font: inherit;
+}
+
+.settings-help,
+.diagnostics-card p,
+.settings-status {
+  margin: 0;
+  color: var(--sonavi-text-secondary);
+  font-size: 13px;
+}
+
+.diagnostics-card {
+  margin-top: 24px;
+}
+
+.diagnostics-card > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.diagnostics-list {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--sonavi-border);
+  border-radius: 8px;
+  background: var(--sonavi-border);
+  list-style: none;
+}
+
+.diagnostics-list li {
+  display: grid;
+  grid-template-columns: 110px minmax(180px, 0.7fr) minmax(260px, 1.3fr);
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--sonavi-surface);
+  font-size: 12px;
+}
+
+.settings-status {
+  margin-top: 14px;
+  color: var(--sonavi-accent-strong);
+}
+
 .state-card {
   margin-top: 28px;
   padding: 24px;

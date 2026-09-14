@@ -48,7 +48,7 @@ const progress = computed(() => {
 })
 
 function onSeek(event: Event): void {
-  player.seek(Number((event.target as HTMLInputElement).value))
+  void player.seek(Number((event.target as HTMLInputElement).value))
 }
 
 function onVolume(event: Event): void {
@@ -150,6 +150,9 @@ function toggleLyrics(): void {
       <span v-else-if="reportingError" class="player-report-warning" role="status">
         {{ reportingError }}
       </span>
+      <span v-else-if="player.track" class="player-stream-note" :title="player.track.playback.reason">
+        {{ player.track.playback.streamMode === 'transcode' ? '兼容转码' : '原始音频' }}
+      </span>
     </div>
     <div class="player-controls">
       <Button
@@ -207,9 +210,10 @@ function toggleLyrics(): void {
         :max="Math.max(player.duration, 0)"
         step="0.1"
         :value="player.currentTime"
-        :disabled="!player.track"
+        :disabled="!player.track || !player.canSeek"
+        :title="player.track && !player.canSeek ? '当前播放策略无法安全跳转；可在设置中选择原始模式，或使用支持 transcodeOffset 的服务器。' : undefined"
         :style="{ '--player-progress': `${progress}%` }"
-        @input="onSeek"
+        @change="onSeek"
       />
       <span>{{ formatTime(player.duration) }}</span>
     </div>

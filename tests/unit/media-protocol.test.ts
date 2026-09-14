@@ -3,8 +3,10 @@ import { ConnectionService } from '../../src/main/services/connection-service'
 import type { CredentialStore } from '../../src/main/services/credentials/credential-store'
 import { MediaHandleRegistry } from '../../src/main/services/media-handle-registry'
 import { MediaProtocolService, type MediaFetch } from '../../src/main/services/media-protocol'
+import { NetworkDiagnosticRecorder } from '../../src/main/services/network-diagnostics'
 import { OpenSubsonicClient } from '../../src/main/services/opensubsonic/client'
 import type { ApiTransport } from '../../src/main/services/opensubsonic/transport'
+import type { CoverCacheService } from '../../src/main/services/cover-cache-service'
 
 const credentialStore: CredentialStore = {
   save: async () => true,
@@ -113,6 +115,32 @@ describe('sonavi-media 协议', () => {
     await expect(protocol.handle(new Request(mediaUrl))).resolves.toMatchObject({ status: 502 })
   })
 
+  it('封面实际响应超过缓存单项上限时中止而不无界缓冲', async () => {
+    const { service, sessionId } = await connectedService()
+    const registry = new MediaHandleRegistry()
+    const mediaUrl = registry.create({ sessionId, kind: 'cover', resourceId: 'cover-1' })
+    const put = vi.fn()
+    const coverCache = {
+      get: async () => null,
+      canStore: () => true,
+      getMaxItemBytes: () => 3,
+      put
+    } as unknown as CoverCacheService
+    const protocol = new MediaProtocolService(
+      service,
+      registry,
+      async () => new Response(new Uint8Array([1, 2, 3, 4]), {
+        headers: { 'content-type': 'image/png', 'content-length': '2' }
+      }),
+      undefined,
+      undefined,
+      coverCache
+    )
+
+    await expect(protocol.handle(new Request(mediaUrl))).resolves.toMatchObject({ status: 502 })
+    expect(put).not.toHaveBeenCalled()
+  })
+
   it.each([
     [200, null],
     [416, 'bytes */100']
@@ -145,6 +173,89 @@ describe('sonavi-media 协议', () => {
     const response = await protocol.handle(new Request(mediaUrl))
     expect(response.status).toBe(502)
     expect(await response.text()).not.toContain('secret')
+  })
+
+  it('兼容转码只发送受控格式、码率和已确认的时间偏移', async () => {
+    const { service, sessionId } = await connectedService()
+    const registry = new MediaHandleRegistry()
+    const mediaUrl = registry.create({
+      sessionId,
+      kind: 'audio',
+      resourceId: 'song-1',
+      streamMode: 'transcode',
+      maxBitRate: 192,
+      timeOffset: 42
+    })
+    const fetchMedia = vi.fn<MediaFetch>().mockResolvedValue(
+      new Response(new Uint8Array([1]), { headers: { 'content-type': 'audio/mpeg' } })
+    )
+    const protocol = new MediaProtocolService(service, registry, fetchMedia)
+
+    const response = await protocol.handle(new Request(mediaUrl))
+    await response.arrayBuffer()
+    const upstreamUrl = new URL(fetchMedia.mock.calls[0]![0])
+    expect(Object.fromEntries(upstreamUrl.searchParams)).toMatchObject({
+      format: 'mp3',
+      maxBitRate: '192',
+      estimateContentLength: 'true',
+      timeOffset: '42'
+    })
+  })
+
+  it.each([
+    [403, 'http-forbidden'],
+    [500, 'http-status']
+  ] as const)('将转码上游 HTTP %s 分类到脱敏诊断', async (status, category) => {
+    const { service, sessionId } = await connectedService()
+    const registry = new MediaHandleRegistry()
+    const mediaUrl = registry.create({
+      sessionId,
+      kind: 'audio',
+      resourceId: 'song-1',
+      streamMode: 'transcode',
+      maxBitRate: 192
+    })
+    const diagnostics = new NetworkDiagnosticRecorder()
+    const protocol = new MediaProtocolService(
+      service,
+      registry,
+      async () => new Response(null, { status }),
+      diagnostics,
+      () => 'manual'
+    )
+
+    await expect(protocol.handle(new Request(mediaUrl))).resolves.toMatchObject({ status: 502 })
+    expect(diagnostics.list()[0]).toMatchObject({
+      stage: 'audio-transcode',
+      proxyMode: 'manual',
+      status,
+      errorCategory: category
+    })
+  })
+
+  it('把传输中断分类为 broken-stream', async () => {
+    const { service, sessionId } = await connectedService()
+    const registry = new MediaHandleRegistry()
+    const mediaUrl = registry.create({ sessionId, kind: 'audio', resourceId: 'song-1' })
+    const diagnostics = new NetworkDiagnosticRecorder()
+    const brokenBody = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.error(new Error('connection reset'))
+      }
+    })
+    const protocol = new MediaProtocolService(
+      service,
+      registry,
+      async () => new Response(brokenBody, { headers: { 'content-type': 'audio/mpeg' } }),
+      diagnostics
+    )
+
+    const response = await protocol.handle(new Request(mediaUrl))
+    await expect(response.arrayBuffer()).rejects.toThrow()
+    expect(diagnostics.list()[0]).toMatchObject({
+      stage: 'audio-original',
+      errorCategory: 'broken-stream'
+    })
   })
 
   it('撤销会话会使旧句柄失效并取消尚未完成的上游请求', async () => {

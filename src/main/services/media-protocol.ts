@@ -1,6 +1,12 @@
 import type { ConnectionService } from './connection-service'
 import type { MediaHandleRegistry } from './media-handle-registry'
 import { buildEndpointUrl } from './opensubsonic/request-url'
+import type { ProxyMode } from '../../shared/network'
+import {
+  classifyNetworkError,
+  NetworkDiagnosticRecorder
+} from './network-diagnostics'
+import type { CoverCacheService } from './cover-cache-service'
 
 const SAFE_RESPONSE_HEADERS = [
   'accept-ranges',
@@ -30,13 +36,45 @@ function hasExpectedMediaType(kind: 'cover' | 'audio', contentType: string): boo
   return normalized.startsWith('audio/') || normalized.startsWith('application/octet-stream')
 }
 
+function responseBody(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
+}
+
+async function readBoundedBody(body: ReadableStream<Uint8Array>, maxBytes: number): Promise<Uint8Array> {
+  const reader = body.getReader()
+  const chunks: Uint8Array[] = []
+  let totalBytes = 0
+  try {
+    while (true) {
+      const chunk = await reader.read()
+      if (chunk.done) break
+      totalBytes += chunk.value.byteLength
+      if (totalBytes > maxBytes) throw new Error('Cover response exceeded cache item limit')
+      chunks.push(chunk.value)
+    }
+  } catch (error) {
+    await reader.cancel(error).catch(() => undefined)
+    throw error
+  }
+  const bytes = new Uint8Array(totalBytes)
+  let offset = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return bytes
+}
+
 export class MediaProtocolService {
   private readonly activeRequests = new Map<string, Set<AbortController>>()
 
   constructor(
     private readonly connectionService: ConnectionService,
     private readonly handles: MediaHandleRegistry,
-    private readonly fetchMedia: MediaFetch
+    private readonly fetchMedia: MediaFetch,
+    private readonly diagnostics?: NetworkDiagnosticRecorder,
+    private readonly getProxyMode: () => ProxyMode = () => 'system',
+    private readonly coverCache?: CoverCacheService
   ) {}
 
   revokeSession(sessionId: string): number {
@@ -65,7 +103,41 @@ export class MediaProtocolService {
     const range = request.headers.get('range')
     if (range && !isValidRange(range)) return errorResponse(416, 'Invalid range')
 
+    if (handle.kind === 'cover' && request.method === 'GET' && !range && this.coverCache) {
+      const cached = await this.coverCache.get(connected, handle.resourceId)
+      if (cached) {
+        return new Response(responseBody(cached.bytes), {
+          status: 200,
+          headers: {
+            'content-type': cached.contentType,
+            'content-length': String(cached.bytes.byteLength),
+            'cache-control': 'private, max-age=86400'
+          }
+        })
+      }
+    }
+
     const abortController = new AbortController()
+    const startedAt = performance.now()
+    const diagnosticStage =
+      handle.kind === 'cover'
+        ? 'cover'
+        : handle.streamMode === 'transcode'
+          ? 'audio-transcode'
+          : 'audio-original'
+    const record = (
+      errorCategory: Parameters<NetworkDiagnosticRecorder['record']>[0]['errorCategory'],
+      status?: number,
+      contentType?: string
+    ): void =>
+      this.diagnostics?.record({
+        stage: diagnosticStage,
+        proxyMode: this.getProxyMode(),
+        startedAt,
+        ...(status ? { status } : {}),
+        ...(contentType ? { contentType } : {}),
+        errorCategory
+      })
     const sessionRequests = this.activeRequests.get(handle.sessionId) ?? new Set<AbortController>()
     sessionRequests.add(abortController)
     this.activeRequests.set(handle.sessionId, sessionRequests)
@@ -84,7 +156,15 @@ export class MediaProtocolService {
     const endpoint = handle.kind === 'cover' ? 'getCoverArt' : 'stream'
     const url = buildEndpointUrl(serverUrl, endpoint, username, password, undefined, {
       id: handle.resourceId,
-      ...(handle.kind === 'audio' ? { format: 'raw' } : {})
+      ...(handle.kind === 'audio' && handle.streamMode === 'original' ? { format: 'raw' } : {}),
+      ...(handle.kind === 'audio' && handle.streamMode === 'transcode'
+        ? {
+            format: 'mp3',
+            ...(handle.maxBitRate ? { maxBitRate: handle.maxBitRate } : {}),
+            estimateContentLength: true,
+            ...(handle.timeOffset !== undefined ? { timeOffset: handle.timeOffset } : {})
+          }
+        : {})
     })
     let upstream: Response
     try {
@@ -97,14 +177,16 @@ export class MediaProtocolService {
         signal: abortController.signal,
         ...(range ? { headers: { range } } : {})
       })
-    } catch {
+    } catch (error) {
       cleanup()
+      record(classifyNetworkError(error))
       return errorResponse(502, 'Upstream media request failed')
     }
 
     if (upstream.status >= 300 && upstream.status < 400) {
       await upstream.body?.cancel()
       cleanup()
+      record('http-status', upstream.status, upstream.headers.get('content-type') ?? undefined)
       return errorResponse(502, 'Upstream redirect rejected')
     }
 
@@ -114,12 +196,22 @@ export class MediaProtocolService {
       const headers = new Headers({ 'cache-control': 'no-store' })
       const contentRange = upstream.headers.get('content-range')
       if (contentRange) headers.set('content-range', contentRange)
+      record('none', upstream.status, upstream.headers.get('content-type') ?? undefined)
       return new Response(null, { status: 416, headers })
     }
 
     if (upstream.status !== 200 && upstream.status !== 206) {
       await upstream.body?.cancel()
       cleanup()
+      record(
+        upstream.status === 401
+          ? 'http-authentication'
+          : upstream.status === 403
+            ? 'http-forbidden'
+            : 'http-status',
+        upstream.status,
+        upstream.headers.get('content-type') ?? undefined
+      )
       return errorResponse(502, 'Upstream media request failed')
     }
 
@@ -127,6 +219,7 @@ export class MediaProtocolService {
     if (!hasExpectedMediaType(handle.kind, contentType)) {
       await upstream.body?.cancel()
       cleanup()
+      record('unexpected-content', upstream.status, contentType)
       return errorResponse(502, 'Unexpected upstream media type')
     }
 
@@ -139,7 +232,33 @@ export class MediaProtocolService {
     if (request.method === 'HEAD' || !upstream.body) {
       await upstream.body?.cancel()
       cleanup()
+      record('none', upstream.status, contentType)
       return new Response(null, { status: upstream.status, headers })
+    }
+
+    const contentLength = Number(upstream.headers.get('content-length'))
+    if (
+      handle.kind === 'cover' &&
+      upstream.status === 200 &&
+      !range &&
+      this.coverCache?.canStore(contentLength)
+    ) {
+      try {
+        const bytes = await readBoundedBody(upstream.body, this.coverCache.getMaxItemBytes())
+        cleanup()
+        record('none', upstream.status, contentType)
+        await this.coverCache.put(connected, handle.resourceId, bytes, contentType)
+        headers.set('cache-control', 'private, max-age=86400')
+        return new Response(responseBody(bytes), { status: 200, headers })
+      } catch (error) {
+        cleanup()
+        record(
+          abortController.signal.aborted ? 'cancelled' : classifyNetworkError(error),
+          upstream.status,
+          contentType
+        )
+        return errorResponse(502, 'Upstream cover request failed')
+      }
     }
 
     const reader = upstream.body.getReader()
@@ -150,12 +269,14 @@ export class MediaProtocolService {
           if (chunk.done) {
             controller.close()
             cleanup()
+            record('none', upstream.status, contentType)
           } else {
             controller.enqueue(chunk.value)
           }
         } catch (error) {
           controller.error(error)
           cleanup()
+          record(abortController.signal.aborted ? 'cancelled' : 'broken-stream', upstream.status, contentType)
         }
       },
       async cancel(reason) {
@@ -163,6 +284,7 @@ export class MediaProtocolService {
           await reader.cancel(reason)
         } finally {
           cleanup()
+          record('cancelled', upstream.status, contentType)
         }
       }
     })

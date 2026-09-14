@@ -15,8 +15,10 @@ import type {
   StarTargetType,
   TrackSummary
 } from '../../shared/library'
+import type { PausedQueueTrack } from '../../shared/desktop'
 import type { ConnectionService } from './connection-service'
 import { MediaHandleRegistry } from './media-handle-registry'
+import type { PlaybackPlan } from './network-policy-service'
 import { ConnectionFailure, OpenSubsonicClient } from './opensubsonic/client'
 
 export class LibraryService {
@@ -28,7 +30,20 @@ export class LibraryService {
   constructor(
     private readonly connectionService: ConnectionService,
     private readonly client: OpenSubsonicClient,
-    private readonly mediaHandles: MediaHandleRegistry
+    private readonly mediaHandles: MediaHandleRegistry,
+    private readonly playbackPolicy: {
+      createPlaybackPlan: (
+        contentType: string | undefined,
+        supportsTranscodeOffset: boolean
+      ) => PlaybackPlan
+    } = {
+      createPlaybackPlan: () => ({
+        streamMode: 'original',
+        seekMode: 'native',
+        reason: '按默认策略请求原始音频。',
+        fallbackToTranscode: false
+      })
+    }
   ) {}
 
   async listAlbums(
@@ -359,6 +374,11 @@ export class LibraryService {
     }
   }
 
+  rehydrateTracks(sessionId: string, tracks: PausedQueueTrack[]): TrackSummary[] {
+    if (!this.connectionService.getSession(sessionId)) return []
+    return tracks.map((track) => this.withTrackHandles(sessionId, track, track.coverArtId))
+  }
+
   private createCoverUrl(sessionId: string, resourceId: string): string {
     return this.mediaHandles.create({ sessionId, kind: 'cover', resourceId })
   }
@@ -386,20 +406,40 @@ export class LibraryService {
   }
 
   private withTrackHandles<
-    T extends Omit<TrackSummary, 'coverUrl' | 'streamUrl'> & { coverArtId?: string | undefined }
+    T extends Omit<
+      TrackSummary,
+      'coverUrl' | 'streamUrl' | 'fallbackStreamUrl' | 'playback'
+    > & { coverArtId?: string | undefined }
   >(sessionId: string, track: T, fallbackCoverArtId?: string): TrackSummary {
     const { coverArtId, ...summary } = track
     const resolvedCoverArtId = coverArtId ?? fallbackCoverArtId
+    const supportsTranscodeOffset =
+      this.connectionService
+        .getSession(sessionId)
+        ?.server?.extensions?.some((name) => name.toLowerCase() === 'transcodeoffset') ?? false
+    const plan = this.playbackPolicy.createPlaybackPlan(track.contentType, supportsTranscodeOffset)
+    const createAudioUrl = (streamMode: 'original' | 'transcode'): string =>
+      this.mediaHandles.create({
+        sessionId,
+        kind: 'audio',
+        resourceId: track.id,
+        streamMode,
+        ...(streamMode === 'transcode' && plan.maxBitRate
+          ? { maxBitRate: plan.maxBitRate }
+          : {})
+      })
     return {
       ...summary,
       ...(resolvedCoverArtId
         ? { coverUrl: this.createCoverUrl(sessionId, resolvedCoverArtId) }
         : {}),
-      streamUrl: this.mediaHandles.create({
-        sessionId,
-        kind: 'audio',
-        resourceId: track.id
-      })
+      streamUrl: createAudioUrl(plan.streamMode),
+      ...(plan.fallbackToTranscode ? { fallbackStreamUrl: createAudioUrl('transcode') } : {}),
+      playback: {
+        streamMode: plan.streamMode,
+        seekMode: plan.seekMode,
+        reason: plan.reason
+      }
     }
   }
 

@@ -17,6 +17,7 @@ import type { ConnectionSuccessResult } from '../../shared/connection'
 import { useSessionStore } from './stores/session'
 import { usePlayerStore } from './stores/player'
 import { usePlaybackReporting } from './composables/use-playback-reporting'
+import { useDesktopIntegration } from './composables/use-desktop-integration'
 
 const applicationInfo = ref<ApplicationInfo | null>(null)
 const loadingError = ref('')
@@ -30,6 +31,12 @@ type ApplicationView = 'home' | 'albums' | 'artists' | 'search' | 'favorites' | 
 const activeView = ref<ApplicationView>('home')
 const selectedAlbumId = ref<string | null>(null)
 const selectedArtistId = ref<string | null>(null)
+useDesktopIntegration({
+  getShortcutModifier: () => applicationInfo.value?.shortcutModifier,
+  openSettings: () => {
+    if (session.connection) navigate('settings')
+  }
+})
 
 const shortcutHint = computed(() =>
   applicationInfo.value ? `${applicationInfo.value.shortcutModifier}+,` : '…'
@@ -50,6 +57,11 @@ onMounted(async () => {
 function handleConnected(result: ConnectionSuccessResult): void {
   session.establish(result)
   activeView.value = 'home'
+}
+
+function handleNetworkChanged(): void {
+  player.stop()
+  queryClient.clear()
 }
 
 function navigate(view: ApplicationView): void {
@@ -204,6 +216,7 @@ async function handleForget(): Promise<void> {
             :connection="session.connection"
             @disconnect="handleDisconnect"
             @forget="handleForget"
+            @network-changed="handleNetworkChanged"
           />
         </template>
         <ConnectPanel

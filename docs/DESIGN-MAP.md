@@ -13,12 +13,13 @@
 | 左导航、内容区、底部播放器 | 单一 App.vue 外壳 | 无 |
 | 连接表单 | 单一 ConnectPanel.vue | 设备名称由 preload 提供 |
 | P03 专辑列表/详情 | 单一 LibraryPanel.vue；每页 30 张并显式加载更多 | 无；结果按平台分别截图验收 |
-| P04 播放器 | 单一 PlayerBar.vue / AudioEngine；前后切歌、随机/循环、进度与音量 | 系统媒体集成留到 P09 |
+| P04/P09 播放器 | 单一 PlayerBar.vue / AudioEngine；前后切歌、随机/循环、进度与音量；Media Session 元数据与动作复用同一 store | Windows/macOS 媒体键由 Chromium 映射，需分别人工复验 |
 | P04 播放队列 | 共用深石色浮层；重复项、删除、清空、上移/下移 | 无；键盘与外观按平台分别验收 |
 | P05 首页/专辑 | 共用 LibraryPanel、专辑卡片与详情；首页最近添加，专辑页字母序分页 | 无；滚动与替代字体分别验收 |
 | P05 艺术家 | 共用窗口化列表、圆形封面/字母占位与艺术家详情 | 无；超长列表性能分别验收 |
 | P05 搜索 | 共用输入、艺术家/专辑/歌曲结果与加载/空/错误状态 | Ctrl/Cmd 只在未来快捷键入口适配，查询逻辑无平台分叉 |
-| P05 设置 | 共用服务器/协议展示和断开/忘记操作 | 平台名称与后续系统集成由 preload/平台适配提供 |
+| P05/P09 设置 | 共用服务器/协议、播放/网络、关闭动作、主题、封面缓存和断开/忘记操作 | 平台名称与托盘/Dock 说明由 preload/平台适配提供 |
+| P09 桌面宿主 | renderer 只显示统一设置与播放状态，不绘制托盘或 Dock 控件 | Windows 托盘、macOS 菜单栏/Dock；两端关闭默认隐藏同一窗口 |
 | P06 收藏 | 共用艺术家/专辑/歌曲分区、详情跳转、取消收藏和歌曲播放/入队操作 | 无；写权限和布局按平台分别验收 |
 | P06 歌单 | 共用列表/详情、创建/编辑/删除、当前队列追加、索引移除与整单播放 | 无；确认框使用 renderer 标准行为，系统外观分别验收 |
 | 账号退出 | 同一断开/忘记账号逻辑 | 文案不假设某一系统；系统凭据由 main 删除 |
@@ -32,6 +33,7 @@
 - 不使用持续背景动画或重度毛玻璃。
 - 长中文、英文 URL 与系统替代字体不得造成表单横向溢出；连接内容使用可收缩网格与明确最小宽度。
 - 默认 BrowserWindow 为 1240×800，最小尺寸 960×640；P05 页面使用可收缩网格、文本截断与内容区独立滚动，960×640 自动化确认无应用级横向溢出。
+- P09 增加浅色/深色两组 Sonavi token；主题只切换共享 CSS 变量，不复制页面。托盘图标使用同一 `build/icon.png`，macOS 运行时转为 18px template image，Windows 保留彩色系统托盘图标。
 
 ## 分平台验证记录入口
 
@@ -41,4 +43,4 @@
 - macOS Intel x64：必须在 Intel Mac 单独启动并截图。
 - macOS Apple Silicon arm64：必须在 Apple Silicon Mac 单独启动 arm64 包并截图。
 
-当前 P07 Windows x64 目录包截图位于 `artifacts/screenshots/p07-windows-x64-package.png` 与 `artifacts/screenshots/p07-lyrics-windows-x64-package.png`，已检查 960×640 下的歌词浮层、多行文本、活动行高亮、播放器和既有歌单页面，无明显截断、重叠或应用级横向溢出。历史 P05/P06 截图继续保留；本地截图不作为另一平台验收结论。
+当前 P09 macOS Intel 截图位于 `artifacts/screenshots/p09-desktop-current-platform.png` 与 `artifacts/screenshots/p09-macos-x64-package.png`，已检查深色共享 token、中文/英文混排、原生窗口控制、导航、播放器和 x64 包内布局，无明显截断、重叠或应用级横向溢出。托盘下拉菜单、系统媒体键和睡眠/恢复未通过截图人工操作，继续标为未验证。P08 诊断截图、P07 Windows x64 歌词截图及历史 P05/P06 截图继续保留；任何单平台截图都不作为另一平台验收结论。

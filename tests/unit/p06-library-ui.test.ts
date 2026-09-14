@@ -68,6 +68,11 @@ describe('P06 收藏与歌单界面', () => {
             album: '专辑',
             duration: 60,
             streamUrl: `sonavi-media://media/${MEDIA_ID}`,
+            playback: {
+              streamMode: 'original',
+              seekMode: 'native',
+              reason: '测试原始音频。'
+            },
             starred: true
           }
         ]

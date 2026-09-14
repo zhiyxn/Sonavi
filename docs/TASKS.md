@@ -116,6 +116,40 @@ P02 基础提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`�
 - [x] 执行 lint、typecheck、test、build、当前平台 Electron 冒烟与目录包验证，并更新 TEST-REPORT/HANDOFF。
 - [ ] 在真实服务器、Windows 11、macOS Intel 与 Apple Silicon 分别验证歌词差异和 scrobble 行为。
 
+## P08：转码、网络策略与诊断（当前 macOS Intel 代码闸门已完成）
+
+- [x] 核对 OpenSubsonic `stream` / `transcodeOffset` 与 Electron Session 代理官方文档。
+- [x] 实现原始、MP3 兼容转码与自动策略；码率限定为 128/192/256/320 kbps。
+- [x] 自动策略只为已知直放类型保留一次转码回退句柄；AudioEngine 解码失败最多回退一次，不循环重试。
+- [x] 转码参数仅由 main 生成；renderer 只持有不透明句柄，不能指定上游 URL、格式或认证参数。
+- [x] 只有连接能力明确包含 `transcodeOffset` 时才开放转码 seek；否则禁用进度条并解释原因。
+- [x] `timeOffset` 换流后 AudioEngine 使用片段偏移加本地进度形成完整歌曲时间线，歌词和上报继续读取同一时间线。
+- [x] 系统代理、直连和手动代理三种模式互斥；API、封面与音频共享 `session.defaultSession`。
+- [x] 代理切换调用 `setProxy` 后关闭旧连接，撤销媒体句柄并停止当前播放；失败不回退直连。
+- [x] 实现 API、封面、原始音频、转码音频四阶段诊断，记录脱敏状态/类型/分类/耗时/建议。
+- [x] 识别 HTTP 200 协议错误体、401/403、异常内容、证书/网络错误与断流；导出限制为 200 条、256 KiB 内。
+- [x] 当前 macOS Intel 完成 88 项测试、生产构建、源码 Electron 冒烟、x64 目录包与包内完整冒烟、诊断截图。
+- [ ] 在真实 Navidrome/OpenSubsonic 验证服务器支持的转码格式、码率、失败体和 `transcodeOffset` 行为。
+- [ ] Windows 11 x64 与 macOS Apple Silicon arm64 分别验证代理、原始/转码播放、seek、诊断和截图。
+- [ ] P08 提交后运行 Windows x64、macOS Intel x64、macOS arm64 三目标 CI。
+
+## P09：桌面集成与性能（当前 macOS Intel 代码闸门已完成）
+
+- [x] 使用一个 BrowserWindow/renderer 作为唯一 AudioEngine 宿主；默认关闭只隐藏，不销毁播放宿主。
+- [x] 设置支持关闭时隐藏或真正退出；Windows/macOS 默认均为隐藏，托盘菜单提供单独“真正退出”。
+- [x] Tray/菜单栏提供显示、播放/暂停、上一首、下一首、真正退出；macOS Dock/应用激活显示既有窗口。
+- [x] 使用 Chromium Media Session 提供媒体信息和媒体键，不注册 Electron 全局媒体快捷键；Ctrl/Cmd+, 设置键按平台匹配，且与 Space 一样不截获编辑控件。
+- [x] sleep/lock 只暂停；resume/unlock 清旧连接、撤销媒体句柄并以新句柄恢复暂停队列，不自动续播。
+- [x] 在 `userData` 原子保存关闭动作、主题、音量、窗口状态与非敏感暂停队列；窗口状态按显示器裁剪。
+- [x] 暂停队列按 main 计算的账号哈希隔离，不保存凭据/sessionId/媒体 URL，恢复时重新生成句柄并默认暂停。
+- [x] 封面缓存按账号隔离，单项 5 MiB、单账号 128 MiB、LRU 淘汰并提供当前账号清空；音频不缓存。
+- [x] 固定 10,000 条合成艺术家记录验证窗口化渲染少于 20 个按钮，测试阈值 1 秒。
+- [x] 当前 macOS Intel 源码和 x64 目录包完成 P01～P09 冒烟、深色截图、关闭隐藏/恢复、队列跨重启和性能采样。
+- [ ] Windows 11 x64 与 macOS arm64 分别验证托盘、关闭/最小化/真正退出、媒体键、锁屏/睡眠、窗口恢复、截图和性能。
+- [ ] 当前 macOS Intel 人工点击托盘菜单、物理媒体键、锁屏/睡眠、真正退出与扬声器听音。
+- [ ] 使用真实大型资料库记录首屏、滚动、快速切歌、请求与内存趋势；合成数据不可替代生产测量。
+- [ ] P08/P09 提交后运行 Windows x64、macOS Intel x64、macOS arm64 三目标 CI。
+
 ## 后续阶段（顺序保留）
 
 跨阶段品牌资产：
@@ -129,8 +163,8 @@ P02 基础提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`�
 - [ ] P05：真实服务器、Windows 11 与 Apple Silicon 外部环境验证（本机代码闸门已完成）。
 - [ ] P06：真实服务器与各目标实机验证（实现提交 `a831be6` 的三目标 CI 已成功）。
 - [ ] P07：三目标 CI、真实服务器与各目标实机歌词/scrobble 验证（本机代码闸门已完成）。
-- [ ] P08：转码、网络策略与诊断。
-- [ ] P09：托盘/Dock、隐藏继续播放、真正退出、媒体键与性能。
+- [ ] P08：真实服务器、Windows 11、Apple Silicon 与三目标 CI 外部验证（当前 macOS Intel 代码闸门已完成）。
+- [ ] P09：Windows/Apple Silicon 实机、三目标 CI、人工托盘/媒体键/睡眠与真实大型资料库性能（当前 macOS Intel 代码闸门已完成）。
 - [ ] P10：安装包、签名/公证占位、兼容性与发布前审计。
 
 ## 尚需外部环境验证
@@ -142,4 +176,4 @@ P02 基础提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`�
 
 ## 当前闸门结论
 
-P01 已达到验收条件。P02～P07 的本机代码闸门已通过；用户实际服务已证明连接、首批专辑和播放可用，P07 的结构化歌词、高亮、旧版映射、now-playing/submission 与 seek 去重通过 75 项测试、受控 Electron fixture 和 Windows x64 目录包。P06 实现提交 `a831be6` 的三目标 CI 已成功；P07 实现提交 `9e599fa` 已推送，三目标 CI 待确认。真实服务器写权限/歌词差异、Windows 11 人工验收、macOS Intel/Apple Silicon、格式差异和物理听音仍未完成，因此不能宣称 P02～P07 双平台最终验收完成。
+P01 已达到验收条件。P02～P09 的当前代码闸门已通过；P09 在 macOS Intel 上通过 96 项测试、受控 Electron fixture、x64 目录打包及包内冒烟，证明同宿主隐藏/恢复、Media Session、状态/队列持久化、账号隔离封面缓存和受控性能采样可运行。P06 实现提交 `a831be6` 的三目标 CI 已成功；当前 P08/P09 尚未提交或运行三目标 CI。真实服务器/大型资料库、Windows 11、Apple Silicon、手工托盘/媒体键/睡眠、最低系统版本和物理听音仍未完成，因此不能宣称 P02～P09 双平台最终验收完成。

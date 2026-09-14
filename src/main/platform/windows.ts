@@ -5,8 +5,8 @@ export const windowsAdapter: PlatformAdapter = {
     platform: 'windows',
     platformLabel: 'Windows',
     shortcutModifier: 'Ctrl',
-    closeBehavior: 'quit',
-    canHideToBackground: false
+    closeBehavior: 'hide-window',
+    canHideToBackground: true
   },
   quitWhenAllWindowsClosed: true,
   createWindowOptions: () => ({

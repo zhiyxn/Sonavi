@@ -9,6 +9,6 @@ export const ApplicationInfoSchema = z.object({
   platform: SupportedPlatformSchema,
   platformLabel: z.string().min(1),
   shortcutModifier: z.enum(['Ctrl', 'Cmd']),
-  closeBehavior: z.enum(['quit', 'close-window']),
+  closeBehavior: z.enum(['hide-window', 'quit']),
   canHideToBackground: z.boolean()
 }) satisfies z.ZodType<ApplicationInfo>

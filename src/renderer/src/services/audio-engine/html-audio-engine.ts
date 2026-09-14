@@ -11,6 +11,7 @@ type AudioElementFactory = () => HTMLAudioElement
 
 const PLAYBACK_ERROR = '系统未能开始播放，请重试。'
 const STREAM_ERROR = '音频流加载失败。'
+const FALLBACK_NOTICE = '原始音频解码失败，正在进行一次兼容转码。'
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, value))
@@ -24,6 +25,9 @@ export class HtmlAudioEngine implements AudioEngine {
   private commandId = 0
   private endedGeneration = -1
   private playbackRequested = false
+  private timelineOffset = 0
+  private fallbackStreamUrl: string | null = null
+  private fallbackAttempted = false
   private snapshot: AudioEngineSnapshot = {
     generationId: 0,
     state: 'idle',
@@ -53,6 +57,9 @@ export class HtmlAudioEngine implements AudioEngine {
     this.commandId += 1
     this.endedGeneration = -1
     this.playbackRequested = autoplay
+    this.timelineOffset = source.timelineOffset ?? 0
+    this.fallbackStreamUrl = source.fallbackStreamUrl ?? null
+    this.fallbackAttempted = false
     this.disposeAudio()
 
     const audio = this.audioFactory()
@@ -64,7 +71,7 @@ export class HtmlAudioEngine implements AudioEngine {
       generationId,
       state: autoplay ? 'loading' : 'paused',
       trackId: source.trackId,
-      currentTime: 0,
+      currentTime: this.timelineOffset,
       duration: source.duration,
       errorMessage: ''
     }
@@ -82,7 +89,7 @@ export class HtmlAudioEngine implements AudioEngine {
     this.playbackRequested = true
     if (this.snapshot.state === 'ended') {
       this.audio.currentTime = 0
-      this.updateSnapshot({ currentTime: 0 })
+      this.updateSnapshot({ currentTime: this.timelineOffset })
     }
     this.updateSnapshot({ state: 'loading', errorMessage: '' })
     await this.tryPlay(this.snapshot.generationId)
@@ -101,7 +108,7 @@ export class HtmlAudioEngine implements AudioEngine {
     const maximum = this.snapshot.duration > 0 ? this.snapshot.duration : seconds
     const nextTime = clamp(seconds, 0, maximum)
     this.updateSnapshot({ state: 'seeking', currentTime: nextTime })
-    this.audio.currentTime = nextTime
+    this.audio.currentTime = Math.max(0, nextTime - this.timelineOffset)
   }
 
   setVolume(volume: number): void {
@@ -171,20 +178,34 @@ export class HtmlAudioEngine implements AudioEngine {
     on('stalled', () =>
       updateIfCurrent({ state: this.playbackRequested ? 'buffering' : 'paused' })
     )
-    on('seeking', () => updateIfCurrent({ state: 'seeking', currentTime: audio.currentTime }))
+    const fullTimelineTime = (): number => this.timelineOffset + audio.currentTime
+    on('seeking', () => updateIfCurrent({ state: 'seeking', currentTime: fullTimelineTime() }))
     on('seeked', () =>
       updateIfCurrent({
         state: this.playbackRequested && !audio.paused ? 'playing' : 'paused',
-        currentTime: audio.currentTime
+        currentTime: fullTimelineTime()
       })
     )
-    on('timeupdate', () => updateIfCurrent({ currentTime: audio.currentTime }))
+    on('timeupdate', () => updateIfCurrent({ currentTime: fullTimelineTime() }))
     on('durationchange', () => {
-      if (Number.isFinite(audio.duration) && audio.duration > 0) {
+      if (this.timelineOffset === 0 && Number.isFinite(audio.duration) && audio.duration > 0) {
         updateIfCurrent({ duration: audio.duration })
       }
     })
     on('error', () => {
+      if (this.fallbackStreamUrl && !this.fallbackAttempted) {
+        const shouldResume = this.playbackRequested
+        this.fallbackAttempted = true
+        audio.src = this.fallbackStreamUrl
+        updateIfCurrent({
+          state: shouldResume ? 'loading' : 'paused',
+          currentTime: 0,
+          errorMessage: FALLBACK_NOTICE
+        })
+        audio.load()
+        if (shouldResume) void this.tryPlay(generationId)
+        return
+      }
       this.playbackRequested = false
       updateIfCurrent({ state: 'error', errorMessage: STREAM_ERROR })
     })
