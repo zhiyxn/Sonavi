@@ -60,6 +60,6 @@ npm run build:mac:arm64
 
 产物写入 `release/<version>/`。当前配置生成未签名开发测试包，不发布 Release、不上传安装包。可以在当前主机用 `npm run pack:dir` 做最小目录打包检查，但跨平台打包成功不作为相应平台兼容证明。
 
-`.github/workflows/ci.yml` 为 Windows x64、macOS Intel x64 与 macOS Apple Silicon arm64 建立独立检查/打包 job，不上传产物。P06 提交 `a831be6` 的 run `34810276941` 三个目标全部成功；P07 本地提交 `9e599fa` 已通过当前 Windows x64 生产构建、Electron 冒烟和目录包冒烟，尚未推送进入三目标 CI。
+`.github/workflows/ci.yml` 为 Windows x64、macOS Intel x64 与 macOS Apple Silicon arm64 建立独立检查/打包 job，不上传产物。P06 提交 `a831be6` 的 run `34810276941` 三个目标全部成功；P07 实现提交 `9e599fa` 已推送并通过当前 Windows x64 生产构建、Electron 冒烟和目录包冒烟，三目标 CI 待确认。
 
 更多状态与边界见 [兼容性](docs/COMPATIBILITY.md)、[测试报告](docs/TEST-REPORT.md) 和 [交接](docs/HANDOFF.md)。

@@ -58,6 +58,6 @@ Windows ARM64、Linux、macOS Universal 合并包不属于首版强制交付。�
 
 ## CI 状态
 
-`.github/workflows/ci.yml` 使用 `windows-2025` x64、`macos-15-intel` x64 和 `macos-15` arm64 三个独立 runner。P06 提交 `a831be6` 的 run `34810276941` 三个 job 全部成功。品牌提交 `36802ec` 的 run `34811268194` 中 Windows x64 与 macOS Intel x64 成功，macOS arm64 Electron smoke 失败且公开 API 无日志权限；P07 本地提交为 `9e599fa`，尚未推送，后续 CI 需复核该 runner。Windows x64 build 26200 已提供 P07 本地生产构建、源码/目录包 Electron 冒烟与截图证据。macOS 15 CI 不能替代 macOS 13 最低版本实机验证，Windows runner 和当前主机自动化也不能替代安装器、物理听音与完整人工验收。
+`.github/workflows/ci.yml` 使用 `windows-2025` x64、`macos-15-intel` x64 和 `macos-15` arm64 三个独立 runner。P06 提交 `a831be6` 的 run `34810276941` 三个 job 全部成功。品牌提交 `36802ec` 的 run `34811268194` 中 Windows x64 与 macOS Intel x64 成功，macOS arm64 Electron smoke 失败且公开 API 无日志权限；P07 实现提交 `9e599fa` 已推送，后续 CI 需复核该 runner。Windows x64 build 26200 已提供 P07 本地生产构建、源码/目录包 Electron 冒烟与截图证据。macOS 15 CI 不能替代 macOS 13 最低版本实机验证，Windows runner 和当前主机自动化也不能替代安装器、物理听音与完整人工验收。
 
 来源：https://docs.github.com/en/actions/reference/runners/github-hosted-runners

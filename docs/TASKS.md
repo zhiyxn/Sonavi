@@ -142,4 +142,4 @@ P02 基础提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`�
 
 ## 当前闸门结论
 
-P01 已达到验收条件。P02～P07 的本机代码闸门已通过；用户实际服务已证明连接、首批专辑和播放可用，P07 的结构化歌词、高亮、旧版映射、now-playing/submission 与 seek 去重通过 75 项测试、受控 Electron fixture 和 Windows x64 目录包。P06 实现提交 `a831be6` 的三目标 CI 已成功；P07 本地提交为 `9e599fa`，尚未推送或进入 CI。真实服务器写权限/歌词差异、Windows 11 人工验收、macOS Intel/Apple Silicon、格式差异和物理听音仍未完成，因此不能宣称 P02～P07 双平台最终验收完成。
+P01 已达到验收条件。P02～P07 的本机代码闸门已通过；用户实际服务已证明连接、首批专辑和播放可用，P07 的结构化歌词、高亮、旧版映射、now-playing/submission 与 seek 去重通过 75 项测试、受控 Electron fixture 和 Windows x64 目录包。P06 实现提交 `a831be6` 的三目标 CI 已成功；P07 实现提交 `9e599fa` 已推送，三目标 CI 待确认。真实服务器写权限/歌词差异、Windows 11 人工验收、macOS Intel/Apple Silicon、格式差异和物理听音仍未完成，因此不能宣称 P02～P07 双平台最终验收完成。
