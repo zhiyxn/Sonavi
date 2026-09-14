@@ -78,6 +78,10 @@ function installPlatformApi(platform: 'windows' | 'macos'): void {
         ok: false,
         error: { code: 'not-connected', message: 'not used', retryable: false }
       })
+    },
+    playback: {
+      getLyrics: async () => ({ ok: true, value: { source: 'none', variants: [] } }),
+      report: async () => ({ ok: true, value: { reported: true } })
     }
   }
 

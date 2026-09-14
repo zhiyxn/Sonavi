@@ -56,6 +56,10 @@ describe('ConnectPanel', () => {
           createPlaylist: vi.fn(),
           updatePlaylist: vi.fn(),
           deletePlaylist: vi.fn()
+        },
+        playback: {
+          getLyrics: vi.fn(),
+          report: vi.fn()
         }
       } satisfies SonaviApi,
       configurable: true

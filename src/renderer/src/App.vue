@@ -16,6 +16,7 @@ import type { ApplicationInfo } from '../../shared/application'
 import type { ConnectionSuccessResult } from '../../shared/connection'
 import { useSessionStore } from './stores/session'
 import { usePlayerStore } from './stores/player'
+import { usePlaybackReporting } from './composables/use-playback-reporting'
 
 const applicationInfo = ref<ApplicationInfo | null>(null)
 const loadingError = ref('')
@@ -23,6 +24,7 @@ const startupPending = ref(true)
 const sessionActionError = ref('')
 const session = useSessionStore()
 const player = usePlayerStore()
+const { errorMessage: playbackReportError } = usePlaybackReporting()
 const queryClient = useQueryClient()
 type ApplicationView = 'home' | 'albums' | 'artists' | 'search' | 'favorites' | 'playlists' | 'settings'
 const activeView = ref<ApplicationView>('home')
@@ -217,6 +219,6 @@ async function handleForget(): Promise<void> {
       </div>
     </section>
 
-    <PlayerBar />
+    <PlayerBar :reporting-error="playbackReportError" />
   </main>
 </template>

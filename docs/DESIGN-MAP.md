@@ -41,4 +41,4 @@
 - macOS Intel x64：必须在 Intel Mac 单独启动并截图。
 - macOS Apple Silicon arm64：必须在 Apple Silicon Mac 单独启动 arm64 包并截图。
 
-当前 P06 Windows x64 目录包截图位于 `artifacts/screenshots/p06-windows-x64-package.png`，已检查 960×640 下的歌单详情、表单、操作按钮、歌曲列表与播放器，无明显截断、重叠或应用级横向溢出。历史 P05 macOS Intel 与 Windows 截图继续保留；本地截图不作为另一平台验收结论。
+当前 P07 Windows x64 目录包截图位于 `artifacts/screenshots/p07-windows-x64-package.png` 与 `artifacts/screenshots/p07-lyrics-windows-x64-package.png`，已检查 960×640 下的歌词浮层、多行文本、活动行高亮、播放器和既有歌单页面，无明显截断、重叠或应用级横向溢出。历史 P05/P06 截图继续保留；本地截图不作为另一平台验收结论。

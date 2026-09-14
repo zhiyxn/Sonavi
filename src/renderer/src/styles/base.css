@@ -367,13 +367,15 @@ button.nav-item {
 
 .player-controls button,
 .player-utilities button,
-.queue-panel button {
+.queue-panel button,
+.lyrics-panel button {
   color: var(--sonavi-night-secondary);
 }
 
 .player-controls button:hover,
 .player-utilities button:hover,
 .queue-panel button:hover,
+.lyrics-panel button:hover,
 .player-controls .control-active {
   color: #fffaf0;
   background: rgb(255 255 255 / 9%);
@@ -405,6 +407,96 @@ button.nav-item {
   color: #f3f0e7;
   background: #272a24;
   box-shadow: 0 20px 60px rgb(0 0 0 / 25%);
+}
+
+.lyrics-panel {
+  position: absolute;
+  right: 24px;
+  bottom: calc(100% + 12px);
+  z-index: 10;
+  width: min(520px, calc(100vw - 48px));
+  max-height: min(620px, calc(100vh - var(--sonavi-player-height) - 36px));
+  overflow: hidden;
+  border: 1px solid #3e4138;
+  border-radius: var(--sonavi-card-radius);
+  color: #f3f0e7;
+  background: #272a24;
+  box-shadow: 0 20px 60px rgb(0 0 0 / 25%);
+}
+
+.lyrics-panel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border-bottom: 1px solid #3e4138;
+}
+
+.lyrics-panel h2,
+.lyrics-panel p {
+  margin: 0;
+}
+
+.lyrics-panel h2 {
+  font-size: 16px;
+}
+
+.lyrics-message {
+  display: grid;
+  min-height: 180px;
+  place-items: center;
+  gap: 12px;
+  padding: 28px 20px;
+  color: var(--sonavi-night-secondary);
+  text-align: center;
+}
+
+.lyrics-variant {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px 0;
+  color: var(--sonavi-night-secondary);
+  font-size: 12px;
+}
+
+.lyrics-variant select {
+  max-width: 220px;
+  padding: 6px 28px 6px 10px;
+  border: 1px solid #505348;
+  border-radius: 8px;
+  color: #f3f0e7;
+  background: #30332c;
+}
+
+.lyrics-credit {
+  padding: 10px 16px 0;
+  color: var(--sonavi-night-secondary);
+  font-size: 11px;
+}
+
+.lyrics-lines {
+  max-height: 440px;
+  margin: 0;
+  padding: 18px 24px 28px;
+  overflow: auto;
+  list-style: none;
+  text-align: center;
+}
+
+.lyrics-lines li {
+  padding: 7px 0;
+  color: #babbb3;
+  font-size: 14px;
+  line-height: 1.55;
+  transition: color 120ms ease;
+}
+
+.lyrics-lines.synced li.active {
+  color: var(--sonavi-accent-subtle);
+  font-weight: 650;
 }
 
 .queue-panel header {
@@ -481,6 +573,10 @@ button.nav-item {
 
 .player-error {
   color: #ef9f91 !important;
+}
+
+.player-report-warning {
+  color: #e6c787 !important;
 }
 
 .phase-pill {

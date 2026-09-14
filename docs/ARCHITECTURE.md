@@ -38,7 +38,7 @@
 
 BrowserWindow 固定 `contextIsolation=true`、`sandbox=true`、`nodeIntegration=false`、`webSecurity=true`、`webviewTag=false`、`allowRunningInsecureContent=false`、`navigateOnDragDrop=false` 并使用原生 frame。CSP 以 `default-src 'none'` 默认拒绝，仅逐项开放本地脚本/样式、媒体 scheme 与开发 localhost WebSocket，并拒绝 frame ancestor。main 默认拒绝权限请求、窗口打开和应用外导航。
 
-应用信息、连接与音乐库 IPC 同时执行：主 frame/所属 BrowserWindow 检查、开发 origin 或打包后精确文件路径检查、输入/返回数据 Zod 校验。renderer 再校验返回值。连接 IPC 只接受服务器地址、用户名、一次性密码和两个布尔选项；音乐库 IPC 只接受不透明会话 ID、受限资源 ID、分页参数及 P06 明确列出的收藏/歌单变更，不提供任意 URL 请求能力。
+应用信息、连接、音乐库与播放辅助 IPC 同时执行：主 frame/所属 BrowserWindow 检查、开发 origin 或打包后精确文件路径检查、输入/返回数据 Zod 校验。renderer 再校验返回值。连接 IPC 只接受服务器地址、用户名、一次性密码和两个布尔选项；音乐库 IPC 只接受不透明会话 ID、受限资源 ID、分页参数及 P06 明确列出的收藏/歌单变更；P07 歌词/上报只接受当前会话、曲目 ID、纯文本歌曲元数据、布尔 submission 和安全整数时间，不提供任意 URL 请求能力。
 
 P02 的连接客户端位于 `src/main/services/opensubsonic/`，使用 Electron Session 的 Chromium 网络栈，禁止自动重定向并限制 JSON 响应为 1 MiB。认证按每次请求独立 salt 生成 token，明文密码不进入 URL、日志、renderer store 或持久化文件。`ping` 成功后探测 OpenSubsonic 扩展与音乐文件夹；旧服务器缺少扩展端点时可降级，认证和音乐库权限失败不能伪装成功。
 
@@ -69,6 +69,14 @@ P04 队列只存在于当前 renderer 会话。恢复持久化队列时必须重
 歌单读取使用 `getPlaylists` / `getPlaylist`，写入使用 `createPlaylist` / `updatePlaylist` / `deletePlaylist`。协议重复参数由 URL 构造器按原顺序追加；创建/追加保留队列重复项，删除歌曲传递服务端歌单中的零基索引，从而能精确删除某一个重复项。旧服务器在创建或其他写操作成功时可以只返回空成功响应，因此 mutation 只返回受校验的 `{ changed: true }`，随后通过固定读取端点刷新服务器事实。
 
 凭据仍只存在于 main；renderer 不能选择端点或参数名，只能提交受限 sessionId、资源 ID、名称、公开布尔值、歌曲 ID 数组和非负索引。P06 不持久化收藏/歌单副本，也不引入平台分叉、原生依赖、歌词、scrobble 或后台播放宿主。
+
+## P07 歌词与播放上报
+
+连接成功后，`ConnectionService` 在 main 内同时保存凭据和经过协议校验的服务器能力副本。`PlaybackService` 只在能力列表声明 `songLyrics` 时调用 `getLyricsBySongId`；否则调用兼容的 `getLyrics`。结构化响应保留多个歌词版本、语言、offset、同步标记和毫秒行时间；`xxx`/`und` 作为未指定语言处理。未请求 songLyrics v2 的 enhanced cue/翻译能力，旧版歌词按换行映射为非同步行。
+
+`LyricsPanel.vue` 通过 TanStack Query 按 session + track 缓存歌词，直接读取唯一 player store 的 AudioEngine 进度；活动行判断使用 `startMs + offsetMs <= currentTimeMs`。浮层覆盖同步/非同步、多版本、加载、空、错误和重试状态，队列与歌词浮层互斥，避免窄窗口相互遮挡。
+
+播放上报控制器不依赖播放器组件生命周期。队列项首次真正进入 `playing` 时发送 `scrobble(submission=false)` 并记录开始时间；仅累计相邻不超过 5 秒的正向播放进度，seek、倒退和大幅跳转不计入听取时长。累计达到 `min(duration × 50%, 240 秒)` 时发送一次 `submission=true`，两次上报使用同一播放开始时间，并按 `queueEntryId` 去重。失败只显示非阻断状态，不停止 AudioEngine。P07 不持久化上报队列，离线重试、后台宿主与队列恢复仍留待后续阶段。
 
 ## 平台生命周期规则
 

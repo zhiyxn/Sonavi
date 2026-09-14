@@ -1,7 +1,7 @@
-# P06 收藏与歌单测试报告
+# P07 歌词与播放上报测试报告
 
 更新日期：2026-09-14
-状态：P01～P06 本机代码闸门通过；P06 实现提交 `a831be6` 已推送，Windows x64 源码与目录包受控验证成功，当前三目标 CI、真实服务器写操作与目标系统实机待验证
+状态：P01～P07 本机代码闸门通过；P07 尚未提交，Windows x64 源码与目录包受控验证成功，当前三目标 CI、真实服务器歌词/scrobble 与目标系统实机待验证
 
 ## 测试环境
 
@@ -16,7 +16,8 @@
 - P03 分页修复提交：`f2a39c9`（本地与 `origin/main` 对齐；本轮未取得 CI 运行编号）
 - P04 提交：`3b3fca2`（本地 `main` 与 `origin/main` 对齐；CI 编号未核实）
 - P05 提交：`b8b61d5`（本地与 `origin/main` 对齐；run `34798063277` 三目标成功）
-- P06 实现提交：`a831be6`（已推送至 `origin/main`；三目标 CI 结论待确认）
+- P06 实现提交：`a831be6`（已推送至 `origin/main`；run `34810276941` 三目标成功）
+- P07：当前工作区未提交实现（基线 `36802ec`）
 
 ## P01 远端 CI 证据
 
@@ -36,11 +37,11 @@ GitHub Actions run：`34749707166`，结论 `success`，运行页面：https://g
 | --- | --- | --- |
 | `npm run lint` | 通过 | ESLint 10.10.0，0 warning |
 | `npm run typecheck` | 通过 | main/preload、renderer、tests 三组通过 |
-| `npm test` | 通过 | 14 个文件、67 项测试通过 |
+| `npm test` | 通过 | 17 个文件、75 项测试通过 |
 | `npm run build` | 通过 | main、preload CJS、renderer 构建成功 |
-| `npm run test:e2e` | 通过 | 真实 Electron 连接本地 fixture；既有 P02～P05 流程与 P06 收藏同步、歌单 CRUD、重复歌曲索引移除全部通过 |
-| `npm run pack:dir` | 通过 | 重新生成包含 P06 的 Windows x64 `release/0.1.0/win-unpacked` |
-| 包内 Electron 冒烟 | 通过 | Windows x64 目录包完成连接、P02～P05 回归、P06 收藏/歌单、会话/凭据、safeStorage、960×640 布局与截图 |
+| `npm run test:e2e` | 通过 | 真实 Electron 连接本地 fixture；既有 P02～P06 流程与 P07 结构化歌词、高亮、now-playing/submission、seek 过滤全部通过 |
+| `npm run pack:dir` | 通过 | 重新生成包含 P07 的 Windows x64 `release/0.1.0/win-unpacked` |
+| 包内 Electron 冒烟 | 通过 | Windows x64 目录包完成连接、P02～P06 回归、P07 歌词/上报、会话/凭据、safeStorage、960×640 布局与截图 |
 | 品牌图标 | 通过（Windows x64 目录包） | renderer Logo 加载检查通过；`Sonavi.exe` 提取出的 32×32 图标与指定橙色音符一致；NSIS 与 macOS 待验证 |
 
 ## P02/P03 覆盖范围
@@ -65,6 +66,10 @@ GitHub Actions run：`34749707166`，结论 `success`，运行页面：https://g
 - P06 歌单：覆盖列表/详情、空歌单创建、重命名、公开状态、删除、按队列顺序重复追加、按零基索引精确移除重复歌曲和整单播放。
 - P06 契约：共享类型、main IPC 输入/输出与 renderer 返回值均经 Zod 校验；重复 URL 参数保留原顺序，旧版写端点空成功响应可接受。
 - P06 失败：单元与 Electron fixture 覆盖无会话和协议权限/错误映射；断开连接沿用既有查询清理、播放器停止、媒体句柄撤销与活动请求取消。
+- P07 歌词：覆盖 `getLyricsBySongId` 多版本/同步时间/offset/未指定语言映射，以及 `getLyrics` 换行文本兼容；main 根据已验证的 `songLyrics` 能力选择固定端点。
+- P07 界面：组件测试和 Electron fixture 覆盖结构化歌词读取、进度高亮、纯文本/空/错误基础状态与重试入口；960×640 歌词浮层目视无截断或应用级横向溢出。
+- P07 上报：首次 `playing` 发送 now-playing；累计相邻真实播放进度达到 50%/240 秒阈值后发送 submission；测试覆盖 seek 跳跃忽略、同一队列项去重和重复 trackId 的不同 queueEntryId 隔离。
+- P07 契约：歌词与上报请求/响应在 preload 两侧经 Zod 校验；凭据、salt/token 与上游 URL 继续不进入 renderer 或日志。
 
 ## 分平台结果
 
@@ -90,6 +95,9 @@ GitHub Actions run：`34749707166`，结论 `success`，运行页面：https://g
 | P06 收藏/歌单自动化 | 当前 Windows x64 主机源码与目录包通过 | 未验证：P06 尚未在 Intel Mac 运行 | 未验证：无实机 |
 | P06 UI 截图 | Windows x64 目录包截图目视通过；Windows 11 正式版本/安装器待验证 | 未验证 | 未验证 |
 | P06 真实服务器写操作 | 未验证 | 未验证 | 未验证 |
+| P07 歌词/上报自动化 | 当前 Windows x64 主机源码与目录包通过 | 未验证 | 未验证 |
+| P07 UI 截图 | Windows x64 目录包歌词浮层目视通过；Windows 11 正式版本/安装器待验证 | 未验证 | 未验证 |
+| P07 真实服务器歌词/scrobble | 未验证 | 未验证 | 未验证 |
 
 ## 安全检查
 
@@ -110,17 +118,20 @@ GitHub Actions run：`34749707166`，结论 `success`，运行页面：https://g
 - [x] P06 收藏/歌单 IPC 仍为固定端点；资源 ID、名称、布尔值、歌曲数组和非负索引均有运行时上下界校验。
 - [x] P06 凭据继续只由 main 使用；renderer 不获得认证参数、任意端点或原始服务 URL 请求能力。
 - [x] P06 mutation 失败保留服务器查询数据；成功后只失效当前会话相关查询，不落盘或乐观伪造收藏/歌单实体。
+- [x] P07 只暴露固定 `getLyrics` / `report` 方法；main 依据保存的能力选择端点，renderer 不能指定 URL、端点或认证参数。
+- [x] P07 歌词文本、语言、offset、行时间以及 session/track/time/submission 均有运行时长度、类型和数值边界校验。
+- [x] 播放上报失败不影响音频，不记录凭据；seek 跳跃不伪造听取时长，同一 queueEntryId 不重复提交。
 - [x] 队列落盘、托盘、后台宿主和媒体键未提前实现，仍属于 P09。
 
 ## 截图证据
 
 - macOS Intel x64：历史 P05 开发构建与目录包截图已检查；P06 未在该平台运行或截图。
-- Windows x64：当前 build 26200 主机已生成并目视检查 `artifacts/screenshots/p06-windows-x64-package.png` 与 `logo-windows-x64-package.png`；歌单页在 960×640 无明显截断、重叠或应用级横向溢出，侧栏 Logo 清晰可见。P06 未生成/安装 NSIS，系统正式版本与物理听音仍待人工确认。
+- Windows x64：当前 build 26200 主机已生成并目视检查 `artifacts/screenshots/p07-windows-x64-package.png`、`p07-lyrics-windows-x64-package.png` 与历史 Logo 截图；歌词浮层在 960×640 无明显截断、重叠或应用级横向溢出，0:02 正确高亮第二行。P07 未生成/安装 NSIS，系统正式版本与物理听音仍待人工确认。
 - macOS Apple Silicon arm64：未验证，无 Apple Silicon 实机。
 
 ## 当前结论
 
-P06 收藏与歌单实现已通过当前 Windows x64 主机的 lint、类型检查、67 项测试、生产构建、源码 Electron fixture、目录打包和包内完整冒烟，且既有 P02～P05 链路未回归。实现提交 `a831be6` 已推送，当前三目标 CI 结果尚未确认，也未对用户实际服务执行写操作；Windows 11 正式版本/安装器、macOS Intel/Apple Silicon、不同服务端权限与大歌单差异仍未验证，因此当前结论是“本机代码闸门通过”，不是三平台最终验收完成。
+P07 歌词与播放上报已通过当前 Windows x64 主机的 lint、类型检查、75 项测试、生产构建、源码 Electron fixture、目录打包和包内完整冒烟，且既有 P02～P06 链路未回归。P07 尚未提交或进入三目标 CI，也未对用户实际服务读取歌词或发送 scrobble；Windows 11 正式版本/安装器、macOS Intel/Apple Silicon、不同服务端歌词格式与上报语义仍未验证，因此当前结论是“本机代码闸门通过”，不是三平台最终验收完成。
 
 ## 已观察的非阻断提示
 

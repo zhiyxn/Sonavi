@@ -105,6 +105,17 @@ P02 基础提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`�
 - [x] 执行 lint、typecheck、test、build、当前平台 Electron 冒烟和目录包验证；更新 TEST-REPORT/HANDOFF。
 - [ ] 真实服务器、Windows 11、macOS Intel 与 Apple Silicon 分别验证写权限和服务端差异。
 
+## P07：歌词与播放上报（本机代码闸门已完成）
+
+- [x] 核对 OpenSubsonic `getLyricsBySongId`、`getLyrics` 与 `scrobble` 官方协议。
+- [x] 定义歌词和播放上报共享类型、Zod schema 与固定 IPC/preload 契约。
+- [x] main 根据已探测的 `songLyrics` 能力选择结构化或旧版歌词端点，凭据继续只由 main 使用。
+- [x] renderer 实现同步高亮、非同步歌词、歌词变体及加载/空/错误/重试界面。
+- [x] 按真实播放累计时间发送 now-playing 与完成上报，忽略 seek 跳跃并按队列项去重。
+- [x] 补充协议、服务、组件、上报控制器与 Electron fixture 测试。
+- [x] 执行 lint、typecheck、test、build、当前平台 Electron 冒烟与目录包验证，并更新 TEST-REPORT/HANDOFF。
+- [ ] 在真实服务器、Windows 11、macOS Intel 与 Apple Silicon 分别验证歌词差异和 scrobble 行为。
+
 ## 后续阶段（顺序保留）
 
 跨阶段品牌资产：
@@ -116,8 +127,8 @@ P02 基础提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`�
 - [ ] P03：外部服务器分页/格式及另两目标实机验证（本机实现已完成）。
 - [ ] P04：Windows 11、Apple Silicon 与真实服务器队列/事件差异验证（本机代码闸门已完成）。
 - [ ] P05：真实服务器、Windows 11 与 Apple Silicon 外部环境验证（本机代码闸门已完成）。
-- [ ] P06：真实服务器、提交 `a831be6` 的三目标 CI 与各目标实机验证（本机代码闸门已完成）。
-- [ ] P07：歌词与播放上报。
+- [ ] P06：真实服务器与各目标实机验证（实现提交 `a831be6` 的三目标 CI 已成功）。
+- [ ] P07：三目标 CI、真实服务器与各目标实机歌词/scrobble 验证（本机代码闸门已完成）。
 - [ ] P08：转码、网络策略与诊断。
 - [ ] P09：托盘/Dock、隐藏继续播放、真正退出、媒体键与性能。
 - [ ] P10：安装包、签名/公证占位、兼容性与发布前审计。
@@ -131,4 +142,4 @@ P02 基础提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`�
 
 ## 当前闸门结论
 
-P01 已达到验收条件。P02～P06 的本机代码闸门已通过；用户实际服务已证明连接、首批专辑和播放可用，P06 收藏同步与歌单 CRUD/重复项索引通过受控 Electron fixture 和 Windows x64 目录包。P06 实现提交 `a831be6` 已推送，三目标 CI 结果尚未确认；真实服务器写权限、Windows 11 人工验收、macOS Intel/Apple Silicon、格式差异和物理听音仍未完成，因此不能宣称 P02～P06 双平台最终验收完成。
+P01 已达到验收条件。P02～P07 的本机代码闸门已通过；用户实际服务已证明连接、首批专辑和播放可用，P07 的结构化歌词、高亮、旧版映射、now-playing/submission 与 seek 去重通过 75 项测试、受控 Electron fixture 和 Windows x64 目录包。P06 实现提交 `a831be6` 的三目标 CI 已成功；P07 尚未提交或进入 CI。真实服务器写权限/歌词差异、Windows 11 人工验收、macOS Intel/Apple Silicon、格式差异和物理听音仍未完成，因此不能宣称 P02～P07 双平台最终验收完成。

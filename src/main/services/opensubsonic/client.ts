@@ -17,6 +17,7 @@ import type {
   StarTargetType,
   TrackSummary
 } from '../../../shared/library'
+import type { LyricsPayload, LyricsVariant } from '../../../shared/playback'
 import {
   buildEndpointUrl,
   type ConnectionEndpoint,
@@ -84,6 +85,28 @@ const PlaylistSchema = z.object({
   changed: z.string().optional()
 })
 
+const StructuredLyricsSchema = z.object({
+  displayArtist: z.string().optional(),
+  displayTitle: z.string().optional(),
+  lang: z.string().optional(),
+  offset: z.number().int().default(0),
+  synced: z.boolean(),
+  line: z
+    .array(
+      z.object({
+        start: z.number().int().nonnegative().optional(),
+        value: z.string()
+      })
+    )
+    .default([])
+})
+
+const LegacyLyricsSchema = z.object({
+  artist: z.string().optional(),
+  title: z.string().optional(),
+  value: z.string().default('')
+})
+
 const SubsonicResponseSchema = z.object({
   'subsonic-response': z.object({
     status: z.enum(['ok', 'failed']),
@@ -135,7 +158,11 @@ const SubsonicResponseSchema = z.object({
       })
       .optional(),
     playlists: z.object({ playlist: z.array(PlaylistSchema).default([]) }).optional(),
-    playlist: PlaylistSchema.extend({ entry: z.array(TrackSchema).default([]) }).optional()
+    playlist: PlaylistSchema.extend({ entry: z.array(TrackSchema).default([]) }).optional(),
+    lyricsList: z
+      .object({ structuredLyrics: z.array(StructuredLyricsSchema).default([]) })
+      .optional(),
+    lyrics: LegacyLyricsSchema.optional()
   })
 })
 
@@ -328,6 +355,26 @@ function mapPlaylist(playlist: z.infer<typeof PlaylistSchema>): PlaylistSummary 
     ...(playlist.comment !== undefined ? { comment: playlist.comment } : {}),
     ...(playlist.created ? { created: playlist.created } : {}),
     ...(playlist.changed ? { changed: playlist.changed } : {})
+  }
+}
+
+function normalizeLyricsLanguage(language: string | undefined): string | undefined {
+  if (!language || language === 'xxx' || language === 'und') return undefined
+  return language
+}
+
+function mapStructuredLyrics(lyrics: z.infer<typeof StructuredLyricsSchema>): LyricsVariant {
+  const language = normalizeLyricsLanguage(lyrics.lang)
+  return {
+    ...(lyrics.displayArtist ? { displayArtist: lyrics.displayArtist } : {}),
+    ...(lyrics.displayTitle ? { displayTitle: lyrics.displayTitle } : {}),
+    ...(language ? { language } : {}),
+    offsetMs: lyrics.offset,
+    synced: lyrics.synced,
+    lines: lyrics.line.map((line) => ({
+      ...(line.start !== undefined ? { startMs: line.start } : {}),
+      value: line.value
+    }))
   }
 }
 
@@ -585,6 +632,62 @@ export class OpenSubsonicClient {
     playlistId: string
   ): Promise<void> {
     await this.request('deletePlaylist', baseUrl, username, password, { id: playlistId })
+  }
+
+  async getLyricsBySongId(
+    baseUrl: string,
+    username: string,
+    password: string,
+    trackId: string
+  ): Promise<LyricsPayload> {
+    const response = await this.request('getLyricsBySongId', baseUrl, username, password, {
+      id: trackId
+    })
+    const variants = (response.lyricsList?.structuredLyrics ?? []).map(mapStructuredLyrics)
+    return { source: variants.length > 0 ? 'structured' : 'none', variants }
+  }
+
+  async getLyrics(
+    baseUrl: string,
+    username: string,
+    password: string,
+    artist: string,
+    title: string
+  ): Promise<LyricsPayload> {
+    const response = await this.request('getLyrics', baseUrl, username, password, {
+      artist,
+      title
+    })
+    const lyrics = response.lyrics
+    if (!lyrics?.value) return { source: 'none', variants: [] }
+
+    return {
+      source: 'legacy',
+      variants: [
+        {
+          ...(lyrics.artist ? { displayArtist: lyrics.artist } : {}),
+          ...(lyrics.title ? { displayTitle: lyrics.title } : {}),
+          offsetMs: 0,
+          synced: false,
+          lines: lyrics.value.split(/\r?\n/).map((value) => ({ value }))
+        }
+      ]
+    }
+  }
+
+  async scrobble(
+    baseUrl: string,
+    username: string,
+    password: string,
+    trackId: string,
+    submission: boolean,
+    playedAtMs: number
+  ): Promise<void> {
+    await this.request('scrobble', baseUrl, username, password, {
+      id: trackId,
+      time: playedAtMs,
+      submission
+    })
   }
 
   private async request(

@@ -20,6 +20,9 @@ export type ConnectionEndpoint =
   | 'createPlaylist'
   | 'updatePlaylist'
   | 'deletePlaylist'
+  | 'getLyricsBySongId'
+  | 'getLyrics'
+  | 'scrobble'
   | 'getCoverArt'
   | 'stream'
 

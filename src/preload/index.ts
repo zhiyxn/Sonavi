@@ -29,6 +29,12 @@ import {
   type SetStarredRequest,
   type UpdatePlaylistRequest
 } from '../shared/library'
+import {
+  GET_LYRICS_CHANNEL,
+  REPORT_PLAYBACK_CHANNEL,
+  type LyricsRequest,
+  type PlaybackReportRequest
+} from '../shared/playback'
 
 const sonaviApi: SonaviApi = Object.freeze({
   application: Object.freeze({
@@ -62,6 +68,10 @@ const sonaviApi: SonaviApi = Object.freeze({
       ipcRenderer.invoke(UPDATE_PLAYLIST_CHANNEL, request),
     deletePlaylist: (request: DeletePlaylistRequest) =>
       ipcRenderer.invoke(DELETE_PLAYLIST_CHANNEL, request)
+  }),
+  playback: Object.freeze({
+    getLyrics: (request: LyricsRequest) => ipcRenderer.invoke(GET_LYRICS_CHANNEL, request),
+    report: (request: PlaybackReportRequest) => ipcRenderer.invoke(REPORT_PLAYBACK_CHANNEL, request)
   })
 })
 

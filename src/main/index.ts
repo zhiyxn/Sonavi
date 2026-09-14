@@ -62,6 +62,19 @@ import {
   StarredLibraryResultSchema,
   UpdatePlaylistRequestSchema
 } from '../shared/library-schema'
+import {
+  GET_LYRICS_CHANNEL,
+  REPORT_PLAYBACK_CHANNEL,
+  type LyricsPayload,
+  type PlaybackReportSuccess,
+  type PlaybackResult
+} from '../shared/playback'
+import {
+  LyricsRequestSchema,
+  LyricsResultSchema,
+  PlaybackReportRequestSchema,
+  PlaybackReportResultSchema
+} from '../shared/playback-schema'
 import { getPlatformAdapter } from './platform'
 import { assertTrustedIpcSender, isTrustedRendererUrl } from './security/trusted-renderer'
 import {
@@ -74,6 +87,7 @@ import { MediaHandleRegistry } from './services/media-handle-registry'
 import { MediaProtocolService } from './services/media-protocol'
 import { OpenSubsonicClient } from './services/opensubsonic/client'
 import { ElectronSessionTransport } from './services/opensubsonic/transport'
+import { PlaybackService } from './services/playback-service'
 
 const platformAdapter = getPlatformAdapter(process.platform)
 
@@ -382,6 +396,48 @@ function registerLibraryIpc(libraryService: LibraryService): void {
   })
 }
 
+function registerPlaybackIpc(playbackService: PlaybackService): void {
+  ipcMain.handle(GET_LYRICS_CHANNEL, async (event, rawRequest: unknown) => {
+    assertTrustedIpcSender(event)
+    const request = LyricsRequestSchema.safeParse(rawRequest)
+    if (!request.success) {
+      const invalid: PlaybackResult<LyricsPayload> = {
+        ok: false,
+        error: { code: 'invalid-input', message: '歌词请求参数无效。', retryable: false }
+      }
+      return invalid
+    }
+    return LyricsResultSchema.parse(
+      await playbackService.getLyrics(
+        request.data.sessionId,
+        request.data.trackId,
+        request.data.artist,
+        request.data.title
+      )
+    )
+  })
+
+  ipcMain.handle(REPORT_PLAYBACK_CHANNEL, async (event, rawRequest: unknown) => {
+    assertTrustedIpcSender(event)
+    const request = PlaybackReportRequestSchema.safeParse(rawRequest)
+    if (!request.success) {
+      const invalid: PlaybackResult<PlaybackReportSuccess> = {
+        ok: false,
+        error: { code: 'invalid-input', message: '播放上报参数无效。', retryable: false }
+      }
+      return invalid
+    }
+    return PlaybackReportResultSchema.parse(
+      await playbackService.report(
+        request.data.sessionId,
+        request.data.trackId,
+        request.data.submission,
+        request.data.playedAtMs
+      )
+    )
+  })
+}
+
 function installSecurityPolicies(): void {
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
     callback(false)
@@ -442,6 +498,7 @@ void app.whenReady().then(() => {
   )
   const mediaHandles = new MediaHandleRegistry()
   const libraryService = new LibraryService(connectionService, client, mediaHandles)
+  const playbackService = new PlaybackService(connectionService, client)
   const mediaProtocol = new MediaProtocolService(
     connectionService,
     mediaHandles,
@@ -451,6 +508,7 @@ void app.whenReady().then(() => {
   protocol.handle('sonavi-media', (request) => mediaProtocol.handle(request))
   registerConnectionIpc(connectionService, mediaHandles, mediaProtocol, libraryService)
   registerLibraryIpc(libraryService)
+  registerPlaybackIpc(playbackService)
   Menu.setApplicationMenu(Menu.buildFromTemplate(platformAdapter.createMenuTemplate(app.name)))
   createMainWindow()
 

@@ -49,14 +49,15 @@ Windows ARM64、Linux、macOS Universal 合并包不属于首版强制交付。�
 - P04 未增加依赖或原生模块。状态机、队列、随机历史和 UI 都位于共享 TypeScript/Vue renderer；使用浏览器标准 HTMLAudioElement、EventTarget 与 Web Crypto `randomUUID`。当前 Intel Mac 已验证，Windows 11 与 Apple Silicon 仍需实机验证相同媒体事件次序和音频输出。
 - P05 未增加依赖或原生模块。`getAlbumList2`、`getArtists`、`getArtist`、`search3` 使用共享 Electron Session 客户端；窗口化列表、防抖和 Query 取消位于共享 Vue renderer，Windows/macOS 不存在页面分叉。
 - P06 未增加依赖或原生模块。收藏与歌单复用共享 OpenSubsonic 客户端、Zod、TanStack Query 和 Vue renderer；重复查询参数由平台无关 URL API 构造，Windows/macOS 不存在业务或页面分叉。
+- P07 未增加依赖或原生模块。歌词、播放上报控制器与界面均复用共享 TypeScript/Vue renderer；时间使用毫秒安全整数和 HTMLAudioElement 秒进度转换，URL 参数继续由平台无关 URL API 构造。Windows/macOS 不存在歌词或 scrobble 业务分叉。
 - 品牌图标使用单一 1254×1254 PNG 源文件；electron-builder 26.15.3 在各自构建流程生成 Windows/macOS 图标资源，不引入图像处理依赖或平台专属 renderer 代码。当前 Windows x64 目录包转换通过，从 `Sonavi.exe` 提取的 32×32 系统图标及包内 renderer 品牌位均已目视确认；NSIS/开始菜单与 macOS x64/arm64 转换仍需对应安装器、CI 或实机验证。
 
 ## 当前主机
 
-本轮主机为 Windows x64 build 26200，Node.js 22.21.1 x64（符合项目 `>=22.12 <23` engines，但不同于 `.nvmrc` 的精确 22.19.0）。已验证 P06 lint、三套类型检查、67 项测试、生产构建、真实 Electron 受控 fixture、Windows x64 目录包及包内冒烟；收藏同步、歌单 CRUD、重复歌曲索引移除和 960×640 布局均通过。此前 macOS 13.7.8 Intel x64 已完成 P01～P05 开发/目录包证据。本轮未生成或安装 P06 NSIS/DMG，也未在真实服务器写入；这些证据不能替代 Windows 11 正式版本、macOS Intel/Apple Silicon 实机或物理听音。
+本轮主机为 Windows x64 build 26200，Node.js 22.21.1 x64（符合项目 `>=22.12 <23` engines，但不同于 `.nvmrc` 的精确 22.19.0）。已验证 P07 lint、三套类型检查、75 项测试、生产构建、真实 Electron 受控 fixture、Windows x64 目录包及包内冒烟；结构化歌词、高亮、now-playing/submission、seek 过滤和 960×640 布局均通过。此前 macOS 13.7.8 Intel x64 已完成 P01～P05 开发/目录包证据。本轮未生成或安装 P07 NSIS/DMG，也未在真实服务器读取歌词或上报；这些证据不能替代 Windows 11 正式版本、macOS Intel/Apple Silicon 实机或物理听音。
 
 ## CI 状态
 
-`.github/workflows/ci.yml` 使用 `windows-2025` x64、`macos-15-intel` x64 和 `macos-15` arm64 三个独立 runner。P05 提交 `b8b61d5` 的 run `34798063277` 三个 job 全部成功。P06 实现提交 `a831be6` 已推送，当前三目标 CI 结果尚未确认；Windows x64 build 26200 已提供本地生产构建、源码/目录包 Electron 冒烟与截图证据。macOS 15 CI 不能替代 macOS 13 最低版本实机验证，Windows runner 和当前主机自动化也不能替代安装器、物理听音与完整人工验收。
+`.github/workflows/ci.yml` 使用 `windows-2025` x64、`macos-15-intel` x64 和 `macos-15` arm64 三个独立 runner。P06 提交 `a831be6` 的 run `34810276941` 三个 job 全部成功。品牌提交 `36802ec` 的 run `34811268194` 中 Windows x64 与 macOS Intel x64 成功，macOS arm64 Electron smoke 失败且公开 API 无日志权限；P07 尚未提交，后续 CI 需复核该 runner。Windows x64 build 26200 已提供 P07 本地生产构建、源码/目录包 Electron 冒烟与截图证据。macOS 15 CI 不能替代 macOS 13 最低版本实机验证，Windows runner 和当前主机自动化也不能替代安装器、物理听音与完整人工验收。
 
 来源：https://docs.github.com/en/actions/reference/runners/github-hosted-runners

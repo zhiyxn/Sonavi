@@ -11,11 +11,13 @@ import { normalizeServerUrl, ServerUrlError } from './opensubsonic/request-url'
 export interface ConnectedSession {
   sessionId: string
   credential: StoredCredentialInput
+  server: ConnectionSuccessResult['server']
 }
 
 export class ConnectionService {
   private sessionCredential: StoredCredentialInput | null = null
   private sessionId: string | null = null
+  private sessionServer: ConnectionSuccessResult['server'] | null = null
 
   constructor(
     private readonly client: OpenSubsonicClient,
@@ -93,6 +95,7 @@ export class ConnectionService {
     if (this.sessionId !== sessionId) return false
     this.sessionId = null
     this.sessionCredential = null
+    this.sessionServer = null
     return true
   }
 
@@ -106,8 +109,16 @@ export class ConnectionService {
   }
 
   getSession(sessionId: string): ConnectedSession | null {
-    if (this.sessionId !== sessionId || !this.sessionCredential) return null
-    return { sessionId: this.sessionId, credential: { ...this.sessionCredential } }
+    if (this.sessionId !== sessionId || !this.sessionCredential || !this.sessionServer) return null
+    return {
+      sessionId: this.sessionId,
+      credential: { ...this.sessionCredential },
+      server: {
+        ...this.sessionServer,
+        extensions: [...this.sessionServer.extensions],
+        musicFolders: this.sessionServer.musicFolders.map((folder) => ({ ...folder }))
+      }
+    }
   }
 
   private async connect(credential: StoredCredentialInput) {
@@ -117,6 +128,7 @@ export class ConnectionService {
       credential.password
     )
     this.sessionCredential = credential
+    this.sessionServer = probe.server
     this.sessionId = randomUUID()
     return probe
   }

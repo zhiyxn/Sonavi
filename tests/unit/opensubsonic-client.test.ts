@@ -248,6 +248,89 @@ describe('OpenSubsonicClient', () => {
     expect(searchUrl.searchParams.get('songOffset')).toBe('25')
   })
 
+  it('读取结构化与旧版歌词，并按协议发送播放上报', async () => {
+    const transport = new EndpointTransport({
+      getLyricsBySongId: jsonResponse({
+        'subsonic-response': {
+          status: 'ok',
+          version: '1.16.1',
+          lyricsList: {
+            structuredLyrics: [
+              {
+                displayArtist: 'Sonavi',
+                displayTitle: '跨平台试音',
+                lang: 'xxx',
+                offset: -100,
+                synced: true,
+                line: [
+                  { start: 0, value: '第一行' },
+                  { start: 1500, value: '第二行' }
+                ]
+              }
+            ]
+          }
+        }
+      }),
+      getLyrics: jsonResponse({
+        'subsonic-response': {
+          status: 'ok',
+          version: '1.16.1',
+          lyrics: { artist: 'Sonavi', title: '文本歌词', value: '一\n\n二' }
+        }
+      }),
+      scrobble: jsonResponse({
+        'subsonic-response': { status: 'ok', version: '1.16.1' }
+      })
+    })
+    const client = new OpenSubsonicClient(transport)
+
+    await expect(
+      client.getLyricsBySongId('https://music.example.com', 'listener', 'secret', 'track-1')
+    ).resolves.toEqual({
+      source: 'structured',
+      variants: [
+        {
+          displayArtist: 'Sonavi',
+          displayTitle: '跨平台试音',
+          offsetMs: -100,
+          synced: true,
+          lines: [
+            { startMs: 0, value: '第一行' },
+            { startMs: 1500, value: '第二行' }
+          ]
+        }
+      ]
+    })
+    await expect(
+      client.getLyrics('https://music.example.com', 'listener', 'secret', 'Sonavi', '文本歌词')
+    ).resolves.toMatchObject({
+      source: 'legacy',
+      variants: [{ synced: false, lines: [{ value: '一' }, { value: '' }, { value: '二' }] }]
+    })
+    await client.scrobble(
+      'https://music.example.com',
+      'listener',
+      'secret',
+      'track-1',
+      false,
+      1_700_000_000_000
+    )
+
+    const structuredUrl = new URL(transport.requestedUrls[0]!)
+    const legacyUrl = new URL(transport.requestedUrls[1]!)
+    const scrobbleUrl = new URL(transport.requestedUrls[2]!)
+    expect(structuredUrl.searchParams.get('id')).toBe('track-1')
+    expect(structuredUrl.searchParams.has('enhanced')).toBe(false)
+    expect(legacyUrl.searchParams.get('artist')).toBe('Sonavi')
+    expect(legacyUrl.searchParams.get('title')).toBe('文本歌词')
+    expect(scrobbleUrl.searchParams.get('id')).toBe('track-1')
+    expect(scrobbleUrl.searchParams.get('submission')).toBe('false')
+    expect(scrobbleUrl.searchParams.get('time')).toBe('1700000000000')
+    for (const url of transport.requestedUrls) {
+      expect(new URL(url).searchParams.has('p')).toBe(false)
+    }
+  })
+
   it('读取与更新收藏，并完整保留歌单重复歌曲和移除索引', async () => {
     const ok = jsonResponse({ 'subsonic-response': { status: 'ok', version: '1.16.1' } })
     const transport = new EndpointTransport({

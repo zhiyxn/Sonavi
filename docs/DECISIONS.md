@@ -146,3 +146,18 @@ AudioEngine 使用单一枚举状态而非跨组件布尔组合，并以 generat
 用户提供的 1254×1254 不透明 PNG 直接作为 Sonavi 当前标志，不做生成式改绘。仓库保留 `build/icon.png` 作为打包品牌源，并保留内容相同的 renderer 资源用于侧栏品牌位和页面图标；两份文件以 SHA-256 校验确认与用户源图一致。
 
 Windows 与 macOS 继续使用同一源图，分别由 electron-builder 的现有平台构建流程转换为所需应用图标格式，不建立平台专属品牌设计。此变更只接入品牌资源，不代表已完成 P10 的安装器、签名、公证或发布验收。
+
+## D015：P07 按能力选择歌词端点，并以真实播放累计时间上报
+
+- 日期：2026-09-14
+- 状态：已接受
+
+结构化歌词只在连接阶段探测到 `songLyrics` 扩展时通过 `getLyricsBySongId` 获取，否则使用兼容性更广的 `getLyrics`；端点选择和凭据都留在 main。首轮只实现扩展 v1 的整行时间戳，不请求 v2 `enhanced=true`，以免在当前阶段引入逐词 cue、翻译和发音层的额外产品语义。
+
+`scrobble(submission=false)` 只在队列项实际进入 `playing` 后发送。完成上报不直接信任进度条位置，而累计相邻的真实正向播放进度；seek 跳跃不计时。阈值固定为曲长 50% 与 240 秒中的较小者，同一 `queueEntryId` 最多发送一次 now-playing 和一次 submission，避免 timeupdate、组件重绘及重复曲目 ID 造成重复上报。上报失败不打断播放，P07 不实现离线补发。
+
+来源：
+
+- https://opensubsonic.netlify.app/docs/endpoints/getlyricsbysongid/
+- https://opensubsonic.netlify.app/docs/endpoints/getlyrics/
+- https://opensubsonic.netlify.app/docs/endpoints/scrobble/

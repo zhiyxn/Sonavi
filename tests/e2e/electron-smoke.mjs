@@ -6,7 +6,11 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 
 const screenshotPath = resolve(
-  process.env.SONAVI_SCREENSHOT_PATH ?? 'artifacts/screenshots/p06-current-platform.png'
+  process.env.SONAVI_SCREENSHOT_PATH ?? 'artifacts/screenshots/p07-current-platform.png'
+)
+const lyricsScreenshotPath = resolve(
+  process.env.SONAVI_LYRICS_SCREENSHOT_PATH ??
+    'artifacts/screenshots/p07-lyrics-current-platform.png'
 )
 
 const executablePath = process.env.SONAVI_EXECUTABLE_PATH
@@ -20,6 +24,7 @@ const launchApplication = () =>
 let electronApplication = await launchApplication()
 let fixtureServer
 const mediaRequests = []
+const playbackRequests = []
 const fixtureAlbums = [
   {
     id: 'fixture-album',
@@ -241,6 +246,37 @@ function fixtureResponse(endpoint, requestUrl) {
         }
       }
     }
+  }
+  if (endpoint === 'getLyricsBySongId') {
+    return {
+      'subsonic-response': {
+        ...base,
+        lyricsList: {
+          structuredLyrics: [
+            {
+              displayArtist: 'Sonavi Fixture',
+              displayTitle: '跨平台试音',
+              lang: 'zho',
+              offset: 0,
+              synced: true,
+              line: [
+                { start: 0, value: '歌词第一行' },
+                { start: 1000, value: '歌词第二行' },
+                { start: 3000, value: '歌词第三行' }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+  if (endpoint === 'scrobble') {
+    playbackRequests.push({
+      id: requestUrl.searchParams.get('id'),
+      submission: requestUrl.searchParams.get('submission'),
+      time: requestUrl.searchParams.get('time')
+    })
+    return { 'subsonic-response': base }
   }
   if (endpoint === 'getStarred2') {
     return {
@@ -479,6 +515,8 @@ try {
     getArtist: typeof window.sonavi?.library?.getArtist,
     search: typeof window.sonavi?.library?.search,
     cancelSearch: typeof window.sonavi?.library?.cancelSearch,
+    getLyrics: typeof window.sonavi?.playback?.getLyrics,
+    reportPlayback: typeof window.sonavi?.playback?.report,
     rendererProcess: typeof window.process
   }))
   if (
@@ -493,6 +531,8 @@ try {
     bridgeShape.getArtist !== 'function' ||
     bridgeShape.search !== 'function' ||
     bridgeShape.cancelSearch !== 'function' ||
+    bridgeShape.getLyrics !== 'function' ||
+    bridgeShape.reportPlayback !== 'function' ||
     bridgeShape.rendererProcess !== 'undefined'
   ) {
     throw new Error(`preload 安全边界冒烟失败：${JSON.stringify(bridgeShape)}`)
@@ -531,6 +571,14 @@ try {
   if (!mediaRequests.some((request) => request.path?.includes('/stream.view'))) {
     throw new Error('真实 HTMLAudioElement 未请求 fixture 音频流')
   }
+  await window.getByRole('button', { name: '歌词', exact: true }).click()
+  await window.getByRole('heading', { name: '歌词', exact: true }).waitFor()
+  await window.getByText('歌词第一行', { exact: true }).waitFor()
+  await window.getByRole('button', { name: '关闭', exact: true }).click()
+  await window.waitForTimeout(300)
+  if (!playbackRequests.some((request) => request.id === 'fixture-track' && request.submission === 'false')) {
+    throw new Error('进入 playing 后未发送 now-playing scrobble')
+  }
   await window.getByRole('button', { name: '加入队列 跨平台试音' }).click()
   await window.getByRole('button', { name: '播放队列', exact: true }).click()
   await window.getByRole('heading', { name: '播放队列' }).waitFor()
@@ -556,8 +604,20 @@ try {
       .querySelector('footer[aria-label="播放器"]')
       ?.textContent?.includes('0:02')
   )
+  await window.getByRole('button', { name: '歌词', exact: true }).click()
+  await window.getByRole('heading', { name: '歌词', exact: true }).waitFor()
+  const activeLyric = await window.locator('.lyrics-lines li[aria-current="true"]').textContent()
+  if (activeLyric?.trim() !== '歌词第二行') {
+    throw new Error(`同步歌词未跟随 seek 后的 AudioEngine 进度：${activeLyric ?? '无高亮'}`)
+  }
+  await window.screenshot({ path: lyricsScreenshotPath, fullPage: true })
+  await window.getByRole('button', { name: '关闭', exact: true }).click()
   await window.getByRole('button', { name: '继续播放' }).click()
   await window.getByRole('button', { name: '暂停' }).waitFor()
+  await window.waitForTimeout(2_400)
+  if (!playbackRequests.some((request) => request.id === 'fixture-track' && request.submission === 'true')) {
+    throw new Error('累计真实播放达到阈值后未发送 submission scrobble')
+  }
   const oldCoverHandle = await window
     .locator('img[alt="石与琥珀 封面"]')
     .first()
@@ -567,9 +627,10 @@ try {
   }
   await window.screenshot({ path: screenshotPath, fullPage: true })
   console.log('OpenSubsonic integration passed: two album pages + detail + opaque media handles')
-  console.log('Audio integration passed: album queue + duplicate entry + next/previous + pause + seek + resume')
+  console.log('Audio integration passed: queue + lyrics sync + now-playing/submission + seek filtering')
 
-  await window.getByRole('button', { name: '播放队列', exact: true }).click()
+  const queueButton = window.getByRole('button', { name: '播放队列', exact: true })
+  if ((await queueButton.getAttribute('aria-expanded')) === 'true') await queueButton.click()
   await window.getByRole('button', { name: '艺术家', exact: true }).click()
   await window.getByRole('heading', { name: '艺术家', exact: true }).waitFor()
   await window.getByRole('button', { name: /Sonavi Fixture/ }).click()

@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import {
   ChevronDown,
   ChevronUp,
+  Captions,
   ListMusic,
   Pause,
   Play,
@@ -16,9 +17,13 @@ import {
 } from '@lucide/vue'
 import { usePlayerStore } from '../stores/player'
 import { Button } from './ui/button'
+import LyricsPanel from './LyricsPanel.vue'
+
+defineProps<{ reportingError?: string }>()
 
 const player = usePlayerStore()
 const queueOpen = ref(false)
+const lyricsOpen = ref(false)
 
 const stateLabels = {
   idle: '空闲',
@@ -55,6 +60,16 @@ const repeatLabel = computed(() => {
   if (player.repeatMode === 'all') return '列表循环'
   return '不循环'
 })
+
+function toggleQueue(): void {
+  queueOpen.value = !queueOpen.value
+  if (queueOpen.value) lyricsOpen.value = false
+}
+
+function toggleLyrics(): void {
+  lyricsOpen.value = !lyricsOpen.value
+  if (lyricsOpen.value) queueOpen.value = false
+}
 </script>
 
 <template>
@@ -126,11 +141,15 @@ const repeatLabel = computed(() => {
         </li>
       </ol>
     </section>
+    <LyricsPanel v-if="lyricsOpen" @close="lyricsOpen = false" />
     <div class="album-placeholder" aria-hidden="true">{{ player.track ? '♪' : 'S' }}</div>
     <div class="min-w-0">
       <strong class="block truncate">{{ player.track?.title ?? '选择歌曲开始播放' }}</strong>
       <span class="block truncate">{{ player.track?.artist ?? 'Sonavi AudioEngine' }}</span>
       <span v-if="player.errorMessage" class="player-error" role="alert">{{ player.errorMessage }}</span>
+      <span v-else-if="reportingError" class="player-report-warning" role="status">
+        {{ reportingError }}
+      </span>
     </div>
     <div class="player-controls">
       <Button
@@ -209,10 +228,21 @@ const repeatLabel = computed(() => {
       <Button
         variant="ghost"
         size="icon"
+        aria-label="歌词"
+        :disabled="!player.track"
+        :aria-expanded="lyricsOpen"
+        aria-controls="player-lyrics"
+        @click="toggleLyrics"
+      >
+        <Captions :size="19" aria-hidden="true" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
         aria-label="播放队列"
         :aria-expanded="queueOpen"
         aria-controls="player-queue"
-        @click="queueOpen = !queueOpen"
+        @click="toggleQueue"
       >
         <ListMusic :size="19" aria-hidden="true" />
       </Button>

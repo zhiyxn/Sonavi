@@ -1,5 +1,6 @@
 import type { ConnectionApi } from './connection'
 import type { LibraryApi } from './library'
+import type { PlaybackApi } from './playback'
 
 export const APPLICATION_INFO_CHANNEL = 'sonavi:application:get-info' as const
 
@@ -21,4 +22,5 @@ export interface SonaviApi {
   }
   connection: ConnectionApi
   library: LibraryApi
+  playback: PlaybackApi
 }
