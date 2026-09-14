@@ -56,6 +56,6 @@ Windows ARM64、Linux、macOS Universal 合并包不属于首版强制交付。�
 
 ## CI 状态
 
-`.github/workflows/ci.yml` 使用 `windows-2025` x64、`macos-15-intel` x64 和 `macos-15` arm64 三个独立 runner。P05 提交 `b8b61d5` 的 run `34798063277` 三个 job 全部成功。P06 尚未提交，因此没有 P06 三目标 CI 结论；当前 Windows x64 build 26200 只提供本地生产构建、源码/目录包 Electron 冒烟与截图证据。macOS 15 CI 不能替代 macOS 13 最低版本实机验证，Windows runner 和当前主机自动化也不能替代安装器、物理听音与完整人工验收。
+`.github/workflows/ci.yml` 使用 `windows-2025` x64、`macos-15-intel` x64 和 `macos-15` arm64 三个独立 runner。P05 提交 `b8b61d5` 的 run `34798063277` 三个 job 全部成功。P06 实现提交 `a831be6` 已推送，当前三目标 CI 结果尚未确认；Windows x64 build 26200 已提供本地生产构建、源码/目录包 Electron 冒烟与截图证据。macOS 15 CI 不能替代 macOS 13 最低版本实机验证，Windows runner 和当前主机自动化也不能替代安装器、物理听音与完整人工验收。
 
 来源：https://docs.github.com/en/actions/reference/runners/github-hosted-runners

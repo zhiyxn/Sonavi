@@ -1,6 +1,6 @@
 # Sonavi
 
-Sonavi 是一套同时正式面向 Windows 11 x64、macOS 13+ Intel x64 与 macOS 13+ Apple Silicon arm64 的 Navidrome 桌面客户端。两个平台共享同一套 Electron/Vue 工程、renderer 和业务代码；当前 P01～P06 已按顺序落地，P05 已通过三目标 CI，P06 已通过本地 Windows x64 代码与目录包闸门，真实服务器、提交后 CI 与各目标实机证据仍分别记录。
+Sonavi 是一套同时正式面向 Windows 11 x64、macOS 13+ Intel x64 与 macOS 13+ Apple Silicon arm64 的 Navidrome 桌面客户端。两个平台共享同一套 Electron/Vue 工程、renderer 和业务代码；当前 P01～P06 已按顺序落地，P05 已通过三目标 CI，P06 实现提交 `a831be6` 已推送并通过本地 Windows x64 代码与目录包闸门，当前三目标 CI、真实服务器与各目标实机证据仍分别记录。
 
 ## 当前能力
 
