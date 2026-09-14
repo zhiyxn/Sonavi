@@ -16,10 +16,17 @@ import {
   SessionActionResultSchema
 } from '../shared/connection-schema'
 import {
+  CANCEL_LIBRARY_SEARCH_CHANNEL,
   GET_ALBUM_CHANNEL,
+  GET_ARTIST_CHANNEL,
   LIST_ALBUMS_CHANNEL,
+  LIST_ARTISTS_CHANNEL,
+  SEARCH_LIBRARY_CHANNEL,
   type AlbumDetail,
   type AlbumPage,
+  type ArtistDetail,
+  type ArtistLibrary,
+  type SearchResultPage,
   type LibraryResult
 } from '../shared/library'
 import {
@@ -27,6 +34,12 @@ import {
   AlbumIdSchema,
   AlbumListResultSchema,
   AlbumPageRequestSchema,
+  ArtistDetailResultSchema,
+  ArtistIdSchema,
+  ArtistLibraryResultSchema,
+  CancelSearchRequestSchema,
+  SearchRequestSchema,
+  SearchResultSchema,
   SessionIdSchema
 } from '../shared/library-schema'
 import { getPlatformAdapter } from './platform'
@@ -66,7 +79,8 @@ function registerApplicationIpc(): void {
 function registerConnectionIpc(
   connectionService: ConnectionService,
   mediaHandles: MediaHandleRegistry,
-  mediaProtocol: MediaProtocolService
+  mediaProtocol: MediaProtocolService,
+  libraryService: LibraryService
 ): void {
   ipcMain.handle(TEST_CONNECTION_CHANNEL, async (event, rawInput: unknown) => {
     assertTrustedIpcSender(event)
@@ -87,6 +101,7 @@ function registerConnectionIpc(
     const previousSessionId = connectionService.getCurrentSessionId()
     const result = ConnectionTestResultSchema.parse(await connectionService.test(input.data))
     if (result.ok && previousSessionId && previousSessionId !== result.sessionId) {
+      libraryService.cancelSessionSearches(previousSessionId)
       mediaProtocol.revokeSession(previousSessionId)
       mediaHandles.revokeSession(previousSessionId)
     }
@@ -98,6 +113,7 @@ function registerConnectionIpc(
     const previousSessionId = connectionService.getCurrentSessionId()
     const result = RestoredConnectionResultSchema.parse(await connectionService.restore())
     if (result && previousSessionId && previousSessionId !== result.sessionId) {
+      libraryService.cancelSessionSearches(previousSessionId)
       mediaProtocol.revokeSession(previousSessionId)
       mediaHandles.revokeSession(previousSessionId)
     }
@@ -109,6 +125,7 @@ function registerConnectionIpc(
     const sessionId = SessionIdSchema.safeParse(rawSessionId)
     if (!sessionId.success || !connectionService.getSession(sessionId.data)) return false
 
+    libraryService.cancelSessionSearches(sessionId.data)
     mediaProtocol.revokeSession(sessionId.data)
     mediaHandles.revokeSession(sessionId.data)
     return SessionActionResultSchema.parse(connectionService.disconnect(sessionId.data))
@@ -119,6 +136,7 @@ function registerConnectionIpc(
     const sessionId = SessionIdSchema.safeParse(rawSessionId)
     if (!sessionId.success || !connectionService.getSession(sessionId.data)) return false
 
+    libraryService.cancelSessionSearches(sessionId.data)
     const forgotten = SessionActionResultSchema.parse(
       await connectionService.forget(sessionId.data)
     )
@@ -144,6 +162,7 @@ function registerLibraryIpc(libraryService: LibraryService): void {
     return AlbumListResultSchema.parse(
       await libraryService.listAlbums(
         request.data.sessionId,
+        request.data.type,
         request.data.offset,
         request.data.size
       )
@@ -166,6 +185,66 @@ function registerLibraryIpc(libraryService: LibraryService): void {
       return AlbumDetailResultSchema.parse(await libraryService.getAlbum(sessionId.data, albumId.data))
     }
   )
+
+  ipcMain.handle(LIST_ARTISTS_CHANNEL, async (event, rawSessionId: unknown) => {
+    assertTrustedIpcSender(event)
+    const sessionId = SessionIdSchema.safeParse(rawSessionId)
+    if (!sessionId.success) {
+      const invalid: LibraryResult<ArtistLibrary> = {
+        ok: false,
+        error: { code: 'invalid-input', message: '艺术家列表参数无效。', retryable: false }
+      }
+      return invalid
+    }
+    return ArtistLibraryResultSchema.parse(await libraryService.listArtists(sessionId.data))
+  })
+
+  ipcMain.handle(
+    GET_ARTIST_CHANNEL,
+    async (event, rawSessionId: unknown, rawArtistId: unknown) => {
+      assertTrustedIpcSender(event)
+      const sessionId = SessionIdSchema.safeParse(rawSessionId)
+      const artistId = ArtistIdSchema.safeParse(rawArtistId)
+      if (!sessionId.success || !artistId.success) {
+        const invalid: LibraryResult<ArtistDetail> = {
+          ok: false,
+          error: { code: 'invalid-input', message: '艺术家请求参数无效。', retryable: false }
+        }
+        return invalid
+      }
+      return ArtistDetailResultSchema.parse(
+        await libraryService.getArtist(sessionId.data, artistId.data)
+      )
+    }
+  )
+
+  ipcMain.handle(SEARCH_LIBRARY_CHANNEL, async (event, rawRequest: unknown) => {
+    assertTrustedIpcSender(event)
+    const request = SearchRequestSchema.safeParse(rawRequest)
+    if (!request.success) {
+      const invalid: LibraryResult<SearchResultPage> = {
+        ok: false,
+        error: { code: 'invalid-input', message: '搜索参数无效。', retryable: false }
+      }
+      return invalid
+    }
+    return SearchResultSchema.parse(
+      await libraryService.search(
+        request.data.sessionId,
+        request.data.requestId,
+        request.data.query,
+        request.data.offset,
+        request.data.size
+      )
+    )
+  })
+
+  ipcMain.handle(CANCEL_LIBRARY_SEARCH_CHANNEL, (event, rawRequest: unknown) => {
+    assertTrustedIpcSender(event)
+    const request = CancelSearchRequestSchema.safeParse(rawRequest)
+    if (!request.success) return false
+    return libraryService.cancelSearch(request.data.sessionId, request.data.requestId)
+  })
 }
 
 function installSecurityPolicies(): void {
@@ -235,7 +314,7 @@ void app.whenReady().then(() => {
   )
 
   protocol.handle('sonavi-media', (request) => mediaProtocol.handle(request))
-  registerConnectionIpc(connectionService, mediaHandles, mediaProtocol)
+  registerConnectionIpc(connectionService, mediaHandles, mediaProtocol, libraryService)
   registerLibraryIpc(libraryService)
   Menu.setApplicationMenu(Menu.buildFromTemplate(platformAdapter.createMenuTemplate(app.name)))
   createMainWindow()

@@ -9,6 +9,9 @@ export type ConnectionEndpoint =
   | 'getMusicFolders'
   | 'getAlbumList2'
   | 'getAlbum'
+  | 'getArtists'
+  | 'getArtist'
+  | 'search3'
   | 'getCoverArt'
   | 'stream'
 

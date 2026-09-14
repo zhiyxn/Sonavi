@@ -4,7 +4,16 @@ import type {
   ConnectionSuccessResult,
   MusicFolderSummary
 } from '../../../shared/connection'
-import type { AlbumDetail, AlbumSummary, TrackSummary } from '../../../shared/library'
+import type {
+  AlbumDetail,
+  AlbumListType,
+  AlbumSummary,
+  ArtistDetail,
+  ArtistIndex,
+  ArtistSummary,
+  SearchResultPage,
+  TrackSummary
+} from '../../../shared/library'
 import { buildEndpointUrl, type ConnectionEndpoint } from './request-url'
 import {
   ResponseLimitError,
@@ -46,6 +55,13 @@ const TrackSchema = z.object({
   coverArt: z.union([z.string(), z.number()]).transform(String).optional()
 })
 
+const ArtistSchema = z.object({
+  id: z.union([z.string(), z.number()]).transform(String),
+  name: z.string(),
+  albumCount: z.number().int().nonnegative().default(0),
+  coverArt: z.union([z.string(), z.number()]).transform(String).optional()
+})
+
 const SubsonicResponseSchema = z.object({
   'subsonic-response': z.object({
     status: z.enum(['ok', 'failed']),
@@ -68,7 +84,27 @@ const SubsonicResponseSchema = z.object({
       })
       .optional(),
     albumList2: z.object({ album: z.array(AlbumSchema).default([]) }).optional(),
-    album: AlbumSchema.extend({ song: z.array(TrackSchema).default([]) }).optional()
+    album: AlbumSchema.extend({ song: z.array(TrackSchema).default([]) }).optional(),
+    artists: z
+      .object({
+        index: z
+          .array(
+            z.object({
+              name: z.string(),
+              artist: z.array(ArtistSchema).default([])
+            })
+          )
+          .default([])
+      })
+      .optional(),
+    artist: ArtistSchema.extend({ album: z.array(AlbumSchema).default([]) }).optional(),
+    searchResult3: z
+      .object({
+        artist: z.array(ArtistSchema).default([]),
+        album: z.array(AlbumSchema).default([]),
+        song: z.array(TrackSchema).default([])
+      })
+      .optional()
   })
 })
 
@@ -206,6 +242,47 @@ export interface ConnectionProbeResult {
   server: ConnectionSuccessResult['server']
 }
 
+type AlbumWithCover = AlbumSummary & { coverArtId?: string | undefined }
+type ArtistWithCover = ArtistSummary & { coverArtId?: string | undefined }
+type TrackWithCover = Omit<TrackSummary, 'coverUrl' | 'streamUrl'> & {
+  coverArtId?: string | undefined
+}
+
+function mapAlbum(album: z.infer<typeof AlbumSchema>): AlbumWithCover {
+  return {
+    id: album.id,
+    name: album.name,
+    artist: album.artist,
+    ...(album.year ? { year: album.year } : {}),
+    songCount: album.songCount,
+    duration: album.duration,
+    ...(album.coverArt ? { coverArtId: album.coverArt } : {})
+  }
+}
+
+function mapArtist(artist: z.infer<typeof ArtistSchema>): ArtistWithCover {
+  return {
+    id: artist.id,
+    name: artist.name,
+    albumCount: artist.albumCount,
+    ...(artist.coverArt ? { coverArtId: artist.coverArt } : {})
+  }
+}
+
+function mapTrack(track: z.infer<typeof TrackSchema>): TrackWithCover {
+  return {
+    id: track.id,
+    title: track.title,
+    artist: track.artist,
+    album: track.album,
+    duration: track.duration,
+    ...(track.track ? { track: track.track } : {}),
+    ...(track.discNumber ? { disc: track.discNumber } : {}),
+    ...(track.contentType ? { contentType: track.contentType } : {}),
+    ...(track.coverArt ? { coverArtId: track.coverArt } : {})
+  }
+}
+
 export class OpenSubsonicClient {
   constructor(private readonly transport: ApiTransport) {}
 
@@ -250,23 +327,16 @@ export class OpenSubsonicClient {
     username: string,
     password: string,
     offset = 0,
-    size = 30
-  ): Promise<Array<AlbumSummary & { coverArtId?: string | undefined }>> {
+    size = 30,
+    type: AlbumListType = 'newest'
+  ): Promise<AlbumWithCover[]> {
     const response = await this.request('getAlbumList2', baseUrl, username, password, {
-      type: 'newest',
+      type,
       size,
       offset
     })
 
-    return (response.albumList2?.album ?? []).map((album) => ({
-      id: album.id,
-      name: album.name,
-      artist: album.artist,
-      ...(album.year ? { year: album.year } : {}),
-      songCount: album.songCount,
-      duration: album.duration,
-      ...(album.coverArt ? { coverArtId: album.coverArt } : {})
-    }))
+    return (response.albumList2?.album ?? []).map(mapAlbum)
   }
 
   async getAlbum(
@@ -277,7 +347,7 @@ export class OpenSubsonicClient {
   ): Promise<
     Omit<AlbumDetail, 'coverUrl' | 'tracks'> & {
       coverArtId?: string | undefined
-      tracks: Array<Omit<TrackSummary, 'coverUrl' | 'streamUrl'> & { coverArtId?: string | undefined }>
+      tracks: TrackWithCover[]
     }
   > {
     const response = await this.request('getAlbum', baseUrl, username, password, { id: albumId })
@@ -294,17 +364,76 @@ export class OpenSubsonicClient {
       songCount: album.songCount,
       duration: album.duration,
       ...(album.coverArt ? { coverArtId: album.coverArt } : {}),
-      tracks: album.song.map((track) => ({
-        id: track.id,
-        title: track.title,
-        artist: track.artist,
-        album: track.album,
-        duration: track.duration,
-        ...(track.track ? { track: track.track } : {}),
-        ...(track.discNumber ? { disc: track.discNumber } : {}),
-        ...(track.contentType ? { contentType: track.contentType } : {}),
-        ...(track.coverArt ? { coverArtId: track.coverArt } : {})
-      }))
+      tracks: album.song.map(mapTrack)
+    }
+  }
+
+  async getArtists(
+    baseUrl: string,
+    username: string,
+    password: string
+  ): Promise<Array<Omit<ArtistIndex, 'artists'> & { artists: ArtistWithCover[] }>> {
+    const response = await this.request('getArtists', baseUrl, username, password)
+    return (response.artists?.index ?? []).map((index) => ({
+      name: index.name,
+      artists: index.artist.map(mapArtist)
+    }))
+  }
+
+  async getArtist(
+    baseUrl: string,
+    username: string,
+    password: string,
+    artistId: string
+  ): Promise<Omit<ArtistDetail, 'coverUrl' | 'albums'> & {
+    coverArtId?: string | undefined
+    albums: AlbumWithCover[]
+  }> {
+    const response = await this.request('getArtist', baseUrl, username, password, { id: artistId })
+    if (!response.artist) {
+      throw new ConnectionFailure('invalid-response', '服务器未返回艺术家详情。', false)
+    }
+
+    return {
+      ...mapArtist(response.artist),
+      albums: response.artist.album.map(mapAlbum)
+    }
+  }
+
+  async search3(
+    baseUrl: string,
+    username: string,
+    password: string,
+    query: string,
+    offset: number,
+    size: number,
+    signal?: AbortSignal
+  ): Promise<Omit<SearchResultPage, 'nextOffset' | 'hasMore' | 'artists' | 'albums' | 'tracks'> & {
+    artists: ArtistWithCover[]
+    albums: AlbumWithCover[]
+    tracks: TrackWithCover[]
+  }> {
+    const response = await this.request(
+      'search3',
+      baseUrl,
+      username,
+      password,
+      {
+        query,
+        artistCount: size,
+        artistOffset: offset,
+        albumCount: size,
+        albumOffset: offset,
+        songCount: size,
+        songOffset: offset
+      },
+      signal
+    )
+    const result = response.searchResult3
+    return {
+      artists: (result?.artist ?? []).map(mapArtist),
+      albums: (result?.album ?? []).map(mapAlbum),
+      tracks: (result?.song ?? []).map(mapTrack)
     }
   }
 
@@ -313,21 +442,25 @@ export class OpenSubsonicClient {
     baseUrl: string,
     username: string,
     password: string,
-    parameters: Record<string, string | number> = {}
+    parameters: Record<string, string | number> = {},
+    externalSignal?: AbortSignal
   ): Promise<ParsedResponse> {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), RESPONSE_TIMEOUT_MS)
+    const timeoutController = new AbortController()
+    const signal = externalSignal
+      ? AbortSignal.any([timeoutController.signal, externalSignal])
+      : timeoutController.signal
+    const timeout = setTimeout(() => timeoutController.abort(), RESPONSE_TIMEOUT_MS)
 
     try {
       const url = buildEndpointUrl(baseUrl, endpoint, username, password, undefined, parameters)
-      const response = await this.transport.request(url, controller.signal)
+      const response = await this.transport.request(url, signal)
       return parseResponse(response)
     } catch (error) {
       if (error instanceof ConnectionFailure) throw error
       if (error instanceof ResponseLimitError) {
         throw new ConnectionFailure('response-too-large', '服务器响应超过安全大小限制。', false)
       }
-      throw classifyNetworkError(error, controller.signal.aborted)
+      throw classifyNetworkError(error, timeoutController.signal.aborted)
     } finally {
       clearTimeout(timeout)
     }

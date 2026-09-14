@@ -36,7 +36,20 @@ function installPlatformApi(platform: 'windows' | 'macos'): void {
       getAlbum: async () => ({
         ok: false,
         error: { code: 'not-connected', message: 'not used', retryable: false }
-      })
+      }),
+      listArtists: async () => ({
+        ok: false,
+        error: { code: 'not-connected', message: 'not used', retryable: false }
+      }),
+      getArtist: async () => ({
+        ok: false,
+        error: { code: 'not-connected', message: 'not used', retryable: false }
+      }),
+      search: async () => ({
+        ok: false,
+        error: { code: 'not-connected', message: 'not used', retryable: false }
+      }),
+      cancelSearch: async () => false
     }
   }
 

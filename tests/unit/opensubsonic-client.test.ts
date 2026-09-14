@@ -175,6 +175,78 @@ describe('OpenSubsonicClient', () => {
     })
   })
 
+  it('读取艺术家索引、艺术家详情和分页搜索结果', async () => {
+    const transport = new EndpointTransport({
+      getArtists: jsonResponse({
+        'subsonic-response': {
+          status: 'ok',
+          version: '1.16.1',
+          artists: {
+            index: [
+              {
+                name: 'S',
+                artist: [{ id: 9, name: '声波旅人', albumCount: 1, coverArt: 90 }]
+              }
+            ]
+          }
+        }
+      }),
+      getArtist: jsonResponse({
+        'subsonic-response': {
+          status: 'ok',
+          version: '1.16.1',
+          artist: {
+            id: 9,
+            name: '声波旅人',
+            albumCount: 1,
+            album: [
+              { id: 10, name: '跨平台', artist: '声波旅人', songCount: 2, duration: 120 }
+            ]
+          }
+        }
+      }),
+      search3: jsonResponse({
+        'subsonic-response': {
+          status: 'ok',
+          version: '1.16.1',
+          searchResult3: {
+            artist: [{ id: 9, name: '声波旅人', albumCount: 1 }],
+            album: [{ id: 10, name: '跨平台', artist: '声波旅人', songCount: 2, duration: 120 }],
+            song: [
+              { id: 11, title: '同一首歌', artist: '声波旅人', album: '跨平台', duration: 60 }
+            ]
+          }
+        }
+      })
+    })
+    const client = new OpenSubsonicClient(transport)
+
+    await expect(
+      client.getArtists('https://music.example.com', 'listener', 'secret')
+    ).resolves.toEqual([
+      {
+        name: 'S',
+        artists: [{ id: '9', name: '声波旅人', albumCount: 1, coverArtId: '90' }]
+      }
+    ])
+    await expect(
+      client.getArtist('https://music.example.com', 'listener', 'secret', '9')
+    ).resolves.toMatchObject({ id: '9', albums: [{ id: '10', name: '跨平台' }] })
+    await expect(
+      client.search3('https://music.example.com', 'listener', 'secret', '声波', 25, 25)
+    ).resolves.toMatchObject({
+      artists: [{ id: '9' }],
+      albums: [{ id: '10' }],
+      tracks: [{ id: '11', title: '同一首歌' }]
+    })
+
+    const searchUrl = new URL(transport.requestedUrls[2] ?? '')
+    expect(searchUrl.searchParams.get('query')).toBe('声波')
+    expect(searchUrl.searchParams.get('artistOffset')).toBe('25')
+    expect(searchUrl.searchParams.get('albumCount')).toBe('25')
+    expect(searchUrl.searchParams.get('songOffset')).toBe('25')
+  })
+
   it('区分协议认证失败、Cloudflare 挑战和 HTML 响应', async () => {
     const authenticationClient = new OpenSubsonicClient(
       new EndpointTransport({

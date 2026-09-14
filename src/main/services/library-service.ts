@@ -1,9 +1,25 @@
-import type { AlbumDetail, AlbumPage, LibraryResult } from '../../shared/library'
+import type {
+  AlbumDetail,
+  AlbumListType,
+  AlbumPage,
+  AlbumSummary,
+  ArtistDetail,
+  ArtistLibrary,
+  ArtistSummary,
+  LibraryResult,
+  SearchResultPage,
+  TrackSummary
+} from '../../shared/library'
 import type { ConnectionService } from './connection-service'
 import { MediaHandleRegistry } from './media-handle-registry'
 import { ConnectionFailure, OpenSubsonicClient } from './opensubsonic/client'
 
 export class LibraryService {
+  private readonly searchControllers = new Map<
+    string,
+    { sessionId: string; controller: AbortController }
+  >()
+
   constructor(
     private readonly connectionService: ConnectionService,
     private readonly client: OpenSubsonicClient,
@@ -12,6 +28,7 @@ export class LibraryService {
 
   async listAlbums(
     sessionId: string,
+    type: AlbumListType,
     offset: number,
     size: number
   ): Promise<LibraryResult<AlbumPage>> {
@@ -25,7 +42,8 @@ export class LibraryService {
         username,
         password,
         offset,
-        size
+        size,
+        type
       )
       return {
         ok: true,
@@ -64,7 +82,7 @@ export class LibraryService {
         albumId
       )
       const coverUrl = coverArtId
-        ? this.mediaHandles.create({ sessionId, kind: 'cover', resourceId: coverArtId })
+        ? this.createCoverUrl(sessionId, coverArtId)
         : undefined
 
       return {
@@ -72,27 +90,165 @@ export class LibraryService {
         value: {
           ...album,
           ...(coverUrl ? { coverUrl } : {}),
-          tracks: tracks.map(({ coverArtId: trackCoverArtId, ...track }) => ({
-            ...track,
-            ...(trackCoverArtId || coverArtId
-              ? {
-                  coverUrl: this.mediaHandles.create({
-                    sessionId,
-                    kind: 'cover',
-                    resourceId: trackCoverArtId ?? coverArtId ?? ''
-                  })
-                }
-              : {}),
-            streamUrl: this.mediaHandles.create({
-              sessionId,
-              kind: 'audio',
-              resourceId: track.id
-            })
+          tracks: tracks.map((track) => this.withTrackHandles(sessionId, track, coverArtId))
+        }
+      }
+    } catch (error) {
+      return this.failure(error)
+    }
+  }
+
+  async listArtists(sessionId: string): Promise<LibraryResult<ArtistLibrary>> {
+    const session = this.connectionService.getSession(sessionId)
+    if (!session) return this.notConnected()
+
+    try {
+      const { serverUrl, username, password } = session.credential
+      const indexes = await this.client.getArtists(serverUrl, username, password)
+      return {
+        ok: true,
+        value: {
+          indexes: indexes.map((index) => ({
+            name: index.name,
+            artists: index.artists.map((artist) => this.withArtistCover(sessionId, artist))
           }))
         }
       }
     } catch (error) {
       return this.failure(error)
+    }
+  }
+
+  async getArtist(sessionId: string, artistId: string): Promise<LibraryResult<ArtistDetail>> {
+    const session = this.connectionService.getSession(sessionId)
+    if (!session) return this.notConnected()
+
+    try {
+      const { serverUrl, username, password } = session.credential
+      const { coverArtId, albums, ...artist } = await this.client.getArtist(
+        serverUrl,
+        username,
+        password,
+        artistId
+      )
+      return {
+        ok: true,
+        value: {
+          ...artist,
+          ...(coverArtId ? { coverUrl: this.createCoverUrl(sessionId, coverArtId) } : {}),
+          albums: albums.map((album) => this.withAlbumCover(sessionId, album))
+        }
+      }
+    } catch (error) {
+      return this.failure(error)
+    }
+  }
+
+  async search(
+    sessionId: string,
+    requestId: string,
+    query: string,
+    offset: number,
+    size: number
+  ): Promise<LibraryResult<SearchResultPage>> {
+    const session = this.connectionService.getSession(sessionId)
+    if (!session) return this.notConnected()
+
+    const controller = new AbortController()
+    this.searchControllers.get(requestId)?.controller.abort()
+    this.searchControllers.set(requestId, { sessionId, controller })
+
+    try {
+      const { serverUrl, username, password } = session.credential
+      const result = await this.client.search3(
+        serverUrl,
+        username,
+        password,
+        query,
+        offset,
+        size,
+        controller.signal
+      )
+      return {
+        ok: true,
+        value: {
+          artists: result.artists.map((artist) => this.withArtistCover(sessionId, artist)),
+          albums: result.albums.map((album) => this.withAlbumCover(sessionId, album)),
+          tracks: result.tracks.map((track) => this.withTrackHandles(sessionId, track)),
+          nextOffset: offset + size,
+          hasMore:
+            result.artists.length === size ||
+            result.albums.length === size ||
+            result.tracks.length === size
+        }
+      }
+    } catch (error) {
+      return this.failure(error)
+    } finally {
+      if (this.searchControllers.get(requestId)?.controller === controller) {
+        this.searchControllers.delete(requestId)
+      }
+    }
+  }
+
+  cancelSearch(sessionId: string, requestId: string): boolean {
+    if (!this.connectionService.getSession(sessionId)) return false
+    const activeSearch = this.searchControllers.get(requestId)
+    if (!activeSearch || activeSearch.sessionId !== sessionId) return false
+    activeSearch.controller.abort()
+    this.searchControllers.delete(requestId)
+    return true
+  }
+
+  cancelSessionSearches(sessionId: string): void {
+    for (const [requestId, activeSearch] of this.searchControllers.entries()) {
+      if (activeSearch.sessionId !== sessionId) continue
+      activeSearch.controller.abort()
+      this.searchControllers.delete(requestId)
+    }
+  }
+
+  private createCoverUrl(sessionId: string, resourceId: string): string {
+    return this.mediaHandles.create({ sessionId, kind: 'cover', resourceId })
+  }
+
+  private withAlbumCover<T extends AlbumSummary & { coverArtId?: string | undefined }>(
+    sessionId: string,
+    album: T
+  ): AlbumSummary {
+    const { coverArtId, ...summary } = album
+    return {
+      ...summary,
+      ...(coverArtId ? { coverUrl: this.createCoverUrl(sessionId, coverArtId) } : {})
+    }
+  }
+
+  private withArtistCover<T extends ArtistSummary & { coverArtId?: string | undefined }>(
+    sessionId: string,
+    artist: T
+  ): ArtistSummary {
+    const { coverArtId, ...summary } = artist
+    return {
+      ...summary,
+      ...(coverArtId ? { coverUrl: this.createCoverUrl(sessionId, coverArtId) } : {})
+    }
+  }
+
+  private withTrackHandles<
+    T extends Omit<TrackSummary, 'coverUrl' | 'streamUrl'> & { coverArtId?: string | undefined }
+  >(sessionId: string, track: T, fallbackCoverArtId?: string): TrackSummary {
+    const { coverArtId, ...summary } = track
+    const resolvedCoverArtId = coverArtId ?? fallbackCoverArtId
+    return {
+      ...summary,
+      ...(resolvedCoverArtId
+        ? { coverUrl: this.createCoverUrl(sessionId, resolvedCoverArtId) }
+        : {}),
+      streamUrl: this.mediaHandles.create({
+        sessionId,
+        kind: 'audio',
+        resourceId: track.id
+      })
     }
   }
 

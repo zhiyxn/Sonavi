@@ -42,7 +42,14 @@ describe('ConnectPanel', () => {
           disconnect: vi.fn(),
           forget: vi.fn()
         },
-        library: { listAlbums: vi.fn(), getAlbum: vi.fn() }
+        library: {
+          listAlbums: vi.fn(),
+          getAlbum: vi.fn(),
+          listArtists: vi.fn(),
+          getArtist: vi.fn(),
+          search: vi.fn(),
+          cancelSearch: vi.fn()
+        }
       } satisfies SonaviApi,
       configurable: true
     })

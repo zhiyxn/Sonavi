@@ -1,7 +1,7 @@
-# P04 播放状态机与队列测试报告
+# P05 正式音乐库与搜索测试报告
 
 更新日期：2026-09-14
-状态：P01～P04 本机代码闸门通过；实际服务基础连接/专辑/播放成功，分页与 P04 队列待实际服务复验
+状态：P01～P05 本机代码闸门通过；实际服务基础连接/专辑/播放成功，P04 队列与 P05 浏览/搜索待实际服务复验
 
 ## 测试环境
 
@@ -14,7 +14,8 @@
 - P02 提交：`282ce86`（已推送；GitHub Actions run `34760475489` 三目标成功）
 - P03 生命周期修复提交：`4d1777d`（已推送；run `34762062759` 三目标成功）
 - P03 分页修复提交：`f2a39c9`（本地与 `origin/main` 对齐；本轮未取得 CI 运行编号）
-- 当前 P04：工作区未提交
+- P04 提交：`3b3fca2`（本地 `main` 与 `origin/main` 对齐；CI 编号未核实）
+- 当前 P05：工作区未提交
 
 ## P01 远端 CI 证据
 
@@ -34,11 +35,11 @@ GitHub Actions run：`34749707166`，结论 `success`，运行页面：https://g
 | --- | --- | --- |
 | `npm run lint` | 通过 | ESLint 10.10.0，0 warning |
 | `npm run typecheck` | 通过 | main/preload、renderer、tests 三组通过 |
-| `npm test` | 通过 | 11 个文件、56 项测试通过 |
+| `npm test` | 通过 | 13 个文件、60 项测试通过 |
 | `npm run build` | 通过 | main、preload CJS、renderer 构建成功 |
-| `npm run test:e2e` | 通过 | 真实 Electron 连接本地 fixture；按 `offset=0/30` 加载 31 张专辑，3 首专辑替换队列、重复追加、下一首/上一首、播放/暂停/seek，以及会话/凭据/macOS 生命周期检查全部通过 |
-| `npm run pack:dir` | 通过 | 生成未签名 macOS x64 目录包；首次受限网络失败后获准下载官方 Electron 文件并复跑成功 |
-| 包内 Electron 冒烟 | 通过 | 未签名 x64 `Sonavi.app` 同样完成连接、分页、P04 队列前后切歌、播放/暂停/seek、会话清理、跨进程凭据恢复/删除、safeStorage、截图、关闭/重激活 |
+| `npm run test:e2e` | 通过 | 真实 Electron 连接本地 fixture；31 张专辑分页、艺术家/详情、专辑详情、300ms 搜索、播放队列、会话/凭据及 macOS 生命周期全部通过 |
+| `npm run pack:dir` | 通过 | 重新生成包含 P05 的未签名 macOS x64 目录包 |
+| 包内 Electron 冒烟 | 通过 | 未签名 x64 `Sonavi.app` 完成连接、P05 专辑/艺术家/搜索、P04 队列、会话清理、凭据恢复/删除、safeStorage、960×640 布局、截图与关闭/重激活 |
 
 ## P02/P03 覆盖范围
 
@@ -54,6 +55,10 @@ GitHub Actions run：`34749707166`，结论 `success`，运行页面：https://g
 - P04 状态：覆盖 idle/loading/playing/paused/buffering/seeking/ended/error、音量、加载中暂停、暂停 seek、流错误和 play Promise 失败。
 - P04 generation：连续切歌后旧 Audio 事件与旧 play Promise 不影响新曲目；连续点击播放控制不创建第二个活动宿主。
 - P04 队列：覆盖重复 track 的独立 queueEntryId、删除当前项、空队列、重排、稳定随机历史上一首、单曲/列表循环，以及播放器组件卸载不中断。
+- P05 专辑：同一 LibraryPanel 按查询 key 隔离首页 `newest` 和全部专辑 `alphabeticalByName`，均使用 `offset/size` 分页、ID 去重及增量失败保留已加载数据。
+- P05 艺术家：解析 `getArtists` 索引及 `getArtist` 专辑；10,000 项组件测试确认 DOM 只保留可见窗口与 overscan。
+- P05 搜索：`search3` 同步分页艺术家/专辑/歌曲，输入 300ms 防抖；TanStack Query AbortSignal 通过受限 requestId IPC 中止 main 请求，断开/会话轮换也取消活动搜索。
+- P05 边界：搜索、艺术家与专辑输入/输出均经 Zod 校验；renderer 仍只持有随机媒体句柄，不接触上游 URL 或凭据。
 
 ## 分平台结果
 
@@ -73,6 +78,9 @@ GitHub Actions run：`34749707166`，结论 `success`，运行页面：https://g
 | P04 状态机/队列自动化 | 未验证：无实机 | 单元、开发 Electron 与 x64 目录包通过 | 未验证：无实机 |
 | P04 队列 UI 截图 | 未验证 | 开发构建与目录包目视通过，无截断/重叠 | 未验证 |
 | P04 实际服务/听音 | 未验证 | 未验证：等待多曲专辑和物理听音 | 未验证 |
+| P05 音乐库/搜索自动化 | 未验证：无实机 | 单元、生产 Electron 冒烟通过 | 未验证：无实机 |
+| P05 UI 截图 | 未验证 | 搜索页、共享导航、专辑/艺术家结果目视通过 | 未验证 |
+| P05 实际服务 | 未验证 | 未验证：等待大量艺术家、分页与混合语言搜索 | 未验证 |
 
 ## 安全检查
 
@@ -88,17 +96,19 @@ GitHub Actions run：`34749707166`，结论 `success`，运行页面：https://g
 - [x] 媒体句柄不含凭据/上游 URL；新连接、断开、忘记账号和退出会使旧会话失效并中止活动流；重定向不会携认证信息跟随。
 - [x] 音频响应流式传递，不整首缓冲或跨 IPC 传 Base64。
 - [x] P04 队列只保存当前会话的不透明媒体句柄；断开时清空，不将失效账号队列恢复为可播放状态。
+- [x] P05 新增 IPC 仍为固定端点，分页、ID、查询长度与 requestId 有运行时校验；未暴露任意网络能力。
+- [x] 搜索取消只允许当前有效 sessionId + requestId，退出或切换会话时取消活动请求。
 - [x] 队列落盘、托盘、后台宿主和媒体键未提前实现，仍属于 P09。
 
 ## 截图证据
 
-- macOS Intel x64：已生成并目视检查 `artifacts/screenshots/p04-current-platform.png` 与 `p04-macos-x64-package.png`；专辑详情、队列浮层、中文/英文字体与播放器无截断/重叠。Playwright 页面截图不包含系统标题栏。
+- macOS Intel x64：已生成并目视检查 `artifacts/screenshots/p05-current-platform.png` 与 `p05-macos-x64-package.png`；搜索页的共享导航、中文输入、艺术家/专辑/歌曲区域及播放器在 960×640 无截断/重叠或应用级横向溢出。Playwright 页面截图不包含系统标题栏。P04 既有截图仍保留。
 - Windows 11 x64：未验证，无 Windows 11 实机。
 - macOS Apple Silicon arm64：未验证，无 Apple Silicon 实机。
 
 ## 当前结论
 
-用户实际服务已证明 P03 基础连接、首批专辑和播放链路可用。分页修复 `f2a39c9` 已提交；P04 的枚举状态机、generation 隔离、队列策略与当前 Intel Mac 代码闸门通过。分页和队列尚未在用户服务复验，P04 尚未提交或进入三目标 CI；Windows 11、Apple Silicon 实机、转码/反向代理差异和物理听音仍未验证。
+用户实际服务已证明 P03 基础连接、首批专辑和播放链路可用。P04 已提交并推送为 `3b3fca2`，对应 CI 编号未核实；P05 的共享导航、正式专辑/艺术家页面、窗口化和可取消分页搜索通过当前 Intel Mac 代码闸门。P04/P05 尚未在用户服务深度复验，P05 尚未进入三目标 CI；Windows 11、Apple Silicon 实机、转码/反向代理差异和物理听音仍未验证。
 
 ## 已观察的非阻断提示
 

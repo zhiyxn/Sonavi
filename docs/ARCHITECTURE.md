@@ -54,6 +54,14 @@ Pinia player store 管理队列。每个条目使用随机 `queueEntryId`，将�
 
 P04 队列只存在于当前 renderer 会话。恢复持久化队列时必须重新向有效账号申请媒体句柄且默认暂停；该落盘能力、后台宿主、托盘和媒体键仍属于 P09，不在 P04 提前实现。
 
+## P05 音乐库与搜索
+
+首页与全部专辑共用 `LibraryPanel.vue`，仅以受限的 `AlbumListType` 区分 `newest` 和 `alphabeticalByName`；查询 key 包含 session 与类型，翻页结果按服务端 ID 去重。艺术家列表使用 `getArtists` 的协议索引，但 renderer 只挂载固定行高可见窗口和 overscan；艺术家详情通过 `getArtist` 复用同一专辑卡片语义。
+
+搜索只调用公共 `search3`，艺术家、专辑和歌曲使用相同 offset/size 分页。输入在 renderer 防抖 300ms，TanStack Query 为每个查询提供 AbortSignal；renderer 生成随机 requestId，通过固定 `cancel-search` preload 方法请求 main 中止对应 AbortController。main 同时校验 sessionId/requestId，断开或轮换账号时取消该会话的全部活动搜索。搜索结果只返回纯文本元数据及随机媒体句柄，不允许 renderer 访问任意 URL。
+
+P05 收藏与歌单入口明确保持禁用，写操作留到 P06。设置页当前只呈现平台、服务器、协议与安全退出操作；托盘/Dock、后台播放及缓存设置仍按后续阶段实现。
+
 ## 平台生命周期规则
 
 | 行为 | Windows | macOS | P01 状态 |

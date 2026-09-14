@@ -101,3 +101,19 @@ renderer 不获得上游地址、用户名、salt 或 token，只获得绑定当
 AudioEngine 使用单一枚举状态而非跨组件布尔组合，并以 generationId 隔离每次媒体来源。切歌会释放旧 HTMLAudioElement 的事件监听；play/pause 命令另有递增序号，迟到的旧 Promise 不能把当前曲目或加载中暂停改为错误。全局仍只有一个引擎和一个活动音频宿主，页面组件不创建 Audio。
 
 队列唯一性以随机 `queueEntryId` 为准，服务端 `trackId` 只标识歌曲，所以重复歌曲可独立删除和重排。队列项携带当前 server/account/session 范围，不跨失效会话恢复媒体句柄。随机顺序在当前队列生命周期内稳定，上一首沿实际播放历史返回。自然 ended 遵循单曲循环；手动下一首忽略单曲循环。队列持久化与后台播放仍留在 P09。
+
+## D012：P05 使用公共只读端点和可取消搜索
+
+- 日期：2026-09-14
+- 状态：已接受
+
+首页使用 `getAlbumList2(type=newest)`，全部专辑使用可分页的 `getAlbumList2(type=alphabeticalByName)`；艺术家与详情使用 `getArtists` / `getArtist`，搜索使用 `search3`。这些端点同时属于 Subsonic/OpenSubsonic 公共协议，不依赖 Navidrome 私有 Web API。`getArtists` 的完整响应在 renderer 采用窗口化渲染，真实超大资料库仍需验证响应大小边界。
+
+搜索在 renderer 防抖并由 TanStack Query 发出取消信号；renderer 只能通过随机 requestId 和固定 preload 方法取消 main 内对应请求。sessionId、requestId、查询长度和分页均由 main 校验，会话轮换时统一中止旧请求。P05 不实现收藏或歌单写操作。
+
+来源：
+
+- https://opensubsonic.netlify.app/docs/endpoints/getalbumlist2/
+- https://opensubsonic.netlify.app/docs/endpoints/getartists/
+- https://opensubsonic.netlify.app/docs/endpoints/getartist/
+- https://opensubsonic.netlify.app/docs/endpoints/search3/

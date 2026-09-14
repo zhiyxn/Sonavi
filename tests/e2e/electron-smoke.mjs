@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 
 const screenshotPath = resolve(
-  process.env.SONAVI_SCREENSHOT_PATH ?? 'artifacts/screenshots/p04-current-platform.png'
+  process.env.SONAVI_SCREENSHOT_PATH ?? 'artifacts/screenshots/p05-current-platform.png'
 )
 
 const executablePath = process.env.SONAVI_EXECUTABLE_PATH
@@ -145,6 +145,64 @@ function fixtureResponse(endpoint, requestUrl) {
               album: '石与琥珀',
               duration: 4,
               track: 3,
+              contentType: 'audio/wav',
+              coverArt: 'fixture-cover'
+            }
+          ]
+        }
+      }
+    }
+  }
+  if (endpoint === 'getArtists') {
+    return {
+      'subsonic-response': {
+        ...base,
+        artists: {
+          index: [
+            {
+              name: 'S',
+              artist: [
+                {
+                  id: 'fixture-artist',
+                  name: 'Sonavi Fixture',
+                  albumCount: fixtureAlbums.length,
+                  coverArt: 'fixture-cover'
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+  if (endpoint === 'getArtist') {
+    return {
+      'subsonic-response': {
+        ...base,
+        artist: {
+          id: 'fixture-artist',
+          name: 'Sonavi Fixture',
+          albumCount: fixtureAlbums.length,
+          coverArt: 'fixture-cover',
+          album: fixtureAlbums
+        }
+      }
+    }
+  }
+  if (endpoint === 'search3') {
+    return {
+      'subsonic-response': {
+        ...base,
+        searchResult3: {
+          artist: [{ id: 'fixture-artist', name: 'Sonavi Fixture', albumCount: 31 }],
+          album: [fixtureAlbums[0]],
+          song: [
+            {
+              id: 'fixture-track',
+              title: '跨平台试音',
+              artist: 'Sonavi Fixture',
+              album: '石与琥珀',
+              duration: 4,
               contentType: 'audio/wav',
               coverArt: 'fixture-cover'
             }
@@ -296,6 +354,10 @@ try {
     forgetConnection: typeof window.sonavi?.connection?.forget,
     listAlbums: typeof window.sonavi?.library?.listAlbums,
     getAlbum: typeof window.sonavi?.library?.getAlbum,
+    listArtists: typeof window.sonavi?.library?.listArtists,
+    getArtist: typeof window.sonavi?.library?.getArtist,
+    search: typeof window.sonavi?.library?.search,
+    cancelSearch: typeof window.sonavi?.library?.cancelSearch,
     rendererProcess: typeof window.process
   }))
   if (
@@ -306,6 +368,10 @@ try {
     bridgeShape.forgetConnection !== 'function' ||
     bridgeShape.listAlbums !== 'function' ||
     bridgeShape.getAlbum !== 'function' ||
+    bridgeShape.listArtists !== 'function' ||
+    bridgeShape.getArtist !== 'function' ||
+    bridgeShape.search !== 'function' ||
+    bridgeShape.cancelSearch !== 'function' ||
     bridgeShape.rendererProcess !== 'undefined'
   ) {
     throw new Error(`preload 安全边界冒烟失败：${JSON.stringify(bridgeShape)}`)
@@ -345,7 +411,7 @@ try {
     throw new Error('真实 HTMLAudioElement 未请求 fixture 音频流')
   }
   await window.getByRole('button', { name: '加入队列 跨平台试音' }).click()
-  await window.getByRole('button', { name: '播放队列' }).click()
+  await window.getByRole('button', { name: '播放队列', exact: true }).click()
   await window.getByRole('heading', { name: '播放队列' }).waitFor()
   await window.getByText('4 项 · 顺序').waitFor()
   await window.getByRole('button', { name: '下一首', exact: true }).click()
@@ -382,7 +448,32 @@ try {
   console.log('OpenSubsonic integration passed: two album pages + detail + opaque media handles')
   console.log('Audio integration passed: album queue + duplicate entry + next/previous + pause + seek + resume')
 
-  await window.getByRole('button', { name: '连接服务器' }).click()
+  await window.getByRole('button', { name: '播放队列', exact: true }).click()
+  await window.getByRole('button', { name: '艺术家', exact: true }).click()
+  await window.getByRole('heading', { name: '艺术家', exact: true }).waitFor()
+  await window.getByRole('button', { name: /Sonavi Fixture/ }).click()
+  await window.getByRole('heading', { name: 'Sonavi Fixture' }).waitFor()
+  await window.getByRole('button', { name: /石与琥珀/ }).first().click()
+  await window.getByRole('heading', { name: '专辑详情' }).waitFor()
+  await window.getByRole('button', { name: '搜索', exact: true }).click()
+  await window.getByPlaceholder('搜索艺术家、专辑或歌曲').fill('跨平台')
+  const songResults = window.getByRole('region', { name: '歌曲' })
+  await songResults.getByText('跨平台试音', { exact: true }).waitFor()
+  await electronApplication.evaluate(({ BrowserWindow }) => {
+    BrowserWindow.getAllWindows()[0]?.setSize(960, 640)
+  })
+  await window.waitForTimeout(200)
+  const hasHorizontalOverflow = await window.evaluate(
+    () =>
+      globalThis.document.documentElement.scrollWidth >
+      globalThis.document.documentElement.clientWidth
+  )
+  if (hasHorizontalOverflow) throw new Error('P05 最小窗口出现应用级横向溢出')
+  await window.screenshot({ path: screenshotPath, fullPage: true })
+  console.log('P05 navigation passed: artists + artist detail + album detail + debounced search')
+
+  await window.getByRole('button', { name: '设置', exact: true }).click()
+  await window.getByRole('button', { name: '断开连接' }).click()
   await window.getByRole('heading', { name: '连接你的音乐空间' }).waitFor()
   if ((await window.locator('#password').inputValue()) !== '') {
     throw new Error('连接完成后密码输入框未清空')

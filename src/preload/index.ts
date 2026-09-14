@@ -8,9 +8,15 @@ import {
   type ConnectionTestInput
 } from '../shared/connection'
 import {
+  CANCEL_LIBRARY_SEARCH_CHANNEL,
   GET_ALBUM_CHANNEL,
+  GET_ARTIST_CHANNEL,
   LIST_ALBUMS_CHANNEL,
-  type AlbumPageRequest
+  LIST_ARTISTS_CHANNEL,
+  SEARCH_LIBRARY_CHANNEL,
+  type AlbumPageRequest,
+  type CancelSearchRequest,
+  type SearchRequest
 } from '../shared/library'
 
 const sonaviApi: SonaviApi = Object.freeze({
@@ -27,7 +33,13 @@ const sonaviApi: SonaviApi = Object.freeze({
   library: Object.freeze({
     listAlbums: (request: AlbumPageRequest) => ipcRenderer.invoke(LIST_ALBUMS_CHANNEL, request),
     getAlbum: (sessionId: string, albumId: string) =>
-      ipcRenderer.invoke(GET_ALBUM_CHANNEL, sessionId, albumId)
+      ipcRenderer.invoke(GET_ALBUM_CHANNEL, sessionId, albumId),
+    listArtists: (sessionId: string) => ipcRenderer.invoke(LIST_ARTISTS_CHANNEL, sessionId),
+    getArtist: (sessionId: string, artistId: string) =>
+      ipcRenderer.invoke(GET_ARTIST_CHANNEL, sessionId, artistId),
+    search: (request: SearchRequest) => ipcRenderer.invoke(SEARCH_LIBRARY_CHANNEL, request),
+    cancelSearch: (request: CancelSearchRequest) =>
+      ipcRenderer.invoke(CANCEL_LIBRARY_SEARCH_CHANNEL, request)
   })
 })
 

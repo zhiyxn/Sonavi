@@ -1,21 +1,35 @@
 <script setup lang="ts">
 import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
-import { computed, ref } from 'vue'
-import type { AlbumSummary, TrackSummary } from '../../../shared/library'
+import { computed } from 'vue'
+import type { AlbumListType, AlbumSummary, TrackSummary } from '../../../shared/library'
 import { getAlbum, listAlbums } from '../services/library'
 import { usePlayerStore } from '../stores/player'
 import { Button } from './ui/button'
 
-const props = defineProps<{ sessionId: string; serverName: string; serverId: string }>()
-const emit = defineEmits<{ forget: [] }>()
-const selectedAlbumId = ref<string | null>(null)
+const props = defineProps<{
+  sessionId: string
+  serverName: string
+  serverId: string
+  listType: AlbumListType
+  title: string
+  selectedAlbumId: string | null
+}>()
+const emit = defineEmits<{
+  forget: []
+  'update:selectedAlbumId': [albumId: string | null]
+}>()
 const player = usePlayerStore()
 const ALBUM_PAGE_SIZE = 30
 
 const albumsQuery = useInfiniteQuery({
-  queryKey: computed(() => ['albums', props.sessionId]),
+  queryKey: computed(() => ['albums', props.sessionId, props.listType]),
   queryFn: ({ pageParam }) =>
-    listAlbums({ sessionId: props.sessionId, offset: pageParam, size: ALBUM_PAGE_SIZE }),
+    listAlbums({
+      sessionId: props.sessionId,
+      type: props.listType,
+      offset: pageParam,
+      size: ALBUM_PAGE_SIZE
+    }),
   initialPageParam: 0,
   getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextOffset : undefined),
   staleTime: 30_000
@@ -30,14 +44,14 @@ const albums = computed(() => {
 })
 
 const albumQuery = useQuery({
-  queryKey: computed(() => ['album', props.sessionId, selectedAlbumId.value]),
-  queryFn: () => getAlbum(props.sessionId, selectedAlbumId.value ?? ''),
-  enabled: computed(() => selectedAlbumId.value !== null),
+  queryKey: computed(() => ['album', props.sessionId, props.selectedAlbumId]),
+  queryFn: () => getAlbum(props.sessionId, props.selectedAlbumId ?? ''),
+  enabled: computed(() => props.selectedAlbumId !== null),
   staleTime: 30_000
 })
 
 function openAlbum(album: AlbumSummary): void {
-  selectedAlbumId.value = album.id
+  emit('update:selectedAlbumId', album.id)
 }
 
 function playTrack(track: TrackSummary): void {
@@ -68,12 +82,16 @@ function appendTrack(track: TrackSummary): void {
       <div>
         <p class="eyebrow">03 / LIBRARY</p>
         <h1 id="library-title" class="mt-4 text-4xl font-medium tracking-[-0.04em]">
-          {{ selectedAlbumId ? '专辑详情' : '最近添加' }}
+          {{ selectedAlbumId ? '专辑详情' : title }}
         </h1>
         <p class="mt-2 text-sm text-sonavi-muted">{{ serverName }} · 真实 OpenSubsonic 数据</p>
       </div>
       <div class="flex gap-2">
-        <Button v-if="selectedAlbumId" variant="outline" @click="selectedAlbumId = null">
+        <Button
+          v-if="selectedAlbumId"
+          variant="outline"
+          @click="emit('update:selectedAlbumId', null)"
+        >
           返回专辑
         </Button>
         <Button variant="ghost" @click="emit('forget')">退出并忘记账号</Button>
