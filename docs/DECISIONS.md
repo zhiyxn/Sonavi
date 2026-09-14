@@ -92,3 +92,12 @@ CredentialStore 使用当前锁定 Electron 44.3.0 类型中存在的异步 `isA
 renderer 不获得上游地址、用户名、salt 或 token，只获得绑定当前 main 会话的随机媒体句柄。`sonavi-media` scheme 在 ready 前注册，并由 default Session 的 `protocol.handle` 处理。main 使用 Electron Session、`redirect: manual` 和 `format=raw` 请求封面/音频，只转发安全响应头及 200/206/416，以保留背压的流返回；不缓冲整首歌曲，不跨 IPC 传 Base64，不通过 `bypassCSP` 放宽安全策略。新连接会轮换会话 ID；退出、忘记账号和真正退出会撤销旧媒体句柄并中止活动请求。
 
 来源：https://www.electronjs.org/docs/latest/api/protocol
+
+## D011：P04 以 queueEntryId 和 generation 隔离播放状态
+
+- 日期：2026-09-14
+- 状态：已接受
+
+AudioEngine 使用单一枚举状态而非跨组件布尔组合，并以 generationId 隔离每次媒体来源。切歌会释放旧 HTMLAudioElement 的事件监听；play/pause 命令另有递增序号，迟到的旧 Promise 不能把当前曲目或加载中暂停改为错误。全局仍只有一个引擎和一个活动音频宿主，页面组件不创建 Audio。
+
+队列唯一性以随机 `queueEntryId` 为准，服务端 `trackId` 只标识歌曲，所以重复歌曲可独立删除和重排。队列项携带当前 server/account/session 范围，不跨失效会话恢复媒体句柄。随机顺序在当前队列生命周期内稳定，上一首沿实际播放历史返回。自然 ended 遵循单曲循环；手动下一首忽略单曲循环。队列持久化与后台播放仍留在 P09。

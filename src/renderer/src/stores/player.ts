@@ -1,91 +1,308 @@
 import { defineStore } from 'pinia'
 import { computed, markRaw, ref } from 'vue'
 import type { TrackSummary } from '../../../shared/library'
+import { HtmlAudioEngine, isActivePlaybackState } from '../services/audio-engine/html-audio-engine'
+import type { AudioEngineSnapshot, AudioEngineState } from '../services/audio-engine/types'
 
-export type PlayerState = 'idle' | 'loading' | 'playing' | 'paused' | 'error'
+export type PlaybackOrder = 'sequential' | 'shuffle'
+export type RepeatMode = 'off' | 'all' | 'one'
+
+export interface PlaybackScope {
+  sessionId: string
+  serverId: string
+  accountId: string
+}
+
+export interface QueueEntry {
+  queueEntryId: string
+  trackId: string
+  scope: PlaybackScope
+  track: TrackSummary
+}
+
+function createQueueEntry(track: TrackSummary, scope: PlaybackScope): QueueEntry {
+  return {
+    queueEntryId: globalThis.crypto.randomUUID(),
+    trackId: track.id,
+    scope: { ...scope },
+    track: { ...track }
+  }
+}
+
+function shuffleIds(ids: string[]): string[] {
+  const shuffled = [...ids]
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const target = Math.floor(Math.random() * (index + 1))
+    ;[shuffled[index], shuffled[target]] = [shuffled[target]!, shuffled[index]!]
+  }
+  return shuffled
+}
 
 export const usePlayerStore = defineStore('player', () => {
-  const state = ref<PlayerState>('idle')
-  const track = ref<TrackSummary | null>(null)
+  const engine = markRaw(new HtmlAudioEngine())
+  const state = ref<AudioEngineState>('idle')
   const currentTime = ref(0)
   const duration = ref(0)
+  const volume = ref(1)
   const errorMessage = ref('')
-  let audio: HTMLAudioElement | null = null
+  const generationId = ref(0)
+  const queue = ref<QueueEntry[]>([])
+  const currentEntryId = ref<string | null>(null)
+  const playbackOrder = ref<PlaybackOrder>('sequential')
+  const repeatMode = ref<RepeatMode>('off')
+  const shuffleOrder = ref<string[]>([])
+  const playbackHistory = ref<string[]>([])
 
-  const isPlaying = computed(() => state.value === 'playing')
+  const currentEntry = computed(
+    () => queue.value.find((entry) => entry.queueEntryId === currentEntryId.value) ?? null
+  )
+  const track = computed(() => currentEntry.value?.track ?? null)
+  const isPlaying = computed(() => isActivePlaybackState(state.value))
+  const canGoPrevious = computed(() => currentEntry.value !== null)
+  const canGoNext = computed(() => getNextEntryId() !== null)
 
-  function getAudio(): HTMLAudioElement {
-    if (audio) return audio
-    audio = markRaw(new Audio())
-    audio.preload = 'metadata'
-    audio.addEventListener('loadstart', () => {
-      state.value = track.value ? 'loading' : 'idle'
-    })
-    audio.addEventListener('playing', () => {
-      state.value = 'playing'
-    })
-    audio.addEventListener('pause', () => {
-      if (track.value && !audio?.ended) state.value = 'paused'
-    })
-    audio.addEventListener('timeupdate', () => {
-      currentTime.value = audio?.currentTime ?? 0
-    })
-    audio.addEventListener('durationchange', () => {
-      duration.value = Number.isFinite(audio?.duration) ? (audio?.duration ?? 0) : 0
-    })
-    audio.addEventListener('ended', () => {
-      state.value = 'paused'
-      currentTime.value = 0
-    })
-    audio.addEventListener('error', () => {
-      state.value = 'error'
-      errorMessage.value = '音频流加载失败。'
-    })
-    return audio
+  engine.subscribe((event) => {
+    if (event.type === 'ended') {
+      if (
+        event.generationId === generationId.value &&
+        event.trackId === currentEntry.value?.trackId
+      ) {
+        void handleNaturalEnded()
+      }
+      return
+    }
+    applySnapshot(event.snapshot)
+  })
+
+  function applySnapshot(snapshot: AudioEngineSnapshot): void {
+    generationId.value = snapshot.generationId
+    state.value = snapshot.state
+    currentTime.value = snapshot.currentTime
+    duration.value = snapshot.duration
+    volume.value = snapshot.volume
+    errorMessage.value = snapshot.errorMessage
   }
 
-  async function play(selectedTrack: TrackSummary): Promise<void> {
-    const element = getAudio()
-    errorMessage.value = ''
-    if (track.value?.id !== selectedTrack.id) {
-      track.value = selectedTrack
-      currentTime.value = 0
-      duration.value = selectedTrack.duration
-      element.src = selectedTrack.streamUrl
-      element.load()
+  function orderedEntryIds(): string[] {
+    if (playbackOrder.value === 'shuffle') {
+      const available = new Set(queue.value.map((entry) => entry.queueEntryId))
+      return shuffleOrder.value.filter((id) => available.has(id))
+    }
+    return queue.value.map((entry) => entry.queueEntryId)
+  }
+
+  function entryById(queueEntryId: string | null): QueueEntry | null {
+    return queue.value.find((entry) => entry.queueEntryId === queueEntryId) ?? null
+  }
+
+  function getNextEntryId(): string | null {
+    if (!currentEntryId.value) return queue.value[0]?.queueEntryId ?? null
+    const order = orderedEntryIds()
+    const currentIndex = order.indexOf(currentEntryId.value)
+    if (currentIndex >= 0 && currentIndex < order.length - 1) return order[currentIndex + 1] ?? null
+    return repeatMode.value === 'all' ? (order[0] ?? null) : null
+  }
+
+  async function loadEntry(
+    entry: QueueEntry,
+    autoplay: boolean,
+    recordHistory = true
+  ): Promise<void> {
+    currentEntryId.value = entry.queueEntryId
+    if (recordHistory && playbackHistory.value.at(-1) !== entry.queueEntryId) {
+      playbackHistory.value.push(entry.queueEntryId)
+    }
+    await engine.load(
+      { trackId: entry.trackId, streamUrl: entry.track.streamUrl, duration: entry.track.duration },
+      autoplay
+    )
+  }
+
+  async function replaceQueue(
+    tracks: TrackSummary[],
+    startIndex: number,
+    scope: PlaybackScope,
+    autoplay = true
+  ): Promise<void> {
+    engine.stop()
+    queue.value = tracks.map((item) => createQueueEntry(item, scope))
+    shuffleOrder.value =
+      playbackOrder.value === 'shuffle'
+        ? shuffleIds(queue.value.map((entry) => entry.queueEntryId))
+        : []
+    playbackHistory.value = []
+    if (queue.value.length === 0) {
+      currentEntryId.value = null
+      return
+    }
+    const safeIndex = Math.min(Math.max(0, startIndex), queue.value.length - 1)
+    await loadEntry(queue.value[safeIndex]!, autoplay)
+  }
+
+  function appendToQueue(tracks: TrackSummary[], scope: PlaybackScope): void {
+    if (tracks.length === 0) return
+    const additions = tracks.map((item) => createQueueEntry(item, scope))
+    queue.value.push(...additions)
+    if (playbackOrder.value === 'shuffle') {
+      shuffleOrder.value.push(...shuffleIds(additions.map((entry) => entry.queueEntryId)))
+    }
+    if (!currentEntry.value) void loadEntry(additions[0]!, false)
+  }
+
+  async function playQueueEntry(queueEntryId: string): Promise<void> {
+    const entry = entryById(queueEntryId)
+    if (entry) await loadEntry(entry, true)
+  }
+
+  async function next(): Promise<void> {
+    const nextEntry = entryById(getNextEntryId())
+    if (nextEntry) await loadEntry(nextEntry, true)
+  }
+
+  async function previous(): Promise<void> {
+    if (!currentEntry.value) return
+    if (currentTime.value > 3) {
+      engine.seek(0)
+      return
     }
 
-    try {
-      await element.play()
-    } catch {
-      state.value = 'error'
-      errorMessage.value = '系统未能开始播放，请重试。'
+    if (playbackOrder.value === 'shuffle') {
+      while (playbackHistory.value.at(-1) === currentEntryId.value) playbackHistory.value.pop()
+      const previousEntry = entryById(playbackHistory.value.at(-1) ?? null)
+      if (previousEntry) {
+        await loadEntry(previousEntry, true, false)
+        return
+      }
+      if (repeatMode.value === 'all') {
+        const order = orderedEntryIds()
+        const wrappedEntry = entryById(order.at(-1) ?? null)
+        if (wrappedEntry) await loadEntry(wrappedEntry, true)
+      } else {
+        engine.seek(0)
+      }
+      return
     }
+
+    const currentIndex = queue.value.findIndex(
+      (entry) => entry.queueEntryId === currentEntryId.value
+    )
+    const previousIndex =
+      currentIndex > 0
+        ? currentIndex - 1
+        : repeatMode.value === 'all'
+          ? queue.value.length - 1
+          : -1
+    if (previousIndex >= 0) await loadEntry(queue.value[previousIndex]!, true)
+    else engine.seek(0)
+  }
+
+  function removeQueueEntry(queueEntryId: string): void {
+    const removingCurrent = currentEntryId.value === queueEntryId
+    const wasActive = isActivePlaybackState(state.value)
+    const orderBeforeRemoval = orderedEntryIds()
+    const removedIndex = orderBeforeRemoval.indexOf(queueEntryId)
+    const replacementId =
+      orderBeforeRemoval[removedIndex + 1] ?? orderBeforeRemoval[removedIndex - 1] ?? null
+
+    queue.value = queue.value.filter((entry) => entry.queueEntryId !== queueEntryId)
+    shuffleOrder.value = shuffleOrder.value.filter((id) => id !== queueEntryId)
+    playbackHistory.value = playbackHistory.value.filter((id) => id !== queueEntryId)
+    if (!removingCurrent) return
+
+    const replacement = entryById(replacementId)
+    if (replacement) void loadEntry(replacement, wasActive)
+    else clearQueue()
+  }
+
+  function moveQueueEntry(queueEntryId: string, targetIndex: number): void {
+    const sourceIndex = queue.value.findIndex((entry) => entry.queueEntryId === queueEntryId)
+    if (sourceIndex < 0 || queue.value.length < 2) return
+    const safeTarget = Math.min(Math.max(0, targetIndex), queue.value.length - 1)
+    if (sourceIndex === safeTarget) return
+    const [entry] = queue.value.splice(sourceIndex, 1)
+    queue.value.splice(safeTarget, 0, entry!)
+  }
+
+  function clearQueue(): void {
+    engine.stop()
+    queue.value = []
+    currentEntryId.value = null
+    shuffleOrder.value = []
+    playbackHistory.value = []
   }
 
   function toggle(): void {
-    if (!audio || !track.value) return
-    if (audio.paused) void play(track.value)
-    else audio.pause()
+    if (!currentEntry.value) return
+    if (isActivePlaybackState(state.value)) engine.pause()
+    else void engine.play()
   }
 
   function seek(seconds: number): void {
-    if (!audio || !Number.isFinite(seconds)) return
-    audio.currentTime = Math.max(0, Math.min(seconds, duration.value || seconds))
+    engine.seek(seconds)
+  }
+
+  function setVolume(nextVolume: number): void {
+    engine.setVolume(nextVolume)
+  }
+
+  function togglePlaybackOrder(): void {
+    playbackOrder.value = playbackOrder.value === 'sequential' ? 'shuffle' : 'sequential'
+    shuffleOrder.value =
+      playbackOrder.value === 'shuffle'
+        ? shuffleIds(queue.value.map((entry) => entry.queueEntryId))
+        : []
+    playbackHistory.value = currentEntryId.value ? [currentEntryId.value] : []
+  }
+
+  function cycleRepeatMode(): void {
+    repeatMode.value =
+      repeatMode.value === 'off' ? 'all' : repeatMode.value === 'all' ? 'one' : 'off'
+  }
+
+  async function handleNaturalEnded(): Promise<void> {
+    if (!currentEntry.value) return
+    if (repeatMode.value === 'one') {
+      engine.seek(0)
+      await engine.play()
+      return
+    }
+    await next()
   }
 
   function stop(): void {
-    track.value = null
-    if (audio) {
-      audio.pause()
-      audio.removeAttribute('src')
-      audio.load()
-    }
-    currentTime.value = 0
-    duration.value = 0
-    errorMessage.value = ''
-    state.value = 'idle'
+    clearQueue()
   }
 
-  return { state, track, currentTime, duration, errorMessage, isPlaying, play, toggle, seek, stop }
+  return {
+    state,
+    track,
+    currentTime,
+    duration,
+    volume,
+    errorMessage,
+    generationId,
+    queue,
+    currentEntryId,
+    currentEntry,
+    playbackOrder,
+    repeatMode,
+    playbackHistory,
+    isPlaying,
+    canGoPrevious,
+    canGoNext,
+    replaceQueue,
+    appendToQueue,
+    playQueueEntry,
+    next,
+    previous,
+    removeQueueEntry,
+    moveQueueEntry,
+    clearQueue,
+    toggle,
+    seek,
+    setVolume,
+    togglePlaybackOrder,
+    cycleRepeatMode,
+    stop
+  }
 })

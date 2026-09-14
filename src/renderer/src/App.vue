@@ -88,6 +88,9 @@ async function handleForget(): Promise<void> {
           连接服务器
         </button>
         <span class="nav-item" :class="{ active: session.connection }">音乐库 <small>P03</small></span>
+        <span class="nav-item" :class="{ active: session.connection && player.queue.length > 0 }">
+          播放队列 <small>P04</small>
+        </span>
         <span class="nav-item disabled" aria-disabled="true">搜索 <small>P05</small></span>
         <span class="nav-item disabled" aria-disabled="true">歌单 <small>P06</small></span>
       </nav>
@@ -106,6 +109,7 @@ async function handleForget(): Promise<void> {
           v-if="applicationInfo && !startupPending && session.connection"
           :session-id="session.connection.sessionId"
           :server-name="session.connection.server.serverType ?? 'Subsonic 服务器'"
+          :server-id="session.connection.server.baseUrl"
           @forget="handleForget"
         />
         <ConnectPanel

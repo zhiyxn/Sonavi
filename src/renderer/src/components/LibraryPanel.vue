@@ -6,7 +6,7 @@ import { getAlbum, listAlbums } from '../services/library'
 import { usePlayerStore } from '../stores/player'
 import { Button } from './ui/button'
 
-const props = defineProps<{ sessionId: string; serverName: string }>()
+const props = defineProps<{ sessionId: string; serverName: string; serverId: string }>()
 const emit = defineEmits<{ forget: [] }>()
 const selectedAlbumId = ref<string | null>(null)
 const player = usePlayerStore()
@@ -41,7 +41,24 @@ function openAlbum(album: AlbumSummary): void {
 }
 
 function playTrack(track: TrackSummary): void {
-  void player.play(track)
+  const tracks = albumQuery.data.value?.tracks ?? [track]
+  const startIndex = Math.max(
+    0,
+    tracks.findIndex((item) => item.id === track.id)
+  )
+  void player.replaceQueue(
+    tracks,
+    startIndex,
+    { sessionId: props.sessionId, serverId: props.serverId, accountId: props.sessionId },
+    true
+  )
+}
+
+function appendTrack(track: TrackSummary): void {
+  player.appendToQueue(
+    [track],
+    { sessionId: props.sessionId, serverId: props.serverId, accountId: props.sessionId }
+  )
 }
 </script>
 
@@ -99,9 +116,19 @@ function playTrack(track: TrackSummary): void {
               <strong class="block truncate text-sm">{{ track.title }}</strong>
               <small class="block truncate text-sonavi-muted">{{ track.artist }}</small>
             </span>
-            <Button size="sm" :aria-label="`播放 ${track.title}`" @click="playTrack(track)">
-              播放
-            </Button>
+            <span class="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                :aria-label="`加入队列 ${track.title}`"
+                @click="appendTrack(track)"
+              >
+                加入队列
+              </Button>
+              <Button size="sm" :aria-label="`播放 ${track.title}`" @click="playTrack(track)">
+                播放
+              </Button>
+            </span>
           </li>
         </ol>
       </div>

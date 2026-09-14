@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 
 const screenshotPath = resolve(
-  process.env.SONAVI_SCREENSHOT_PATH ?? 'artifacts/screenshots/p03-current-platform.png'
+  process.env.SONAVI_SCREENSHOT_PATH ?? 'artifacts/screenshots/p04-current-platform.png'
 )
 
 const executablePath = process.env.SONAVI_EXECUTABLE_PATH
@@ -25,8 +25,8 @@ const fixtureAlbums = [
     id: 'fixture-album',
     name: '石与琥珀',
     artist: 'Sonavi Fixture',
-    songCount: 1,
-    duration: 4,
+    songCount: 3,
+    duration: 12,
     coverArt: 'fixture-cover'
   },
   ...Array.from({ length: 30 }, (_, index) => ({
@@ -114,8 +114,8 @@ function fixtureResponse(endpoint, requestUrl) {
           id: 'fixture-album',
           name: '石与琥珀',
           artist: 'Sonavi Fixture',
-          songCount: 1,
-          duration: 4,
+          songCount: 3,
+          duration: 12,
           coverArt: 'fixture-cover',
           song: [
             {
@@ -125,6 +125,26 @@ function fixtureResponse(endpoint, requestUrl) {
               album: '石与琥珀',
               duration: 4,
               track: 1,
+              contentType: 'audio/wav',
+              coverArt: 'fixture-cover'
+            },
+            {
+              id: 'fixture-track-2',
+              title: '队列下一首',
+              artist: 'Sonavi Fixture',
+              album: '石与琥珀',
+              duration: 4,
+              track: 2,
+              contentType: 'audio/wav',
+              coverArt: 'fixture-cover'
+            },
+            {
+              id: 'fixture-track-3',
+              title: '循环终点',
+              artist: 'Sonavi Fixture',
+              album: '石与琥珀',
+              duration: 4,
+              track: 3,
               contentType: 'audio/wav',
               coverArt: 'fixture-cover'
             }
@@ -324,6 +344,20 @@ try {
   if (!mediaRequests.some((request) => request.path?.includes('/stream.view'))) {
     throw new Error('真实 HTMLAudioElement 未请求 fixture 音频流')
   }
+  await window.getByRole('button', { name: '加入队列 跨平台试音' }).click()
+  await window.getByRole('button', { name: '播放队列' }).click()
+  await window.getByRole('heading', { name: '播放队列' }).waitFor()
+  await window.getByText('4 项 · 顺序').waitFor()
+  await window.getByRole('button', { name: '下一首', exact: true }).click()
+  await window
+    .locator('footer[aria-label="播放器"] > div.min-w-0 > strong')
+    .getByText('队列下一首')
+    .waitFor()
+  await window.getByRole('button', { name: '上一首', exact: true }).click()
+  await window
+    .locator('footer[aria-label="播放器"] > div.min-w-0 > strong')
+    .getByText('跨平台试音')
+    .waitFor()
   await window.getByRole('button', { name: '暂停' }).click()
   await window.getByRole('button', { name: '继续播放' }).waitFor()
   await window.locator('input[aria-label="播放进度"]').evaluate((element) => {
@@ -346,7 +380,7 @@ try {
   }
   await window.screenshot({ path: screenshotPath, fullPage: true })
   console.log('OpenSubsonic integration passed: two album pages + detail + opaque media handles')
-  console.log('Audio integration passed: play + pause + original-stream seek + resume')
+  console.log('Audio integration passed: album queue + duplicate entry + next/previous + pause + seek + resume')
 
   await window.getByRole('button', { name: '连接服务器' }).click()
   await window.getByRole('heading', { name: '连接你的音乐空间' }).waitFor()

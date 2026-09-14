@@ -1,18 +1,43 @@
-export type AudioEngineState = 'idle' | 'loading' | 'playing' | 'paused' | 'error'
+export type AudioEngineState =
+  | 'idle'
+  | 'loading'
+  | 'playing'
+  | 'paused'
+  | 'buffering'
+  | 'seeking'
+  | 'ended'
+  | 'error'
+
+export interface AudioEngineSource {
+  trackId: string
+  streamUrl: string
+  duration: number
+}
 
 export interface AudioEngineSnapshot {
+  generationId: number
   state: AudioEngineState
   trackId: string | null
   currentTime: number
   duration: number
+  volume: number
+  errorMessage: string
 }
 
-/**
- * P03 使用一个 HTMLAudioElement 实例实现最短播放链路；P04 在此边界后扩展队列与完整状态机。
- */
+export type AudioEngineEvent =
+  | { type: 'snapshot'; snapshot: AudioEngineSnapshot }
+  | { type: 'ended'; generationId: number; trackId: string }
+
+export type AudioEngineListener = (event: AudioEngineEvent) => void
+
+/** 唯一 AudioEngine 是 renderer 中创建和控制 HTMLAudioElement 的唯一边界。 */
 export interface AudioEngine {
   getSnapshot: () => AudioEngineSnapshot
-  play: (trackId: string, streamUrl: string) => Promise<void>
+  subscribe: (listener: AudioEngineListener) => () => void
+  load: (source: AudioEngineSource, autoplay: boolean) => Promise<void>
+  play: () => Promise<void>
   pause: () => void
   seek: (seconds: number) => void
+  setVolume: (volume: number) => void
+  stop: () => void
 }

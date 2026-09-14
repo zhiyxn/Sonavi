@@ -1,10 +1,35 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { Pause, Play } from '@lucide/vue'
+import { computed, ref } from 'vue'
+import {
+  ChevronDown,
+  ChevronUp,
+  ListMusic,
+  Pause,
+  Play,
+  Repeat,
+  Repeat1,
+  Shuffle,
+  SkipBack,
+  SkipForward,
+  Trash2,
+  Volume2
+} from '@lucide/vue'
 import { usePlayerStore } from '../stores/player'
 import { Button } from './ui/button'
 
 const player = usePlayerStore()
+const queueOpen = ref(false)
+
+const stateLabels = {
+  idle: '空闲',
+  loading: '正在加载',
+  playing: '正在播放',
+  paused: '已暂停',
+  buffering: '正在缓冲',
+  seeking: '正在跳转',
+  ended: '播放结束',
+  error: '播放错误'
+} as const
 
 function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
@@ -20,10 +45,87 @@ const progress = computed(() => {
 function onSeek(event: Event): void {
   player.seek(Number((event.target as HTMLInputElement).value))
 }
+
+function onVolume(event: Event): void {
+  player.setVolume(Number((event.target as HTMLInputElement).value))
+}
+
+const repeatLabel = computed(() => {
+  if (player.repeatMode === 'one') return '单曲循环'
+  if (player.repeatMode === 'all') return '列表循环'
+  return '不循环'
+})
 </script>
 
 <template>
   <footer class="player-bar" aria-label="播放器">
+    <section
+      v-if="queueOpen"
+      id="player-queue"
+      class="queue-panel"
+      aria-labelledby="queue-title"
+    >
+      <header>
+        <div>
+          <h2 id="queue-title">播放队列</h2>
+          <p>{{ player.queue.length }} 项 · {{ player.playbackOrder === 'shuffle' ? '随机' : '顺序' }}</p>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          :disabled="player.queue.length === 0"
+          @click="player.clearQueue"
+        >
+          清空
+        </Button>
+      </header>
+      <p v-if="player.queue.length === 0" class="queue-empty">队列为空。</p>
+      <ol v-else>
+        <li
+          v-for="(entry, index) in player.queue"
+          :key="entry.queueEntryId"
+          :class="{ current: entry.queueEntryId === player.currentEntryId }"
+        >
+          <button
+            type="button"
+            class="queue-track"
+            :aria-label="`播放队列中的 ${entry.track.title}`"
+            @click="player.playQueueEntry(entry.queueEntryId)"
+          >
+            <strong>{{ entry.track.title }}</strong>
+            <span>{{ entry.track.artist }}</span>
+          </button>
+          <div class="queue-actions">
+            <Button
+              variant="ghost"
+              size="icon"
+              :disabled="index === 0"
+              :aria-label="`上移 ${entry.track.title}`"
+              @click="player.moveQueueEntry(entry.queueEntryId, index - 1)"
+            >
+              <ChevronUp :size="15" aria-hidden="true" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              :disabled="index === player.queue.length - 1"
+              :aria-label="`下移 ${entry.track.title}`"
+              @click="player.moveQueueEntry(entry.queueEntryId, index + 1)"
+            >
+              <ChevronDown :size="15" aria-hidden="true" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              :aria-label="`从队列移除 ${entry.track.title}`"
+              @click="player.removeQueueEntry(entry.queueEntryId)"
+            >
+              <Trash2 :size="15" aria-hidden="true" />
+            </Button>
+          </div>
+        </li>
+      </ol>
+    </section>
     <div class="album-placeholder" aria-hidden="true">{{ player.track ? '♪' : 'S' }}</div>
     <div class="min-w-0">
       <strong class="block truncate">{{ player.track?.title ?? '选择歌曲开始播放' }}</strong>
@@ -32,6 +134,25 @@ function onSeek(event: Event): void {
     </div>
     <div class="player-controls">
       <Button
+        variant="ghost"
+        size="icon"
+        :class="{ 'control-active': player.playbackOrder === 'shuffle' }"
+        :aria-label="player.playbackOrder === 'shuffle' ? '关闭随机播放' : '开启随机播放'"
+        :aria-pressed="player.playbackOrder === 'shuffle'"
+        @click="player.togglePlaybackOrder"
+      >
+        <Shuffle :size="17" aria-hidden="true" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        :disabled="!player.canGoPrevious"
+        aria-label="上一首"
+        @click="player.previous"
+      >
+        <SkipBack :size="18" aria-hidden="true" />
+      </Button>
+      <Button
         size="icon"
         :disabled="!player.track"
         :aria-label="player.isPlaying ? '暂停' : '继续播放'"
@@ -39,6 +160,25 @@ function onSeek(event: Event): void {
       >
         <Pause v-if="player.isPlaying" :size="18" aria-hidden="true" />
         <Play v-else :size="18" aria-hidden="true" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        :disabled="!player.canGoNext"
+        aria-label="下一首"
+        @click="player.next"
+      >
+        <SkipForward :size="18" aria-hidden="true" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        :class="{ 'control-active': player.repeatMode !== 'off' }"
+        :aria-label="`${repeatLabel}，点击切换循环模式`"
+        @click="player.cycleRepeatMode"
+      >
+        <Repeat1 v-if="player.repeatMode === 'one'" :size="17" aria-hidden="true" />
+        <Repeat v-else :size="17" aria-hidden="true" />
       </Button>
       <span>{{ formatTime(player.currentTime) }}</span>
       <input
@@ -54,6 +194,28 @@ function onSeek(event: Event): void {
       />
       <span>{{ formatTime(player.duration) }}</span>
     </div>
-    <span class="phase-pill">P03 流式播放</span>
+    <div class="player-utilities">
+      <Volume2 :size="17" aria-hidden="true" />
+      <input
+        aria-label="音量"
+        type="range"
+        min="0"
+        max="1"
+        step="0.01"
+        :value="player.volume"
+        @input="onVolume"
+      />
+      <span class="phase-pill" role="status">{{ stateLabels[player.state] }}</span>
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label="播放队列"
+        :aria-expanded="queueOpen"
+        aria-controls="player-queue"
+        @click="queueOpen = !queueOpen"
+      >
+        <ListMusic :size="19" aria-hidden="true" />
+      </Button>
+    </div>
   </footer>
 </template>

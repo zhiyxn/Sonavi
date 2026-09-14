@@ -1,6 +1,6 @@
 # Sonavi 架构
 
-更新日期：2026-09-13
+更新日期：2026-09-14
 
 ## 单工程与共享边界
 
@@ -30,7 +30,8 @@
 - `src/preload/`：唯一 renderer 桥；暴露类型明确的应用信息、连接/恢复/退出和固定音乐库方法，不暴露原始 IPC 或 Node 对象。
 - `src/shared/`：IPC channel、TypeScript 类型与 Zod 运行时 schema。
 - `src/renderer/`：一套 Vue + Tailwind CSS 应用，shadcn-vue 组件源码与 Sonavi tokens 共用；平台展示数据来自 preload，不读取 `process`。
-- `src/renderer/src/stores/player.ts`：单一 HTMLAudioElement AudioEngine 的 P03 实现；P04 在此扩展队列和完整状态机。
+- `src/renderer/src/services/audio-engine/`：P04 的 AudioEngine 契约与唯一 HTMLAudioElement 宿主；切歌时释放旧宿主监听并以 generation/命令序号隔离迟到事件与 Promise。
+- `src/renderer/src/stores/player.ts`：P04 队列与播放策略的唯一客户端状态源；组件不独立推测播放状态。
 - `tests/`：平台策略、契约、共享 UI 与真实 Electron 冒烟。
 
 ## 安全模型
@@ -44,6 +45,14 @@ P02 的连接客户端位于 `src/main/services/opensubsonic/`，使用 Electron
 统一 `CredentialStore` 位于 `src/main/services/credentials/`，只在 app ready 后调用 Electron 44 的异步 safeStorage。持久化文件放在 `app.getPath('userData')`，通过同目录临时密文文件替换保存；密码字段只写入系统加密密文。加密或写入失败时保留 main 进程会话凭据并明确返回 `session-only`，不回退明文。启动时可解密恢复，safeStorage 请求密钥轮换时先重加密；“退出并忘记账号”显式删除持久化文件。
 
 P03 的 `MediaHandleRegistry` 只向 renderer 返回随机、不透明的 `sonavi-media://media/<uuid>`。自定义 scheme 在 app ready 前注册为 standard/secure/fetch/stream，但不启用 bypassCSP；处理器在 default Session 上注册。main 根据当前会话解析句柄并重新生成认证 URL，拒绝重定向、非法/多段 Range、非媒体内容类型与非 200/206/416 响应。响应体以保留背压的 Web Stream 传递，不调用 `arrayBuffer()`、不做 Base64 IPC。退出、忘记账号、切换账号与真正退出会撤销对应句柄并通过 AbortController 中止尚未完成的上游流。CSP 只为 `img-src` 和 `media-src` 增加该 scheme。
+
+## P04 播放核心
+
+AudioEngine 快照只有一个枚举状态：`idle/loading/playing/paused/buffering/seeking/ended/error`，同时携带 generation、曲目、进度、时长、音量与错误。只有 `HtmlAudioEngine` 创建 HTMLAudioElement；切换来源时先移除旧监听、停止并释放旧元素，再创建当前 generation 的唯一活动元素。每次来源切换递增 generation，每次 play/pause 递增命令序号，旧元素事件和迟到的 `play()` 拒绝不会覆盖新曲目或用户的加载中暂停操作。
+
+Pinia player store 管理队列。每个条目使用随机 `queueEntryId`，将服务端 `trackId`、不透明媒体句柄和当前 `serverId/accountId/sessionId` 范围绑定在一起；重复 track 可以形成不同队列项。顺序与随机都以 queueEntryId 导航，随机模式在队列不变时保留稳定顺序，并以实际播放历史实现上一首。自然 ended 在单曲循环下重播当前项；手动下一首忽略单曲循环并选择后继。删除当前项优先选择其播放顺序中的后继、否则前项，并保留播放/暂停意图；空队列停止引擎并回到 idle。
+
+P04 队列只存在于当前 renderer 会话。恢复持久化队列时必须重新向有效账号申请媒体句柄且默认暂停；该落盘能力、后台宿主、托盘和媒体键仍属于 P09，不在 P04 提前实现。
 
 ## 平台生命周期规则
 

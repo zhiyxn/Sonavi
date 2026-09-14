@@ -1,6 +1,6 @@
 # Sonavi 兼容性矩阵
 
-核验日期：2026-09-13
+核验日期：2026-09-14
 
 ## 正式目标
 
@@ -46,13 +46,14 @@ Windows ARM64、Linux、macOS Universal 合并包不属于首版强制交付。�
 - 空格/中文工作区路径：代码没有 shell 拼接路径；尚未在包含空格/中文的 Windows 路径安装验证。
 - P02 CredentialStore 已使用 Electron 44 的异步 `safeStorage`；当前 Intel Mac 的加密往返、真正应用进程重启后的恢复/删除与通用失败路径已验证。Windows 11、Apple Silicon 和签名后 Keychain 稳定性仍待验证；密文不得假设可跨机器复制，禁止明文回退。
 - P03 新增依赖均为跨平台 JavaScript/CSS 包，没有加入单平台原生依赖；版本已精确锁定。`sonavi-media` 使用 Electron 44 官方 protocol/Session 能力，Windows x64 与 macOS arm64 的实际媒体播放仍需各自运行验证。
+- P04 未增加依赖或原生模块。状态机、队列、随机历史和 UI 都位于共享 TypeScript/Vue renderer；使用浏览器标准 HTMLAudioElement、EventTarget 与 Web Crypto `randomUUID`。当前 Intel Mac 已验证，Windows 11 与 Apple Silicon 仍需实机验证相同媒体事件次序和音频输出。
 
 ## 当前主机
 
-本轮主机为 macOS 13.7.8 Intel x64（Darwin 22.6.0），Node.js 22.19.0 x64。已验证 electron-vite 生产构建、真实 Electron 冒烟、x64 目录包、连接 IPC、异步 safeStorage 往返与跨进程恢复/删除、专辑/封面、HTMLAudioElement 合成 WAV 流式播放/暂停/seek/恢复、会话句柄撤销，以及关闭窗口/Dock 激活重建；P03 截图已目视检查。未生成/安装 DMG，也未签名或公证。此证据不能替代 Windows 11 或 Apple Silicon 实机结果，自动播放通过也不能替代物理扬声器听音。
+本轮主机为 macOS 13.7.8 Intel x64（Darwin 22.6.0），Node.js 22.19.0 x64。已验证 electron-vite 生产构建、真实 Electron 冒烟、x64 目录包、连接 IPC、异步 safeStorage 往返与跨进程恢复/删除、专辑/封面、HTMLAudioElement 合成 WAV 流式播放、P04 专辑队列/重复项/前后切歌/暂停/seek/恢复、会话句柄撤销，以及关闭窗口/Dock 激活重建；P04 开发与目录包截图已目视检查。未生成/安装 DMG，也未签名或公证。此证据不能替代 Windows 11 或 Apple Silicon 实机结果，自动播放通过也不能替代物理扬声器听音。
 
 ## CI 状态
 
-`.github/workflows/ci.yml` 使用 `windows-2025` x64、`macos-15-intel` x64 和 `macos-15` arm64 三个独立 runner。P01 run `34749707166`、P02 run `34760475489`、P03/生命周期修复 run `34762062759` 均三个 job 成功。当前专辑分页修复尚未提交/推送。macOS 15 CI 不能替代 macOS 13 最低版本实机验证，Windows Server runner 也不能替代 Windows 11 桌面人工验收。
+`.github/workflows/ci.yml` 使用 `windows-2025` x64、`macos-15-intel` x64 和 `macos-15` arm64 三个独立 runner。P01 run `34749707166`、P02 run `34760475489`、P03/生命周期修复 run `34762062759` 均三个 job 成功。分页修复 `f2a39c9` 已提交并与本地 `origin/main` 对齐，但当前环境没有 `gh` CLI，本轮未核实对应 CI 运行编号。P04 尚未提交/进入 CI。macOS 15 CI 不能替代 macOS 13 最低版本实机验证，Windows Server runner 也不能替代 Windows 11 桌面人工验收。
 
 来源：https://docs.github.com/en/actions/reference/runners/github-hosted-runners
