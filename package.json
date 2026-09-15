@@ -1,6 +1,6 @@
 {
   "name": "sonavi",
-  "version": "0.1.0",
+  "version": "0.1.0-rc.1",
   "description": "Windows 与 macOS 双平台 Navidrome 桌面音乐客户端",
   "main": "./out/main/index.js",
   "type": "module",

@@ -1,0 +1,143 @@
+name: Sonavi candidate release
+
+on:
+  push:
+    tags:
+      - "v*-rc.*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: ${{ matrix.name }} release gate
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            os: windows-2025
+            package-command: npm run build:win
+            package-target: win-x64
+            extension: exe
+          - name: macOS Intel x64
+            os: macos-15-intel
+            package-command: npm run build:mac:x64
+            package-target: mac-x64
+            extension: dmg
+          - name: macOS Apple Silicon arm64
+            os: macos-15
+            package-command: npm run build:mac:arm64
+            package-target: mac-arm64
+            extension: dmg
+
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@v7
+
+      - name: Use project Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Validate tag and package version
+        env:
+          SONAVI_RELEASE_TAG: ${{ github.ref_name }}
+        run: node scripts/prepare-release.mjs validate-tag
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit and component tests
+        run: npm test
+
+      - name: Dependency audit
+        run: npm audit --audit-level=high --registry=https://registry.npmjs.org
+
+      - name: Electron smoke
+        run: npm run test:e2e
+
+      - name: Build candidate package without publishing
+        run: ${{ matrix.package-command }}
+
+      - name: Verify package metadata and architecture
+        run: npm run verify:package -- ${{ matrix.package-target }}
+
+      - name: Packaged Electron smoke
+        run: npm run test:e2e:package -- ${{ matrix.package-target }}
+
+      - name: Upload verified candidate files
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.package-target }}
+          path: |
+            release/*/Sonavi-*-${{ matrix.package-target }}.${{ matrix.extension }}
+            release/*/Sonavi-*-${{ matrix.package-target }}.manifest.json
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  publish:
+    name: Create GitHub Pre-release
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@v7
+
+      - name: Use project Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Download Windows candidate
+        uses: actions/download-artifact@v8
+        with:
+          name: release-win-x64
+          path: release-assets
+
+      - name: Download macOS Intel candidate
+        uses: actions/download-artifact@v8
+        with:
+          name: release-mac-x64
+          path: release-assets
+
+      - name: Download macOS Apple Silicon candidate
+        uses: actions/download-artifact@v8
+        with:
+          name: release-mac-arm64
+          path: release-assets
+
+      - name: Prepare verified release files
+        run: node scripts/prepare-release.mjs collect release-assets release-upload
+
+      - name: Create or repair GitHub Pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          title="Sonavi ${GITHUB_REF_NAME} 测试版"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" release-upload/* --clobber
+            gh release edit "$GITHUB_REF_NAME" --title "$title" --notes-file docs/RELEASE-NOTES-v0.1.0-rc.1.md --prerelease --latest=false
+          else
+            gh release create "$GITHUB_REF_NAME" release-upload/* --verify-tag --title "$title" --notes-file docs/RELEASE-NOTES-v0.1.0-rc.1.md --prerelease --latest=false
+          fi
