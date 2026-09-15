@@ -61,7 +61,7 @@ npm run build:mac:x64
 npm run build:mac:arm64
 ```
 
-产物写入 `release/<version>/`。当前配置生成未签名开发测试包，不发布 Release、不上传安装包。可以在当前主机用 `npm run pack:dir` 做最小目录打包检查，但跨平台打包成功不作为相应平台兼容证明。
+产物写入 `release/<version>/`。普通构建仍使用 `--publish never`，不会自行发布或上传。候选版本使用 `v*-rc.*` 标签触发独立 Release 工作流，在三个原生目标全部重新验证通过后创建 GitHub Pre-release；当前未签名/未公证文件只能作为明确标注的测试包。可以在当前主机用 `npm run pack:dir` 做最小目录打包检查，但跨平台打包成功不作为相应平台兼容证明。
 
 每个目标构建后还应在同一目标系统执行：
 
@@ -72,6 +72,6 @@ npm run test:e2e:package -- win-x64    # 或 mac-x64 / mac-arm64
 
 验证器生成本地 manifest，记录架构、应用标识、资源、签名状态与 SHA-256。签名、公证、安装和发布闸门见 [发布前清单](docs/RELEASE-CHECKLIST.md)。
 
-`.github/workflows/ci.yml` 为 Windows x64、macOS Intel x64 与 macOS Apple Silicon arm64 建立独立检查/打包/包验证 job，不上传产物。提交 `ce82e9e` 的 run `34912793294` 中，Windows x64 全流程通过；arm64 在包内冒烟同步读取音频请求过早，Intel 在重启后没有稳定取得已持久化的暂停队列。修复提交 `1f23427` 已加入条件等待、可等待队列 flush 与落盘证据断言；其新 CI 结果待确认，不能写成三目标全通过。
+`.github/workflows/ci.yml` 为 Windows x64、macOS Intel x64 与 macOS Apple Silicon arm64 建立独立检查/打包/包验证 job，不上传产物。修复提交 `1f23427` 随文档提交 `51cf322` 进入 run `34934352140`，三个 job 的源码冒烟、安装包、包验证和打包应用冒烟均通过。`.github/workflows/release.yml` 只响应与 `package.json` 完全匹配的候选标签，重新运行同等闸门后上传三个安装包、三份 manifest 与 `SHA256SUMS.txt`，并创建明确标注未签名/未公证的 Pre-release。
 
 更多状态与边界见 [兼容性](docs/COMPATIBILITY.md)、[测试报告](docs/TEST-REPORT.md) 和 [交接](docs/HANDOFF.md)。

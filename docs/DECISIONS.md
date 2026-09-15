@@ -244,3 +244,18 @@ Windows 无证书开发包先从 PE Optional Header 的 Certificate Table 判断
 真正退出由 main 发出固定的 `prepare-to-quit` 业务命令，renderer 完成同一 flush 后通过固定、校验 sender 的 IPC 确认，main 才继续退出；renderer 无响应时使用 5 秒超时兜底，避免应用无法退出。资源释放移到 `will-quit`，不得在可被取消的 `before-quit` 阶段提前销毁媒体和桌面集成状态。
 
 Electron 冒烟不以固定睡眠推断落盘完成。测试在关闭隔离测试进程前读取该测试专属 `userData` 的 `desktop-state.v1.json`，只确认非敏感暂停队列的当前曲目已经持久化；真实音频流请求同样等待 fixture 实际收到 `/stream.view`，而不是用 UI 已进入 playing 代替网络事实。
+
+## D021：候选下载只由标签驱动的完整原生闸门创建
+
+- 日期：2026-09-15
+- 状态：已接受
+
+普通 push/PR CI 保持 `contents: read` 且不上传安装包。只有用户明确授权并推送与 `package.json` 完全一致的 `v*-rc.*` 标签时，独立发布工作流才在 Windows x64、macOS Intel x64 与 macOS arm64 原生 runner 重新执行依赖审计、lint、typecheck、测试、源码 Electron 冒烟、目标包构建、包验证和打包应用冒烟。任一目标失败都不会进入发布 job。
+
+发布 job 使用局部 `contents: write` 权限，只从各目标临时 artifact 中提取三个安装包和三份验证 manifest，重新计算统一 `SHA256SUMS.txt`，创建或修复同标签 GitHub Pre-release。未签名 Windows、未签名 Intel macOS 与 ad-hoc Apple Silicon 包的说明固定进入 Release notes；不得标为 Latest 或正式稳定版，也不得引导用户关闭 SmartScreen、Gatekeeper、TLS 或其他安全保护。普通 electron-builder 命令继续使用 `--publish never`，仓库不保存发布凭据。
+
+来源：
+
+- https://docs.github.com/en/actions/concepts/security/github_token
+- https://cli.github.com/manual/gh_release_create
+- https://github.com/actions/upload-artifact/releases

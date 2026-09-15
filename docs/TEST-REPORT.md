@@ -1,7 +1,7 @@
 # P10 打包、兼容性与发布前审计报告
 
 日期：2026-09-15
-状态：P10 第二轮 CI 已使 Windows 全流程通过；两个 macOS 冒烟时序问题已由提交 `1f23427` 修复并完成 Windows 回归，修复后 CI、正式签名/公证和各平台完整实机发布验收未完成
+状态：提交 `51cf322` 的 P10 三目标源码/打包全流程 CI 已通过；`0.1.0-rc.1` 标签发布工作流待验证，正式签名/公证和各平台完整实机发布验收未完成
 
 ## 测试环境
 
@@ -9,7 +9,7 @@
 - Node.js v22.19.0（NVM），npm 10.9.3。
 - 本轮复验主机：Windows 10.0.26200 x64；Node.js v22.21.1（满足 Node 22 engines），npm 10.9.4。
 - Electron 44.3.0，electron-vite 5.0.0，electron-builder 26.15.3。
-- 分支 `main`；第二轮 macOS CI 修复代码提交为 `1f23427`，本报告由紧随其后的文档提交更新。
+- 分支 `main`；`1f23427` 修复随 `51cf322` 进入 GitHub Actions run `34934352140` 并三目标全通过。
 - Electron 冒烟只连接 `127.0.0.1` 临时 OpenSubsonic fixture，使用合成 WAV/PNG，不读取用户服务或凭据。
 
 ## 命令结果
@@ -18,13 +18,13 @@
 | --- | --- | --- |
 | `git diff --check` / `npm run lint` | 通过 | 无空白错误；0 warning |
 | `npm run typecheck` | 通过 | node/preload、renderer、tests 三组；x64 构建重复通过 |
-| `npm test` | 通过 | 23 个文件、106 项测试；新增可等待 queue flush 定向测试 |
+| `npm test` | 通过 | 24 个文件、108 项测试；新增候选标签、附件白名单和 SHA-256 清单测试 |
 | 包验证器定向测试 | 通过 | 9 项：三个目标、PE 架构/Certificate Table/增量读取、PowerShell 路径隔离、Mach-O 名称归一、发行签名判定、权限拒绝、SHA-256 |
 | `npm audit --audit-level=high --registry=https://registry.npmjs.org` | 通过 | 0 vulnerabilities |
 | `npm run test:e2e` | 通过 | 最终源码 Electron 完整 P01～P10 回归 |
-| `npm run build:win` | 通过 | 当前 Windows 主机构建未签名 x64 NSIS，不发布 |
-| `npm run verify:package -- win-x64` | 通过 | x64、0.1.0、ASAR、图标、unsigned 与 SHA-256 均符合预期 |
-| `npm run test:e2e:package -- win-x64` | 通过 | 打包应用完整回归，包含真实流请求等待与队列落盘/重启恢复 |
+| `npm run build:win` | 通过 | 当前 Windows 主机构建 `0.1.0-rc.1` 未签名 x64 NSIS，文件名/version metadata 正确 |
+| `npm run verify:package -- win-x64` | 通过 | x64、0.1.0-rc.1、ASAR、图标、unsigned 与 SHA-256 均符合预期 |
+| `npm run test:e2e:package -- win-x64` | 通过 | `0.1.0-rc.1` 打包应用完整回归，启动约 745 ms、内存增量 48,480 KiB、媒体请求 +0 |
 | `npm run build:mac:x64` | 通过 | 最终未签名 x64 DMG 生成；首次沙箱运行因 GitHub DNS 失败，授权联网后完成 |
 | `npm run verify:package -- mac-x64` | 通过 | 架构、标识、版本、macOS 13、DMG、ASAR、图标、签名状态与 SHA-256 |
 | `npm run test:e2e:package -- mac-x64` | 通过 | 最终包内完整 P01～P10 回归 |
@@ -79,15 +79,15 @@
 | `ce82e9e` 源码 Electron 冒烟 | CI 通过 | 队列重启恢复超时 | CI 通过 |
 | `ce82e9e` 安装包构建与包验证 | CI 通过 | 因前置冒烟失败跳过 | CI 通过 |
 | `ce82e9e` 包内冒烟 | CI 通过 | 跳过 | 真实音频请求同步断言过早 |
-| `1f23427` 修复后 106 项测试 | Windows 本机通过，待 CI | 待新 CI | 待新 CI |
-| `1f23427` 修复后包验证/包内冒烟 | Windows 本机通过 | x64 既有包证据，当前改动待新 CI | 原生包验证已通过；包内冒烟待新 CI |
+| `51cf322` 修复后 106 项测试 | CI 通过 | CI 通过 | CI 通过 |
+| `51cf322` 修复后包验证/包内冒烟 | CI 通过 | CI 通过 | CI 通过 |
 | 安装器实际安装/启动 | 未验证 | 未签名 DMG 挂载和临时安装通过 | 未验证 |
 | 签名/公证 | 未验证、无证书 | 未签名、未公证 | 无发行证书；交叉包为 ad-hoc，原生公证未验证 |
 | 截图与字体 | 未验证 | 通过当前截图范围 | 未验证 |
 | 真实服务器/物理听音/媒体键 | 未验证 | 未验证 | 未验证 |
 | 最低系统版本 | Windows 11 实机未验证 | 当前 13.7.8 通过；13.0 未验证 | 13.0 未验证 |
 
-GitHub Actions run `34912793294`（`ce82e9e`）不能记作全绿。Windows 全流程通过；arm64 包内音频请求观察和 Intel 暂停队列落盘/恢复失败均由 `1f23427` 修复，但只有重新运行三目标 CI，才能确认最终状态。
+GitHub Actions run `34934352140`（`51cf322`）已在 Windows x64、macOS Intel x64 与 macOS arm64 完成全部源码和打包应用闸门，确认 `1f23427` 对 arm64 音频请求观察和 Intel 暂停队列落盘/恢复的修复有效。该自动化证据仍不等于三个目标的完整人工发布验收。
 
 ## 发布前安全审计
 
@@ -107,10 +107,10 @@ GitHub Actions run `34912793294`（`ce82e9e`）不能记作全绿。Windows 全�
 ## 未验证、已知问题与结论
 
 - 当前包未签名/未公证，不能作为正式公开发布物；不得用关闭 Gatekeeper/SmartScreen 等方式替代签名。
-- Windows 修复后的包验证与打包应用冒烟已在当前主机通过，但 Windows 11 安装 UI、图标、桌面行为与声音仍待实机；Apple Silicon 修复后包内冒烟及安装验收仍待新 CI/对应环境。
+- Windows 候选包验证与打包应用冒烟已在当前主机通过，但 Windows 11 安装 UI、图标、桌面行为与声音仍待实机；Apple Silicon 自动包内冒烟已由 CI 通过，实际安装验收仍待对应设备。
 - macOS Intel 未人工操作 Finder/Dock 图标遮罩、菜单栏每一项、物理媒体键、睡眠/锁屏和扬声器。
 - 用户真实服务器的格式、转码器、代理、歌单权限、scrobble 计数和大型资料库仍需单独验证。
 - 0.1.0 没有旧公开版本迁移样本；当前只证明同一 candidate 的 versioned userData 可跨进程重启恢复。
 - 构建仍有 Rollup 移除 Zod 注释位置的非阻断提示；Zod 已正确内联，类型、测试和包内运行均通过。
 
-结论：第二轮 CI 已使 Windows 全流程通过，两个 macOS 冒烟失败也已由 `1f23427` 完成根因修复和 Windows 全链路回归，但修复后矩阵尚未运行，仍未达到三平台正式发布验收。发布继续被新三目标 P10 CI、对应实机安装、正式签名/公证、真实服务器与人工音频/桌面测试阻断。
+结论：run `34934352140` 已使 Windows x64、macOS Intel x64 与 macOS arm64 的源码、打包和包内自动闸门全部通过。`0.1.0-rc.1` 可在标签发布工作流再次验证后作为明确标注未签名/未公证的 Pre-release 测试包提供下载；正式发布继续被对应实机安装、正式签名/公证、真实服务器与人工音频/桌面测试阻断。

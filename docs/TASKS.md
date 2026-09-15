@@ -173,7 +173,9 @@ P02 基础提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`�
 - [x] 修复 Windows 无签名 PE 检测与 PowerShell 路径传递、arm64 linker ad-hoc 识别，以及 P08 转码 seek 请求等待竞态；本机 105 项测试、源码 Electron 冒烟与 x64/arm64 包验证通过。
 - [x] P10 修复提交 `ce82e9e` 已运行第二轮三目标 CI（run `34912793294`）：Windows 全流程通过，arm64 包内冒烟在真实音频请求到达前断言，Intel 源码冒烟在重启暂停队列恢复处超时。
 - [x] 修复提交 `1f23427` 为真实音频请求增加条件等待；暂停队列保存改为串行、可等待 flush，断开/退出前等待完成；E2E 在进程关闭前读取隔离 userData 确认非敏感队列已落盘。Windows 106 项测试、源码和打包应用完整冒烟通过。
-- [ ] 运行 `1f23427` 的 Windows x64、macOS Intel x64、macOS arm64 新矩阵，确认源码/包内冒烟全绿。
+- [x] `1f23427` 随文档提交 `51cf322` 运行三目标 CI（run `34934352140`）：Windows x64、macOS Intel x64 与 macOS arm64 的源码/包内冒烟、安装包和包验证全部通过。
+- [x] 增加 `v*-rc.*` 标签驱动的候选发布工作流：强制标签/版本一致，在三个原生目标重新验证后只收集安装包、manifest 和统一 SHA-256 清单，并自动创建 GitHub Pre-release。
+- [ ] 推送 `v0.1.0-rc.1` 标签并确认 Release 工作流、七个下载附件与 Pre-release 安全说明。
 - [ ] Windows 11 x64 安装 NSIS 并完成人工图标、开始菜单、卸载保留 userData、桌面行为与物理听音验收。
 - [ ] macOS Apple Silicon 原生构建/安装 arm64 DMG 并完成人工图标、Dock/菜单栏、桌面行为与物理听音验收。
 - [ ] 使用正式证书验证 Windows Authenticode、macOS Developer ID、公证与 stapling；未经授权不索取或使用密钥。
@@ -187,4 +189,4 @@ P02 基础提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`�
 
 ## 当前闸门结论
 
-P01 已达到验收条件，P02～P10 已按序达到当前可用环境的代码闸门。第二轮 run `34912793294` 已证明 Windows 源码/打包/包验证全流程通过，并证明 arm64 原生包验证通过；两个 macOS job 随后暴露测试请求观察和暂停队列持久化时序问题。提交 `1f23427` 已完成根因修复，并在 Windows 通过 lint、typecheck、106 项测试、源码 Electron、NSIS、包验证及打包应用完整冒烟；新 CI 尚未完成。真实服务器/大型资料库、对应 macOS 复验、Windows/Apple Silicon 安装、签名/公证、手工桌面行为、最低系统和物理听音仍未完成，因此不能宣称双平台正式发布验收完成。
+P01 已达到验收条件，P02～P10 已按序达到当前可用环境的代码闸门。run `34934352140` 已证明提交 `51cf322` 在 Windows x64、macOS Intel x64 与 macOS arm64 的源码 Electron、安装包、包验证及打包应用冒烟全流程通过。首个 `0.1.0-rc.1` 未签名/未公证测试版将由标签驱动的独立工作流重新验证并发布为 Pre-release；真实服务器/大型资料库、Windows/Apple Silicon 安装、签名/公证、手工桌面行为、最低系统和物理听音仍未完成，因此不能宣称双平台正式发布验收完成。

@@ -8,8 +8,8 @@ P01～P10 已按顺序落地到当前发布前代码闸门。P10 已在 macOS 13
 
 ## 分支与工作区
 
-- 分支：`main`；run `34912793294` 两处 macOS 冒烟失败的源码与测试修复已提交为 `1f23427 fix(p10): 稳定 macOS 冒烟与队列持久化`，本交接文档提交紧随其后。
-- `1f23427` 已通过当前 Windows 主机完整回归；新的三目标 CI 结果待确认。
+- 分支：`main`；`1f23427 fix(p10): 稳定 macOS 冒烟与队列持久化` 随文档提交 `51cf322` 进入 run `34934352140`，三个原生目标的完整 CI 均通过。
+- 提交 `9a7af94 ci(release): 添加跨平台候选发布流程` 将版本推进到 `0.1.0-rc.1`，增加标签驱动的 GitHub Pre-release 工作流、资产收集校验与候选版说明；尚待文档提交和标签验证。
 - `release/` 与 `artifacts/` 被忽略；本机 DMG、manifest 和截图不会随提交上传。
 - 原始参考包保持未修改；不得重置或丢弃当前 P10 工作区。
 
@@ -17,7 +17,8 @@ P01～P10 已按顺序落地到当前发布前代码闸门。P10 已在 macOS 13
 
 - `scripts/verify-package.mjs` 固定三个首版目标，在对应系统检查安装包、应用可执行文件、架构、版本、应用标识、ASAR、运行时图标、签名状态和 SHA-256，并在 `release/<version>/` 写本地 manifest。
 - macOS 检查单一 Mach-O 架构、`LSMinimumSystemVersion=13.0`、DMG 结构和 codesign；区分 Intel `unsigned`、arm64 linker `ad-hoc` 与 Developer ID。Windows 先检查应用 PE x64/Certificate Table，有表才调用 Authenticode。`SONAVI_REQUIRE_SIGNING=1` 会拒绝 unsigned/ad-hoc/非发行身份。
-- `scripts/run-packaged-smoke.mjs` 只允许在目标平台/架构启动对应打包应用，复用完整 Electron fixture；CI 在安装包生成后依次执行包验证和包内冒烟，不上传文件。
+- `scripts/run-packaged-smoke.mjs` 只允许在目标平台/架构启动对应打包应用，复用完整 Electron fixture；普通 CI 在安装包生成后依次执行包验证和包内冒烟，不上传文件。
+- `scripts/prepare-release.mjs` 强制候选标签与 `package.json` 版本一致，只收集三个安装包和三份验证 manifest，并为六个文件生成统一 `SHA256SUMS.txt`。`.github/workflows/release.yml` 只有在三个原生目标重新通过完整闸门后才创建 Pre-release。
 - `electron.vite.config.ts` 将 main 唯一外部运行时依赖 Zod 内联；electron-builder 排除 `node_modules`。macOS x64 ASAR 从约 55 MiB 降至 1,959,330 字节，验证器以 16 MiB 作为回归上限。
 - macOS Info.plist 删除 Sonavi 未使用的相机、麦克风、蓝牙和音频采集说明；签名配置使用 `build/entitlements.mac.plist` 与 inherit 文件，仅保留 Electron 所需 JIT/可执行内存能力。
 - renderer ESLint 继续禁止 Node/`process`，并新增禁止 localStorage、sessionStorage 和 `v-html`；凭据、持久化和 HTML 注入边界没有放宽。
@@ -30,15 +31,15 @@ P01～P10 已按顺序落地到当前发布前代码闸门。P10 已在 macOS 13
 - `git diff --check` 与 `npm run lint`：最终复验通过，0 warning。
 - `npm run typecheck`：最终复验通过；生产构建与源码 Electron 冒烟也重复通过三套类型检查。
 - 当前 Windows 主机：Windows 10.0.26200 x64，Node.js v22.21.1，npm 10.9.4；未替代 macOS 或 Windows 11 最低目标实机。
-- `npm test`：23 个文件、106 项通过；新增显式 queue flush 取消防抖、保存最新快照并等待 IPC 的定向测试。
+- `npm test`：24 个文件、108 项通过；除显式 queue flush 定向测试外，新增候选标签匹配、允许附件收集和 SHA-256 清单测试。
 - `npm run test:e2e`：当前 Windows 源码 Electron 完整通过；最终启动约 562 ms，20 轮切页工作集增量约 50,788 KiB、媒体请求 +0；真实音频请求等待、队列落盘证据、退出握手与跨进程恢复均通过。
 - `npm audit --audit-level=high --registry=https://registry.npmjs.org`：0 vulnerabilities。
 - `npm run build:mac:x64`：通过，生成 `release/0.1.0/Sonavi-0.1.0-mac-x64.dmg`；无 Developer ID，明确跳过签名。
 - `npm run verify:package -- mac-x64`：通过；DMG 137,343,264 字节，SHA-256 `f5afe1f70024d71cdf319b561f4a59d0fb7c8fb4ffe682b889b6f6855a648074`，x64、`com.sonavi.desktop`、0.1.0、macOS 13.0、未签名。
 - `npm run build:mac:arm64` 与 `npm run verify:package -- mac-arm64`：当前 Intel 主机交叉构建/结构验证通过；DMG 133,110,010 字节，目标 arm64，签名状态 `ad-hoc`；严格发行门禁按预期拒绝。
-- `npm run build:win`：当前 Windows 主机通过；生成未签名 x64 NSIS。
-- `npm run verify:package -- win-x64`：通过；NSIS 113,417,934 字节，SHA-256 `2fdbc79186b63305387144b6f15f469daee2faed7c7d635a39b22876c0af1fd6`，应用 x64、0.1.0、ASAR/图标正常、签名状态 `unsigned`。
-- `npm run test:e2e:package -- win-x64`：完整通过；启动约 739 ms，20 轮切页工作集增量约 29,448 KiB、媒体请求 +0，包含新增持久化与退出握手验证。
+- `npm run build:win`：当前 Windows 主机对 `0.1.0-rc.1` 通过；生成未签名 x64 NSIS，文件名包含完整候选版本。
+- `npm run verify:package -- win-x64`：候选包通过；NSIS 113,417,840 字节，SHA-256 `be1d1d1bb9d56394ae38e3270cf692c627bb3383de6480b97efa28458e489a8a`，应用 x64、0.1.0-rc.1、ASAR/图标正常、签名状态 `unsigned`。
+- `npm run test:e2e:package -- win-x64`：候选包完整通过；启动约 745 ms，20 轮切页工作集增量约 48,480 KiB、媒体请求 +0，包含持久化与退出握手验证。
 - `npm run test:e2e:package -- mac-x64`：修复后完整复跑通过；启动约 1770 ms，20 轮切页工作集增量约 51,872 KiB、媒体请求 +0。
 - 最终 DMG 通过校验后只读挂载，`Sonavi.app` 复制到临时安装目录并再次完整冒烟：启动约 1111 ms，切页工作集增量约 47,148 KiB、媒体请求 +0；验证后已卸载 DMG 并清理临时目录。
 - 安装后冒烟覆盖安全偏好/CSP/preload、连接、两页专辑、流媒体、队列、歌词、scrobble、收藏/歌单、转码/seek、诊断、关闭隐藏、暂停队列、凭据跨进程恢复/删除与 safeStorage。
@@ -52,7 +53,7 @@ GitHub Actions run `34912793294` 对应提交 `ce82e9e`，三个 job 的 lint、
 - macOS Apple Silicon arm64：源码 Electron、arm64 DMG 与包验证通过；包内冒烟在 UI 已进入 playing、fixture 请求尚未抵达测试数组时同步断言失败；
 - macOS Intel x64：源码 Electron 冒烟完成主要业务与性能段，断开后重启时暂停队列曲目未在 30 秒内显示，后续打包跳过。
 
-提交 `1f23427` 已修复两处根因并完成 Windows 源码/打包应用回归；尚未有该提交的三目标 CI 结果。
+run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Intel x64 与 macOS arm64 的源码和打包应用完整冒烟均通过。
 
 ## 未验证与发布阻断项
 
@@ -64,4 +65,4 @@ GitHub Actions run `34912793294` 对应提交 `ce82e9e`，三个 job 的 lint、
 
 ## 下一入口
 
-观察 `1f23427` 的三目标 CI，重点确认 arm64 包内真实音频请求条件等待和 Intel 暂停队列落盘/重启恢复，并确认三个 job 的 `test:e2e:package` 全部实际执行。随后只在对应实机执行 `docs/RELEASE-CHECKLIST.md` 的安装/签名/公证矩阵；未经用户授权不上传安装包、不创建 Release、不索取签名密钥。
+提交并推送候选发布工作流后，在同一提交创建并推送 `v0.1.0-rc.1` 标签；确认三个 release gate、七个附件和 Pre-release 安全说明后记录结果。随后只在对应实机执行 `docs/RELEASE-CHECKLIST.md` 的安装/签名/公证矩阵；本次用户只授权测试版发布，不索取签名密钥、不将其标为正式稳定版。

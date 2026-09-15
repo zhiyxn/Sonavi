@@ -33,13 +33,13 @@
 - `src/renderer/src/services/audio-engine/`：P04 的 AudioEngine 契约与唯一 HTMLAudioElement 宿主；切歌时释放旧宿主监听并以 generation/命令序号隔离迟到事件与 Promise。
 - `src/renderer/src/stores/player.ts`：P04 队列与播放策略的唯一客户端状态源；组件不独立推测播放状态。
 - `tests/`：平台策略、契约、共享 UI 与真实 Electron 冒烟。
-- `scripts/`：P10 跨平台 Node 发布前工具；只解析本地产物、生成校验清单或启动打包应用冒烟，不持有签名凭据、不上传文件。
+- `scripts/`：P10 跨平台 Node 发布前工具；解析本地产物、生成验证/发布校验清单、校验候选标签、收集明确允许的 Release 文件或启动打包应用冒烟，不持有签名凭据。只有标签驱动的 GitHub 发布 job 负责上传。
 
 ## P10 打包边界
 
 electron-vite 将 main、sandbox preload 与 renderer 分别构建到 `out/`。main 的 Zod 运行时 schema 被内联，因此 electron-builder 的 ASAR 只包含 `out/` 与最小 `package.json`，不携带构建期 `node_modules`、测试或源码。`extraResources` 只加入共享品牌图标。包验证器在目标系统读取应用可执行文件与系统元数据：Windows 检查 PE x64 和 Authenticode，macOS 检查单架构 Mach-O、Info.plist、DMG 与 codesign；两端共同检查应用资源、版本、包大小和 SHA-256。
 
-macOS Developer ID 签名使用 `build/entitlements.mac*.plist` 的最小 JIT/可执行内存能力；不声明相机、麦克风、蓝牙或音频采集，也不加入 `disable-library-validation`。无 Developer ID 时，Intel 可执行文件记录 `unsigned`，Apple Silicon Mach-O 自带的 linker ad-hoc seal 记录 `ad-hoc`；两者都不能通过 `SONAVI_REQUIRE_SIGNING=1`。只有 Developer ID 候选执行完整 bundle 严格校验并进入后续公证，仓库不保存秘密。Windows 先解析 PE Certificate Table，无表时直接记录 `unsigned`，存在签名数据时才由目标系统验证 Authenticode。`publish: null` 与所有构建命令的 `--publish never` 保证构建和验证本身不会创建 Release 或上传包。
+macOS Developer ID 签名使用 `build/entitlements.mac*.plist` 的最小 JIT/可执行内存能力；不声明相机、麦克风、蓝牙或音频采集，也不加入 `disable-library-validation`。无 Developer ID 时，Intel 可执行文件记录 `unsigned`，Apple Silicon Mach-O 自带的 linker ad-hoc seal 记录 `ad-hoc`；两者都不能通过 `SONAVI_REQUIRE_SIGNING=1`。只有 Developer ID 候选执行完整 bundle 严格校验并进入后续公证，仓库不保存秘密。Windows 先解析 PE Certificate Table，无表时直接记录 `unsigned`，存在签名数据时才由目标系统验证 Authenticode。`publish: null` 与所有构建命令的 `--publish never` 保证普通构建和验证不会创建 Release；只有匹配 `v*-rc.*`、通过版本校验和三个原生目标完整闸门的 `.github/workflows/release.yml` 可使用最小 `contents: write` 权限创建 Pre-release。
 
 ## 安全模型
 
