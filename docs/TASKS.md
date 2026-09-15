@@ -1,6 +1,6 @@
 # Sonavi 任务清单
 
-更新日期：2026-09-14
+更新日期：2026-09-16
 
 ## P01：工程基础 + 双平台基础修正（已完成）
 
@@ -176,7 +176,8 @@ P02 基础提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`�
 - [x] `1f23427` 随文档提交 `51cf322` 运行三目标 CI（run `34934352140`）：Windows x64、macOS Intel x64 与 macOS arm64 的源码/包内冒烟、安装包和包验证全部通过。
 - [x] 增加 `v*-rc.*` 标签驱动的候选发布工作流：强制标签/版本一致，在三个原生目标重新验证后只收集安装包、manifest 和统一 SHA-256 清单，并自动创建 GitHub Pre-release。
 - [x] 推送 `v0.1.0-rc.1` 标签；release run `34937503560` 中 Windows x64 与 Apple Silicon arm64 通过，Intel 源码 Electron 冒烟失败，发布 job 按设计跳过，没有形成半发布 Release。
-- [ ] 通过 CI Check Summary 取得 Intel 失败栈，修复根因后使用新的候选版本重新运行三个 release gate，并确认七个下载附件与 Pre-release 安全说明。
+- [x] Electron 冒烟将脱敏失败栈写入 CI Check Summary；不增加自动重试、不删除断言。诊断提交 `54e15df` 的 run `34938572347` 随后三目标全通过，确认先前 Intel 失败为未稳定复现的 runner 时序波动。
+- [ ] 推送 `v0.1.0-rc.2`，重新运行三个 release gate，并确认七个下载附件与 Pre-release 安全说明。
 - [ ] Windows 11 x64 安装 NSIS 并完成人工图标、开始菜单、卸载保留 userData、桌面行为与物理听音验收。
 - [ ] macOS Apple Silicon 原生构建/安装 arm64 DMG 并完成人工图标、Dock/菜单栏、桌面行为与物理听音验收。
 - [ ] 使用正式证书验证 Windows Authenticode、macOS Developer ID、公证与 stapling；未经授权不索取或使用密钥。
