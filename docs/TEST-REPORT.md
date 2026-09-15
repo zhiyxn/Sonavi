@@ -1,14 +1,14 @@
 # P10 打包、兼容性与发布前审计报告
 
 日期：2026-09-15
-状态：P10 当前 macOS Intel 未签名开发包代码闸门通过；三目标 P10 CI、正式签名/公证和各平台完整实机发布验收未完成
+状态：P10 首轮三目标 CI 的三处失败已完成根因修复和本机回归；修复后 CI、正式签名/公证和各平台完整实机发布验收未完成
 
 ## 测试环境
 
 - 本机：macOS 13.7.8（22H730），Intel x64。
 - Node.js v22.19.0（NVM），npm 10.9.3。
 - Electron 44.3.0，electron-vite 5.0.0，electron-builder 26.15.3。
-- 分支 `main`；HEAD/origin 为 `fb430a1`，P10 改动尚未提交。
+- 分支 `main`；HEAD/origin 为 `740981f`，本报告所述 CI 修复仍在未提交工作区。
 - Electron 冒烟只连接 `127.0.0.1` 临时 OpenSubsonic fixture，使用合成 WAV/PNG，不读取用户服务或凭据。
 
 ## 命令结果
@@ -17,8 +17,8 @@
 | --- | --- | --- |
 | `git diff --check` / `npm run lint` | 通过 | 无空白错误；0 warning |
 | `npm run typecheck` | 通过 | node/preload、renderer、tests 三组；x64 构建重复通过 |
-| `npm test` | 通过 | 23 个文件、102 项测试 |
-| 包验证器定向测试 | 通过 | 6 项：三个目标、PE 架构、Mach-O 名称归一、发行签名判定、权限拒绝、SHA-256 |
+| `npm test` | 通过 | 23 个文件、105 项测试 |
+| 包验证器定向测试 | 通过 | 9 项：三个目标、PE 架构/Certificate Table/增量读取、PowerShell 路径隔离、Mach-O 名称归一、发行签名判定、权限拒绝、SHA-256 |
 | `npm audit --audit-level=high --registry=https://registry.npmjs.org` | 通过 | 0 vulnerabilities |
 | `npm run test:e2e` | 通过 | 最终源码 Electron 完整 P01～P10 回归 |
 | `npm run build:mac:x64` | 通过 | 最终未签名 x64 DMG 生成；首次沙箱运行因 GitHub DNS 失败，授权联网后完成 |
@@ -34,6 +34,9 @@
 2. 旧 `app.asar` 为约 55 MiB，包含近万条构建期依赖和四千余个 source map。main 仅有 Zod 外部运行时依赖，因此将 Zod 内联并排除 `node_modules`；最终 ASAR 为 1,959,330 字节，只包含 `out/` 与 `package.json`，DMG 从约 145.8 MB 降至 137.3 MB。
 3. 第一版验证器把 `lipo` 的 `x86_64` 与产品目标名 `x64` 直接比较，产生假失败。已增加明确归一并补测试，不放宽对多架构或错误架构的拒绝。
 4. P07 Electron 冒烟仅给 now-playing 条件 3 秒、submission 使用固定 2.4 秒等待，慢 CI 容易产生时序误报。统一改为最长 10 秒条件等待，仍要求真实请求出现。
+5. run `34910450288` 的 arm64 主可执行文件带有 linker ad-hoc seal，但应用 bundle 没有资源封印；旧验证器误按完整已签名 bundle 校验。现在 ad-hoc 只校验代码页并明确记录 `ad-hoc`，资源继续由 ASAR/图标/Info.plist/DMG/SHA-256 独立检查；严格发行门禁仍拒绝它。
+6. Windows 无签名应用没有 PE Certificate Table，旧验证器仍调用 PowerShell，且把 EXE 路径追加到 `-Command` 后，造成模块加载和参数绑定连锁错误。现在先增量解析 PE；无表直接记录 `unsigned`，有表才调用 Authenticode，并通过环境变量传入路径。
+7. Intel CI 在播放器已显示 0:02 后立即检查 Node 侧请求数组，新的转码请求可能尚未到达 fixture。现在最长等待 10 秒直到实际出现 `format=mp3&timeOffset=2` 请求，再继续断言 `maxBitRate=192`；本机完整 Electron 冒烟已通过。
 
 ## 最终 macOS Intel 包
 
@@ -45,7 +48,9 @@
 - 签名：未签名；无 Team ID；未公证、未 staple。只能作开发测试包。
 - manifest：`release/0.1.0/Sonavi-0.1.0-mac-x64.manifest.json`。
 
-包内冒烟启动到连接 UI 约 1114 ms，20 轮设置/首页切换工作集增量 48,352 KiB、媒体请求 +0。最终 DMG 临时安装后的对应数字约 1111 ms、47,148 KiB、+0。均是一次受控采样，不是跨平台性能承诺。
+修复后包内冒烟启动到连接 UI 约 1770 ms，20 轮设置/首页切换工作集增量 51,872 KiB、媒体请求 +0。此前最终 DMG 临时安装的对应数字约 1111 ms、47,148 KiB、+0。均是单次受控采样，不是跨平台性能承诺。
+
+当前 Intel 主机还为故障诊断交叉生成了 arm64 DMG 和 Windows NSIS。arm64 DMG 为 133,110,010 字节，SHA-256 `276e140acefe6ef0f4912e23c3a1b47e8ed144c63e35a13f0a602654d3ce17cd`，目标架构/标识/版本/macOS 13/资源均通过并记录 `ad-hoc`；`SONAVI_REQUIRE_SIGNING=1` 按预期拒绝。Windows 应用 EXE 的实际 PE 为 x64 且 Certificate Table 为空。以上只是跨平台包结构证据，不替代对应目标原生启动、包内冒烟或安装验收。
 
 ## 安装后自动覆盖
 
@@ -62,18 +67,19 @@
 
 | 验证项 | Windows 11 x64 | macOS 13+ Intel x64 | macOS 13+ arm64 |
 | --- | --- | --- | --- |
-| `fb430a1` 源码 lint/typecheck/test | CI 通过 96 项 | CI lint/typecheck/test 通过，Electron 冒烟失败 | CI 通过 96 项 |
-| `fb430a1` 源码 Electron 冒烟 | CI 通过 | CI 失败；当前本机此前/本轮包内通过 | CI 通过 |
-| `fb430a1` 安装包构建 | NSIS 成功，未保留产物检查 | 因前置冒烟失败而跳过 | arm64 DMG 成功，未保留产物检查 |
-| 当前 P10 102 项测试 | 待新 CI | 本机通过 | 待新 CI |
-| 当前 P10 包验证/包内冒烟 | 待新 CI | 通过 | 待新 CI |
+| `740981f` 源码 lint/typecheck/102 tests | CI 通过 | CI 通过 | CI 通过 |
+| `740981f` 源码 Electron 冒烟 | CI 通过 | P08 请求时序断言失败 | CI 通过 |
+| `740981f` 安装包构建 | NSIS 成功 | 因前置冒烟失败而跳过 | arm64 DMG 成功 |
+| `740981f` 包验证 | PowerShell/路径传递失败 | 跳过 | linker ad-hoc 被误按 bundle 校验而失败 |
+| 当前修复后 105 项测试 | 待新 CI | 本机通过 | 待新 CI |
+| 当前修复后包验证/包内冒烟 | 待新 CI | x64 包验证与既有包内冒烟通过 | arm64 交叉包验证通过；原生包内冒烟待新 CI |
 | 安装器实际安装/启动 | 未验证 | 未签名 DMG 挂载和临时安装通过 | 未验证 |
-| 签名/公证 | 未验证、无证书 | 未签名、未公证 | 未验证、无证书 |
+| 签名/公证 | 未验证、无证书 | 未签名、未公证 | 无发行证书；交叉包为 ad-hoc，原生公证未验证 |
 | 截图与字体 | 未验证 | 通过当前截图范围 | 未验证 |
 | 真实服务器/物理听音/媒体键 | 未验证 | 未验证 | 未验证 |
 | 最低系统版本 | Windows 11 实机未验证 | 当前 13.7.8 通过；13.0 未验证 | 13.0 未验证 |
 
-GitHub Actions run `34842121215` 不能记作全绿。当前 CI 配置已在三个 package step 后加入 `verify:package` 与 `test:e2e:package`，但只有 P10 提交后才能取得结果。
+GitHub Actions run `34910450288`（`740981f`）不能记作全绿。三个失败均已有明确根因和当前工作区修复，但只有提交后重新运行三目标 CI，才能确认 `verify:package` 与 `test:e2e:package` 的最终状态。
 
 ## 发布前安全审计
 
@@ -92,10 +98,10 @@ GitHub Actions run `34842121215` 不能记作全绿。当前 CI 配置已在三�
 ## 未验证、已知问题与结论
 
 - 当前包未签名/未公证，不能作为正式公开发布物；不得用关闭 Gatekeeper/SmartScreen 等方式替代签名。
-- Windows 和 Apple Silicon 的 P10 package verifier、打包应用 Electron 冒烟、安装 UI、图标、桌面行为与声音仍待对应环境。
+- Windows 和 Apple Silicon 的修复后 P10 package verifier、打包应用 Electron 冒烟、安装 UI、图标、桌面行为与声音仍待新 CI/对应环境；本机交叉包结构检查不能替代。
 - macOS Intel 未人工操作 Finder/Dock 图标遮罩、菜单栏每一项、物理媒体键、睡眠/锁屏和扬声器。
 - 用户真实服务器的格式、转码器、代理、歌单权限、scrobble 计数和大型资料库仍需单独验证。
 - 0.1.0 没有旧公开版本迁移样本；当前只证明同一 candidate 的 versioned userData 可跨进程重启恢复。
 - 构建仍有 Rollup 移除 Zod 注释位置的非阻断提示；Zod 已正确内联，类型、测试和包内运行均通过。
 
-结论：P10 的实现和当前 macOS Intel 未签名开发包达到本机代码闸门，但尚未达到三平台正式发布验收。发布仍被三目标 P10 CI、对应实机安装、正式签名/公证、真实服务器与人工音频/桌面测试阻断。
+结论：三处 CI 失败均已在当前工作区完成根因修复，P10 与 macOS Intel 未签名开发包达到本机代码闸门，但修复后矩阵尚未运行，仍未达到三平台正式发布验收。发布继续被新三目标 P10 CI、对应实机安装、正式签名/公证、真实服务器与人工音频/桌面测试阻断。

@@ -39,7 +39,7 @@
 
 electron-vite 将 main、sandbox preload 与 renderer 分别构建到 `out/`。main 的 Zod 运行时 schema 被内联，因此 electron-builder 的 ASAR 只包含 `out/` 与最小 `package.json`，不携带构建期 `node_modules`、测试或源码。`extraResources` 只加入共享品牌图标。包验证器在目标系统读取应用可执行文件与系统元数据：Windows 检查 PE x64 和 Authenticode，macOS 检查单架构 Mach-O、Info.plist、DMG 与 codesign；两端共同检查应用资源、版本、包大小和 SHA-256。
 
-macOS Developer ID 签名使用 `build/entitlements.mac*.plist` 的最小 JIT/可执行内存能力；不声明相机、麦克风、蓝牙或音频采集，也不加入 `disable-library-validation`。无 Developer ID 时 electron-builder 明确跳过签名，验证清单记录 `unsigned`；正式发布由受保护环境变量启用签名/公证，仓库不保存秘密。Windows 同样由环境提供 Authenticode 证书。`publish: null` 与所有构建命令的 `--publish never` 保证构建和验证本身不会创建 Release 或上传包。
+macOS Developer ID 签名使用 `build/entitlements.mac*.plist` 的最小 JIT/可执行内存能力；不声明相机、麦克风、蓝牙或音频采集，也不加入 `disable-library-validation`。无 Developer ID 时，Intel 可执行文件记录 `unsigned`，Apple Silicon Mach-O 自带的 linker ad-hoc seal 记录 `ad-hoc`；两者都不能通过 `SONAVI_REQUIRE_SIGNING=1`。只有 Developer ID 候选执行完整 bundle 严格校验并进入后续公证，仓库不保存秘密。Windows 先解析 PE Certificate Table，无表时直接记录 `unsigned`，存在签名数据时才由目标系统验证 Authenticode。`publish: null` 与所有构建命令的 `--publish never` 保证构建和验证本身不会创建 Release 或上传包。
 
 ## 安全模型
 

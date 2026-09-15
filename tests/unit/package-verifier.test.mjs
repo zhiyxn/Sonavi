@@ -7,8 +7,11 @@ import {
   PACKAGE_TARGETS,
   assertNoUnexpectedMacUsageDescriptions,
   classifyMacSignatureIdentity,
+  createWindowsSignatureInvocation,
   normalizeMacArchitecture,
   parsePeArchitecture,
+  parsePeCertificateTable,
+  readPeMetadata,
   sha256File
 } from '../../scripts/verify-package.mjs'
 
@@ -27,6 +30,27 @@ function createPe(machine) {
   return buffer
 }
 
+function createPeOptionalHeader({ signed = false } = {}) {
+  const buffer = Buffer.alloc(240)
+  buffer.writeUInt16LE(0x20b, 0)
+  if (signed) {
+    buffer.writeUInt32LE(4096, 144)
+    buffer.writeUInt32LE(1024, 148)
+  }
+  return buffer
+}
+
+function createCompletePe({ signed = false } = {}) {
+  const buffer = Buffer.alloc(8192)
+  buffer.write('MZ', 0, 'ascii')
+  buffer.writeUInt32LE(128, 0x3c)
+  buffer.write('PE\0\0', 128, 'ascii')
+  buffer.writeUInt16LE(0x8664, 132)
+  buffer.writeUInt16LE(240, 148)
+  createPeOptionalHeader({ signed }).copy(buffer, 152)
+  return buffer
+}
+
 describe('P10 包验证器', () => {
   it('固定三个首版目标且不混淆架构', () => {
     expect(Object.keys(PACKAGE_TARGETS)).toEqual(['win-x64', 'mac-x64', 'mac-arm64'])
@@ -39,6 +63,40 @@ describe('P10 包验证器', () => {
     expect(parsePeArchitecture(createPe(0x8664))).toBe('x64')
     expect(parsePeArchitecture(createPe(0xaa64))).toBe('arm64')
     expect(parsePeArchitecture(Buffer.from('not-a-pe'))).toBeNull()
+  })
+
+  it('直接从 PE Certificate Table 区分有无 Authenticode 数据', () => {
+    expect(parsePeCertificateTable(createPeOptionalHeader())).toBeNull()
+    expect(parsePeCertificateTable(createPeOptionalHeader({ signed: true }))).toEqual({
+      fileOffset: 4096,
+      size: 1024
+    })
+  })
+
+  it('增量读取 PE 架构和签名目录，不需要把整个 EXE 载入内存', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'sonavi-pe-verifier-'))
+    temporaryDirectories.push(directory)
+    const unsignedPath = join(directory, 'unsigned.exe')
+    const signedPath = join(directory, 'signed.exe')
+    await writeFile(unsignedPath, createCompletePe())
+    await writeFile(signedPath, createCompletePe({ signed: true }))
+
+    await expect(readPeMetadata(unsignedPath)).resolves.toEqual({
+      architecture: 'x64',
+      certificateTable: null
+    })
+    await expect(readPeMetadata(signedPath)).resolves.toEqual({
+      architecture: 'x64',
+      certificateTable: { fileOffset: 4096, size: 1024 }
+    })
+  })
+
+  it('通过环境变量传递 Windows 路径，不把路径拼到 PowerShell 命令尾部', () => {
+    const executablePath = 'D:\\a\\Sonavi project\\Sonavi.exe'
+    const invocation = createWindowsSignatureInvocation(executablePath)
+    expect(invocation.args).not.toContain(executablePath)
+    expect(invocation.args.at(-1)).toContain('$env:SONAVI_SIGNATURE_PATH')
+    expect(invocation.options.env.SONAVI_SIGNATURE_PATH).toBe(executablePath)
   })
 
   it('将 Mach-O 的 x86_64 名称归一为产品目标 x64', () => {

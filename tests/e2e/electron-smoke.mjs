@@ -780,13 +780,18 @@ try {
       .querySelector('footer[aria-label="播放器"]')
       ?.textContent?.includes('0:02')
   )
-  const transcodeRequest = mediaRequests
+  const findTranscodeSeekRequest = () => mediaRequests
     .map((request) => new URL(request.path, 'http://127.0.0.1'))
     .find(
       (requestUrl) =>
         requestUrl.searchParams.get('format') === 'mp3' &&
         requestUrl.searchParams.get('timeOffset') === '2'
     )
+  await waitForCondition(
+    () => Boolean(findTranscodeSeekRequest()),
+    '兼容转码 seek 请求未在时限内到达 fixture'
+  )
+  const transcodeRequest = findTranscodeSeekRequest()
   if (transcodeRequest?.searchParams.get('maxBitRate') !== '192') {
     throw new Error('兼容转码或 transcodeOffset 参数未按 P08 设置发送')
   }

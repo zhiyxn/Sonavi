@@ -43,7 +43,7 @@ npm run test:e2e:package -- mac-arm64
 - macOS Developer ID：`CSC_LINK` / `CSC_KEY_PASSWORD`；
 - macOS 公证优先使用 App Store Connect API key：`APPLE_API_KEY`、`APPLE_API_KEY_ID`、`APPLE_API_ISSUER`。
 
-设置 `SONAVI_REQUIRE_SIGNING=1` 后再运行 `verify:package`，未取得有效发布签名会直接失败。macOS 正式候选还必须另外通过 `codesign --verify --deep --strict`、`xcrun stapler validate` 与 `spctl`；Windows 正式候选必须由目标机确认 Authenticode 状态为 `Valid`、发布者正确且 SmartScreen/UAC 文案符合预期。未签名包只能内部开发测试，不能要求用户关闭 Gatekeeper、SmartScreen 或证书验证。
+设置 `SONAVI_REQUIRE_SIGNING=1` 后再运行 `verify:package`，未取得有效发布签名会直接失败。Apple Silicon 无证书构建可能带有 Mach-O linker ad-hoc seal，清单会如实写为 `ad-hoc`，它与 `unsigned` 一样不属于发行签名。macOS 正式候选还必须另外通过 `codesign --verify --deep --strict`、`xcrun stapler validate` 与 `spctl`；Windows 正式候选必须由目标机确认 Authenticode 状态为 `Valid`、发布者正确且 SmartScreen/UAC 文案符合预期。未签名/ad-hoc 包只能内部开发测试，不能要求用户关闭 Gatekeeper、SmartScreen 或证书验证。
 
 ## 安装与升级人工矩阵
 

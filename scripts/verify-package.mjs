@@ -59,8 +59,8 @@ async function assertFile(path, label) {
   return details
 }
 
-function run(command, args) {
-  const result = spawnSync(command, args, { encoding: 'utf8' })
+function run(command, args, options = {}) {
+  const result = spawnSync(command, args, { encoding: 'utf8', ...options })
   return {
     status: result.status,
     stdout: result.stdout?.trim() ?? '',
@@ -102,7 +102,19 @@ export async function sha256File(path) {
   return hash.digest('hex')
 }
 
-async function readPeArchitecture(path) {
+export function parsePeCertificateTable(optionalHeader) {
+  if (optionalHeader.length < 2) return null
+  const magic = optionalHeader.readUInt16LE(0)
+  const dataDirectoryOffset = magic === 0x20b ? 112 : magic === 0x10b ? 96 : null
+  const securityDirectoryOffset = dataDirectoryOffset === null ? null : dataDirectoryOffset + 4 * 8
+  if (securityDirectoryOffset === null || securityDirectoryOffset + 8 > optionalHeader.length) return null
+
+  const fileOffset = optionalHeader.readUInt32LE(securityDirectoryOffset)
+  const size = optionalHeader.readUInt32LE(securityDirectoryOffset + 4)
+  return fileOffset > 0 && size > 0 ? { fileOffset, size } : null
+}
+
+export async function readPeMetadata(path) {
   const handle = await open(path, 'r')
   try {
     const dosHeader = Buffer.alloc(64)
@@ -112,16 +124,41 @@ async function readPeArchitecture(path) {
     }
     const peOffset = dosHeader.readUInt32LE(0x3c)
     if (peOffset < 64 || peOffset > 1024 * 1024) return null
-    const peHeader = Buffer.alloc(6)
+
+    const peHeader = Buffer.alloc(24)
     const peRead = await handle.read(peHeader, 0, peHeader.length, peOffset)
     if (peRead.bytesRead !== peHeader.length || peHeader.toString('ascii', 0, 4) !== 'PE\0\0') {
       return null
     }
     const machine = peHeader.readUInt16LE(4)
-    if (machine === 0x8664) return 'x64'
-    if (machine === 0xaa64) return 'arm64'
-    if (machine === 0x014c) return 'ia32'
-    return `unknown-0x${machine.toString(16)}`
+    const architecture = machine === 0x8664
+      ? 'x64'
+      : machine === 0xaa64
+        ? 'arm64'
+        : machine === 0x014c
+          ? 'ia32'
+          : `unknown-0x${machine.toString(16)}`
+    const optionalHeaderSize = peHeader.readUInt16LE(20)
+    if (optionalHeaderSize < 104 || optionalHeaderSize > 4096) return null
+
+    const optionalHeader = Buffer.alloc(optionalHeaderSize)
+    const optionalRead = await handle.read(optionalHeader, 0, optionalHeader.length, peOffset + peHeader.length)
+    if (optionalRead.bytesRead !== optionalHeader.length) return null
+    const optionalHeaderMagic = optionalHeader.readUInt16LE(0)
+    const minimumOptionalHeaderSize = optionalHeaderMagic === 0x20b
+      ? 152
+      : optionalHeaderMagic === 0x10b
+        ? 136
+        : null
+    if (minimumOptionalHeaderSize === null || optionalHeader.length < minimumOptionalHeaderSize) return null
+    const certificateTable = parsePeCertificateTable(optionalHeader)
+    if (certificateTable) {
+      const details = await stat(path)
+      if (certificateTable.fileOffset + certificateTable.size > details.size) {
+        fail('Windows PE 签名目录超出应用文件范围')
+      }
+    }
+    return { architecture, certificateTable }
   } finally {
     await handle.close()
   }
@@ -171,28 +208,38 @@ function inspectMacSignature(appBundlePath) {
 
   const identity = output.match(/^Authority=(.+)$/m)?.[1] ?? null
   const teamIdentifier = output.match(/^TeamIdentifier=(.+)$/m)?.[1] ?? null
-  const verification = run('/usr/bin/codesign', ['--verify', '--deep', '--strict', appBundlePath])
+  const status = classifyMacSignatureIdentity(identity)
+  if (status === 'ad-hoc' && !/^Signature=adhoc$/m.test(output)) {
+    fail('macOS 签名没有发行身份，也无法确认为 ad-hoc 签名')
+  }
+  const verification = status === 'ad-hoc'
+    ? run('/usr/bin/codesign', ['--verify', '--strict', '--ignore-resources', appBundlePath])
+    : run('/usr/bin/codesign', ['--verify', '--deep', '--strict', appBundlePath])
   if (verification.status !== 0) fail(`macOS 签名校验失败：${verification.stderr}`)
   return {
-    status: classifyMacSignatureIdentity(identity),
+    status,
     identity,
     teamIdentifier: teamIdentifier === 'not set' ? null : teamIdentifier
   }
 }
 
-function inspectWindowsSignature(executablePath) {
+export function createWindowsSignatureInvocation(executablePath) {
   const script = [
-    '$signature = Get-AuthenticodeSignature -LiteralPath $args[0]',
+    "$ErrorActionPreference = 'Stop'",
+    'Import-Module Microsoft.PowerShell.Security -ErrorAction Stop',
+    '$signature = Microsoft.PowerShell.Security\\Get-AuthenticodeSignature -LiteralPath $env:SONAVI_SIGNATURE_PATH',
     '[pscustomobject]@{ Status = [string]$signature.Status; Subject = $signature.SignerCertificate.Subject } | ConvertTo-Json -Compress'
   ].join('; ')
-  const details = run('powershell.exe', [
-    '-NoLogo',
-    '-NoProfile',
-    '-NonInteractive',
-    '-Command',
-    script,
-    executablePath
-  ])
+  return {
+    command: 'powershell.exe',
+    args: ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script],
+    options: { env: { ...process.env, SONAVI_SIGNATURE_PATH: executablePath } }
+  }
+}
+
+function inspectWindowsSignature(executablePath) {
+  const invocation = createWindowsSignatureInvocation(executablePath)
+  const details = run(invocation.command, invocation.args, invocation.options)
   if (details.error || details.status !== 0) {
     fail(`无法确认 Windows 签名状态：${details.error?.message ?? details.stderr}`)
   }
@@ -247,7 +294,8 @@ async function inspectMacPackage(paths) {
 
 async function inspectWindowsPackage(paths) {
   if (process.platform !== 'win32') fail('Windows 包元数据必须在 Windows 主机验证')
-  const architecture = await readPeArchitecture(paths.executablePath)
+  const peMetadata = await readPeMetadata(paths.executablePath)
+  const architecture = peMetadata?.architecture ?? null
   if (architecture !== paths.target.architecture) {
     fail(`Windows 可执行文件架构为 ${architecture ?? '未知'}，预期 ${paths.target.architecture}`)
   }
@@ -256,7 +304,9 @@ async function inspectWindowsPackage(paths) {
     appId: APP_ID,
     appVersion: paths.version,
     minimumSystemVersion: 'Windows 11',
-    signature: inspectWindowsSignature(paths.executablePath)
+    signature: peMetadata.certificateTable
+      ? inspectWindowsSignature(paths.executablePath)
+      : { status: 'unsigned', identity: null, teamIdentifier: null }
   }
 }
 

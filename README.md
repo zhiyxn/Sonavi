@@ -1,6 +1,6 @@
 # Sonavi
 
-Sonavi 是一套同时正式面向 Windows 11 x64、macOS 13+ Intel x64 与 macOS 13+ Apple Silicon arm64 的 Navidrome 桌面客户端。两个平台共享同一套 Electron/Vue 工程、renderer 和业务代码；当前 P01～P10 已按顺序落地到发布前代码闸门。macOS Intel 已完成未签名 x64 DMG 的生成、挂载、临时安装与全链路 Electron 冒烟；Windows x64 和 macOS arm64 的最新已推送 P08/P09 CI 成功，但当前 P10 增量尚待提交后运行三目标 CI 和对应实机安装验收。
+Sonavi 是一套同时正式面向 Windows 11 x64、macOS 13+ Intel x64 与 macOS 13+ Apple Silicon arm64 的 Navidrome 桌面客户端。两个平台共享同一套 Electron/Vue 工程、renderer 和业务代码；当前 P01～P10 已按顺序落地到发布前代码闸门。macOS Intel 已完成未签名 x64 DMG 的生成、挂载、临时安装与全链路 Electron 冒烟；提交 `740981f` 的首轮 P10 CI 暴露三处验证工具/时序问题，当前工作区已逐项修复，仍需新 CI 和对应实机安装验收。
 
 ## 当前能力
 
@@ -72,6 +72,6 @@ npm run test:e2e:package -- win-x64    # 或 mac-x64 / mac-arm64
 
 验证器生成本地 manifest，记录架构、应用标识、资源、签名状态与 SHA-256。签名、公证、安装和发布闸门见 [发布前清单](docs/RELEASE-CHECKLIST.md)。
 
-`.github/workflows/ci.yml` 为 Windows x64、macOS Intel x64 与 macOS Apple Silicon arm64 建立独立检查/打包/包验证 job，不上传产物。P08/P09 提交 `fb430a1` 的 run `34842121215` 中 Windows x64 与 macOS arm64 成功，macOS Intel 在源码 Electron 冒烟失败并跳过打包；当前 P10 改动尚未提交或触发新 CI，不能写成三目标全通过。
+`.github/workflows/ci.yml` 为 Windows x64、macOS Intel x64 与 macOS Apple Silicon arm64 建立独立检查/打包/包验证 job，不上传产物。提交 `740981f` 的 run `34910450288` 中，Windows 和 arm64 均通过源码 Electron 冒烟与打包、但在包验证阶段失败；Intel 在 P08 请求时序断言失败。当前修复尚未提交或触发新 CI，不能写成三目标全通过。
 
 更多状态与边界见 [兼容性](docs/COMPATIBILITY.md)、[测试报告](docs/TEST-REPORT.md) 和 [交接](docs/HANDOFF.md)。

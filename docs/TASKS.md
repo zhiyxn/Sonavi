@@ -169,7 +169,9 @@ P02 基础提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`�
 - [x] P10：macOS 删除未使用隐私权限说明，增加最小签名 entitlements；ASAR 排除构建期依赖并设置 16 MiB 上限。
 - [x] P10：当前 Intel Mac 生成未签名 x64 DMG，完成只读挂载、临时安装、包内完整冒烟与截图验证。
 - [x] P10：补齐签名/公证接口说明、安装升级矩阵、发布闸门、回滚方式与 0.1.0 变更摘要。
-- [ ] P10 增量提交后运行 Windows x64、macOS Intel x64、macOS arm64 三目标 CI，确认包验证与包内冒烟全绿。
+- [x] P10 提交 `740981f` 已运行三目标 CI（run `34910450288`），准确取得 Windows 包验证、Intel 源码冒烟和 arm64 包验证三处失败证据。
+- [x] 修复 Windows 无签名 PE 检测与 PowerShell 路径传递、arm64 linker ad-hoc 识别，以及 P08 转码 seek 请求等待竞态；本机 105 项测试、源码 Electron 冒烟与 x64/arm64 包验证通过。
+- [ ] 提交当前 P10 CI 修复并运行 Windows x64、macOS Intel x64、macOS arm64 新矩阵，确认包验证与包内冒烟全绿。
 - [ ] Windows 11 x64 安装 NSIS 并完成人工图标、开始菜单、卸载保留 userData、桌面行为与物理听音验收。
 - [ ] macOS Apple Silicon 原生构建/安装 arm64 DMG 并完成人工图标、Dock/菜单栏、桌面行为与物理听音验收。
 - [ ] 使用正式证书验证 Windows Authenticode、macOS Developer ID、公证与 stapling；未经授权不索取或使用密钥。
@@ -183,4 +185,4 @@ P02 基础提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`�
 
 ## 当前闸门结论
 
-P01 已达到验收条件，P02～P10 已按序达到当前可用环境的代码闸门。P10 在 macOS Intel 上通过 102 项测试、依赖审计、x64 DMG 构建/校验/挂载/临时安装及包内完整冒烟；P08/P09 提交 `fb430a1` 的 Windows x64 和 macOS arm64 CI 成功，但 macOS Intel 源码 Electron 冒烟失败，未形成全绿矩阵。当前 P10 尚未提交/运行三目标 CI，且真实服务器/大型资料库、Windows/Apple Silicon 安装、签名/公证、手工桌面行为、最低系统和物理听音仍未完成，因此不能宣称双平台正式发布验收完成。
+P01 已达到验收条件，P02～P10 已按序达到当前可用环境的代码闸门。P10 首轮 run `34910450288` 的三个 job 均通过静态检查和单测，Windows/arm64 还通过源码 Electron 与打包，但三条流水线最终分别暴露验证工具或测试时序问题。当前工作区已完成根因修复并在 Intel Mac 通过 105 项测试、源码 Electron 冒烟、x64/arm64 包校验及实际 Windows PE 结构检查；修复尚未提交和经过新 CI。真实服务器/大型资料库、Windows/Apple Silicon 安装、签名/公证、手工桌面行为、最低系统和物理听音仍未完成，因此不能宣称双平台正式发布验收完成。

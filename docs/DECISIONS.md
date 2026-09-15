@@ -211,7 +211,7 @@ Windows x64、macOS x64 和 macOS arm64 继续由同一 electron-builder 配置�
 
 main 的唯一外部运行时依赖 Zod 在 electron-vite 中内联，electron-builder 排除全部 `node_modules`，避免把约 55 MiB 构建期依赖和 source map 带进 ASAR。ASAR 设 16 MiB 发布前上限作为回归门槛。macOS 删除 Electron 模板中 Sonavi 未使用的相机、麦克风、蓝牙与音频采集说明；Developer ID 候选只预置 JIT/可执行内存 entitlements，不为当前能力添加 `disable-library-validation`。
 
-签名、公证凭据只由本机密钥链或受保护 CI secret 提供。无凭据时产物必须标记为未签名开发测试包；正式候选使用 `SONAVI_REQUIRE_SIGNING=1` 使验证器拒绝未签名文件，并另行验证 macOS 公证 ticket。不会要求用户关闭 Gatekeeper、SmartScreen、TLS 或 Electron 安全开关。
+签名、公证凭据只由本机密钥链或受保护 CI secret 提供。无凭据时产物必须标记为 unsigned/ad-hoc 开发测试包；正式候选使用 `SONAVI_REQUIRE_SIGNING=1` 使验证器拒绝非发行签名文件，并另行验证 macOS 公证 ticket。不会要求用户关闭 Gatekeeper、SmartScreen、TLS 或 Electron 安全开关。
 
 来源：
 
@@ -219,3 +219,17 @@ main 的唯一外部运行时依赖 Zod 在 electron-vite 中内联，electron-b
 - https://www.electron.build/v26/docs/mac/
 - https://www.electron.build/docs/features/code-signing/code-signing-win/
 - https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution
+
+## D019：区分无证书包、linker ad-hoc seal 与正式发行签名
+
+- 日期：2026-09-15
+- 状态：已接受
+
+Apple Silicon Electron 主可执行文件即使 electron-builder 明确跳过应用签名，也可能携带 linker 生成的 ad-hoc seal。它没有签名身份、不封装应用资源，不能按完整已签名 bundle 执行资源封印校验，更不能声明为 Developer ID 签名。验证器只对该 seal 校验代码页并记录 `ad-hoc`；ASAR、图标、Info.plist、DMG 与 SHA-256 继续由独立检查覆盖。`SONAVI_REQUIRE_SIGNING=1` 同时拒绝 `unsigned`、`ad-hoc` 与非 Developer ID 身份。
+
+Windows 无证书开发包先从 PE Optional Header 的 Certificate Table 判断是否存在 Authenticode 数据。不存在时直接记录 `unsigned`，不依赖 PowerShell 模块；存在时才在 Windows 目标机调用 `Get-AuthenticodeSignature` 校验证书状态和发布者。目标路径通过子进程环境变量传入，不拼接到 PowerShell 命令文本。
+
+来源：
+
+- https://developer.apple.com/documentation/security/seccodesignatureflags/adhoc
+- https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.security/get-authenticodesignature
