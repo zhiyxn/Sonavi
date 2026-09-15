@@ -233,3 +233,14 @@ Windows 无证书开发包先从 PE Optional Header 的 Certificate Table 判断
 
 - https://developer.apple.com/documentation/security/seccodesignatureflags/adhoc
 - https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.security/get-authenticodesignature
+
+## D020：暂停队列保存必须可串行等待并在断开前 flush
+
+- 日期：2026-09-15
+- 状态：已接受
+
+暂停队列仍只保存非敏感曲目元数据、当前位置和播放模式，不保存 sessionId、凭据或媒体 URL。renderer 的变更保存继续使用短防抖，但由单一串行协调器持有最新快照，避免旧写入覆盖新写入；断开连接前必须取消待触发 timer、提交最新队列并等待受限 IPC 返回。
+
+真正退出由 main 发出固定的 `prepare-to-quit` 业务命令，renderer 完成同一 flush 后通过固定、校验 sender 的 IPC 确认，main 才继续退出；renderer 无响应时使用 5 秒超时兜底，避免应用无法退出。资源释放移到 `will-quit`，不得在可被取消的 `before-quit` 阶段提前销毁媒体和桌面集成状态。
+
+Electron 冒烟不以固定睡眠推断落盘完成。测试在关闭隔离测试进程前读取该测试专属 `userData` 的 `desktop-state.v1.json`，只确认非敏感暂停队列的当前曲目已经持久化；真实音频流请求同样等待 fixture 实际收到 `/stream.view`，而不是用 UI 已进入 playing 代替网络事实。

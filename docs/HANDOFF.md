@@ -8,8 +8,8 @@ P01～P10 已按顺序落地到当前发布前代码闸门。P10 已在 macOS 13
 
 ## 分支与工作区
 
-- 分支：`main`；当前 HEAD 与 `origin/main` 同为 `740981f feat(p10): 完成发布前打包验证`。
-- 用户已推送 P10。当前工作区是 run `34910450288` 三处失败的源码、测试和文档修复，尚未提交或推送。
+- 分支：`main`；run `34912793294` 两处 macOS 冒烟失败的源码与测试修复已提交为 `1f23427 fix(p10): 稳定 macOS 冒烟与队列持久化`，本交接文档提交紧随其后。
+- `1f23427` 已通过当前 Windows 主机完整回归；新的三目标 CI 结果待确认。
 - `release/` 与 `artifacts/` 被忽略；本机 DMG、manifest 和截图不会随提交上传。
 - 原始参考包保持未修改；不得重置或丢弃当前 P10 工作区。
 
@@ -21,20 +21,24 @@ P01～P10 已按顺序落地到当前发布前代码闸门。P10 已在 macOS 13
 - `electron.vite.config.ts` 将 main 唯一外部运行时依赖 Zod 内联；electron-builder 排除 `node_modules`。macOS x64 ASAR 从约 55 MiB 降至 1,959,330 字节，验证器以 16 MiB 作为回归上限。
 - macOS Info.plist 删除 Sonavi 未使用的相机、麦克风、蓝牙和音频采集说明；签名配置使用 `build/entitlements.mac.plist` 与 inherit 文件，仅保留 Electron 所需 JIT/可执行内存能力。
 - renderer ESLint 继续禁止 Node/`process`，并新增禁止 localStorage、sessionStorage 和 `v-html`；凭据、持久化和 HTML 注入边界没有放宽。
-- P07 scrobble 和 P08 转码 seek 冒烟均使用最长 10 秒的真实请求条件等待，降低慢 CI 上的时序误报，不删除断言或降低功能要求。
+- P07 scrobble、P08 转码 seek 和初次 HTMLAudioElement 流请求冒烟均使用最长 10 秒的真实请求条件等待，降低慢 CI 上的时序误报，不删除断言或降低功能要求。
+- 暂停队列保存由防抖、串行协调器管理；显式 flush 会保存最新快照并等待 IPC 完成。断开连接前执行 flush；真正退出由 main 发出 `prepare-to-quit`，renderer flush 后确认再退出，并有 5 秒超时兜底。E2E 在关闭进程前确认隔离 userData 中的非敏感队列状态已经落盘。
 - `docs/RELEASE-CHECKLIST.md` 记录三个目标的命令、签名/公证 secret 名称、安装/升级矩阵、发布闸门、回滚和 0.1.0 变更摘要，不包含真实凭据。
 
 ## 本轮实测
 
 - `git diff --check` 与 `npm run lint`：最终复验通过，0 warning。
 - `npm run typecheck`：最终复验通过；生产构建与源码 Electron 冒烟也重复通过三套类型检查。
-- `npm test`：23 个文件、105 项通过；包验证器定向测试 9 项通过。
-- `npm run test:e2e`：修复后源码 Electron 完整通过；启动约 1651 ms，20 轮切页工作集增量约 49,856 KiB、媒体请求 +0。
+- 当前 Windows 主机：Windows 10.0.26200 x64，Node.js v22.21.1，npm 10.9.4；未替代 macOS 或 Windows 11 最低目标实机。
+- `npm test`：23 个文件、106 项通过；新增显式 queue flush 取消防抖、保存最新快照并等待 IPC 的定向测试。
+- `npm run test:e2e`：当前 Windows 源码 Electron 完整通过；最终启动约 562 ms，20 轮切页工作集增量约 50,788 KiB、媒体请求 +0；真实音频请求等待、队列落盘证据、退出握手与跨进程恢复均通过。
 - `npm audit --audit-level=high --registry=https://registry.npmjs.org`：0 vulnerabilities。
 - `npm run build:mac:x64`：通过，生成 `release/0.1.0/Sonavi-0.1.0-mac-x64.dmg`；无 Developer ID，明确跳过签名。
 - `npm run verify:package -- mac-x64`：通过；DMG 137,343,264 字节，SHA-256 `f5afe1f70024d71cdf319b561f4a59d0fb7c8fb4ffe682b889b6f6855a648074`，x64、`com.sonavi.desktop`、0.1.0、macOS 13.0、未签名。
 - `npm run build:mac:arm64` 与 `npm run verify:package -- mac-arm64`：当前 Intel 主机交叉构建/结构验证通过；DMG 133,110,010 字节，目标 arm64，签名状态 `ad-hoc`；严格发行门禁按预期拒绝。
-- `npm run build:win`：当前 Intel 主机交叉构建通过；实际应用 EXE 解析为 x64、Certificate Table 为空。未在非 Windows 主机冒充 Authenticode 或运行验证。
+- `npm run build:win`：当前 Windows 主机通过；生成未签名 x64 NSIS。
+- `npm run verify:package -- win-x64`：通过；NSIS 113,417,934 字节，SHA-256 `2fdbc79186b63305387144b6f15f469daee2faed7c7d635a39b22876c0af1fd6`，应用 x64、0.1.0、ASAR/图标正常、签名状态 `unsigned`。
+- `npm run test:e2e:package -- win-x64`：完整通过；启动约 739 ms，20 轮切页工作集增量约 29,448 KiB、媒体请求 +0，包含新增持久化与退出握手验证。
 - `npm run test:e2e:package -- mac-x64`：修复后完整复跑通过；启动约 1770 ms，20 轮切页工作集增量约 51,872 KiB、媒体请求 +0。
 - 最终 DMG 通过校验后只读挂载，`Sonavi.app` 复制到临时安装目录并再次完整冒烟：启动约 1111 ms，切页工作集增量约 47,148 KiB、媒体请求 +0；验证后已卸载 DMG 并清理临时目录。
 - 安装后冒烟覆盖安全偏好/CSP/preload、连接、两页专辑、流媒体、队列、歌词、scrobble、收藏/歌单、转码/seek、诊断、关闭隐藏、暂停队列、凭据跨进程恢复/删除与 safeStorage。
@@ -42,22 +46,22 @@ P01～P10 已按顺序落地到当前发布前代码闸门。P10 已在 macOS 13
 
 ## 已推送 CI 事实
 
-GitHub Actions run `34910450288` 对应提交 `740981f`，三个 job 的 lint、typecheck 和 102 项测试均通过：
+GitHub Actions run `34912793294` 对应提交 `ce82e9e`，三个 job 的 lint、typecheck 和 105 项测试均通过：
 
-- Windows x64：源码 Electron 冒烟与 NSIS 构建成功；包验证因无签名 EXE 仍调用 PowerShell，且路径被拼到命令尾部而失败；
-- macOS Apple Silicon arm64：源码 Electron 冒烟与 arm64 DMG 构建成功；包验证因 linker ad-hoc seal 被误按完整 bundle 校验而失败；
-- macOS Intel x64：P08 转码 seek 测试在请求抵达 fixture 前读取数组，源码 Electron 冒烟失败，后续打包跳过。
+- Windows x64：源码 Electron、NSIS、包验证与包内 Electron 冒烟全通过；
+- macOS Apple Silicon arm64：源码 Electron、arm64 DMG 与包验证通过；包内冒烟在 UI 已进入 playing、fixture 请求尚未抵达测试数组时同步断言失败；
+- macOS Intel x64：源码 Electron 冒烟完成主要业务与性能段，断开后重启时暂停队列曲目未在 30 秒内显示，后续打包跳过。
 
-当前工作区已修复三处根因，并完成 Intel 主机可执行回归；尚未有修复提交后的三目标 CI 结果。
+提交 `1f23427` 已修复两处根因并完成 Windows 源码/打包应用回归；尚未有该提交的三目标 CI 结果。
 
 ## 未验证与发布阻断项
 
-- Windows 11 x64 当前 P10 NSIS 的包验证、安装、开始菜单/图标、卸载保留 userData、桌面行为和物理听音。
-- macOS Apple Silicon 当前 P10 arm64 的包验证、安装、Dock/菜单栏/图标、桌面行为和物理听音。
+- Windows 11 x64 当前 P10 NSIS 的实际安装、开始菜单/图标、卸载保留 userData、桌面行为和物理听音；当前 Windows 构建 10.0.26200 的未安装目录包不替代这些验收。
+- macOS Apple Silicon 当前 P10 arm64 的修复后包内冒烟、安装、Dock/菜单栏/图标、桌面行为和物理听音；`ce82e9e` 的原生包验证已经通过。
 - macOS Intel 的 Developer ID 签名、公证/stapling、隔离属性下 Gatekeeper 首次启动、Finder/Dock 图标遮罩、菜单栏逐项、物理媒体键、睡眠/锁屏和扬声器听音。
 - 三个平台的真实服务器、真实大型资料库、最低系统版本和跨候选升级；0.1.0 是首个候选，没有旧公开版本迁移样本。
 - Windows Authenticode 与 macOS Developer ID/公证均无真实凭据，本轮没有索取、使用或伪造签名成功。
 
 ## 下一入口
 
-先审查并提交当前 CI 修复。提交后观察三目标 CI，确认 Windows 无签名包记录为 `unsigned`、arm64 无证书包记录为 `ad-hoc`、Intel P08 条件等待稳定，并确认三个 job 的 `test:e2e:package` 全部实际执行。随后只在对应实机执行 `docs/RELEASE-CHECKLIST.md` 的安装/签名/公证矩阵；未经用户授权不推送、不上传安装包、不创建 Release、不索取签名密钥。
+观察 `1f23427` 的三目标 CI，重点确认 arm64 包内真实音频请求条件等待和 Intel 暂停队列落盘/重启恢复，并确认三个 job 的 `test:e2e:package` 全部实际执行。随后只在对应实机执行 `docs/RELEASE-CHECKLIST.md` 的安装/签名/公证矩阵；未经用户授权不上传安装包、不创建 Release、不索取签名密钥。

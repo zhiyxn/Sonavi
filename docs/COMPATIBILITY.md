@@ -6,9 +6,9 @@
 
 | 目标 | 构建入口 | 当前证据 | 状态 |
 | --- | --- | --- | --- |
-| Windows 11 x64 | `npm run build:win` | `740981f` CI 通过源码 Electron 与 NSIS 构建，包验证因无签名包误调用 PowerShell 失败；当前修复待新 CI | 正式目标，自动闸门待复验 |
-| macOS 13+ Intel x64 | `npm run build:mac:x64` | 当前 13.7.8 Intel 主机完成 DMG、包验证、挂载临时安装和完整 Electron 冒烟；首轮 P10 CI 的 P08 时序竞态已本机复现修复 | 正式目标，开发包已验证 |
-| macOS 13+ Apple Silicon arm64 | `npm run build:mac:arm64` | `740981f` 原生 arm64 CI 通过源码 Electron 与 DMG 构建，包验证误把 linker ad-hoc 当完整 bundle；当前修复待新 CI | 正式目标，自动闸门待复验 |
+| Windows 11 x64 | `npm run build:win` | `ce82e9e` CI 的源码/打包应用冒烟、NSIS 与包验证全通过；当前 Windows 主机对 `1f23427` 队列修复再次完成同组回归 | 正式目标，自动闸门通过，实机安装待验收 |
+| macOS 13+ Intel x64 | `npm run build:mac:x64` | 13.7.8 Intel 主机曾完成 DMG、包验证、挂载临时安装和完整 Electron 冒烟；`ce82e9e` CI 在重启队列恢复超时，`1f23427` 持久化修复待新 CI | 正式目标，自动闸门待复验 |
+| macOS 13+ Apple Silicon arm64 | `npm run build:mac:arm64` | `ce82e9e` 原生 CI 的源码冒烟、arm64 DMG 与包验证通过；包内冒烟因同步读取音频请求过早失败，`1f23427` 条件等待修复待新 CI | 正式目标，自动闸门待复验 |
 
 Windows ARM64、Linux 与 macOS Universal 合并包不是首版强制交付。缺少的实机证据标为未验证，不改变 Windows/macOS 同等正式支持地位。
 
@@ -58,7 +58,7 @@ Windows ARM64、Linux 与 macOS Universal 合并包不是首版强制交付。�
 
 ## CI 状态
 
-`.github/workflows/ci.yml` 使用 `windows-2025`、`macos-15-intel` 和 `macos-15`。run `34910450288`（`740981f`）中三个 job 的 lint、typecheck 与 102 项测试均通过：Windows/arm64 的源码 Electron 与安装包构建通过，随后分别因 PowerShell 调用和 linker ad-hoc 识别问题在包验证失败；Intel 在 P08 转码 seek 请求的竞态断言失败并跳过打包。三处修复已在当前工作区实现，仍需提交后的新 CI 才能确认三目标全绿。
+`.github/workflows/ci.yml` 使用 `windows-2025`、`macos-15-intel` 和 `macos-15`。run `34912793294`（`ce82e9e`）中三个 job 的 lint、typecheck 与 105 项测试均通过；Windows 完成源码冒烟、NSIS、包验证和包内冒烟，arm64 完成到包验证后在包内真实音频请求断言失败，Intel 在源码冒烟的暂停队列重启恢复超时。提交 `1f23427` 以条件等待替代同步请求检查，并在断开/退出前显式 flush 队列、关闭进程前验证非敏感队列状态确已落盘；仍需新 CI 才能确认两个 macOS job。
 
 macOS 15 runner 不替代 macOS 13 最低版本实机；GitHub runner 不替代安装器 UI、托盘/Dock、物理媒体键、真实音频或升级验收。
 
