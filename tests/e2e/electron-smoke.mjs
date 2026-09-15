@@ -936,6 +936,12 @@ try {
       .replaceAll('```', '` ` `')
       .replace(/(password|token|salt|authorization)=\S+/gi, '$1=[REDACTED]')
     await appendFile(summaryPath, `### Electron smoke failure\n\n\`\`\`text\n${redactedDetails}\n\`\`\`\n`)
+    const workflowAnnotation = redactedDetails
+      .slice(0, 4000)
+      .replaceAll('%', '%25')
+      .replaceAll('\r', '%0D')
+      .replaceAll('\n', '%0A')
+    console.error(`::error title=Electron smoke failure::${workflowAnnotation}`)
   }
   throw error
 } finally {
