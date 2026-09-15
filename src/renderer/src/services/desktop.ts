@@ -39,6 +39,10 @@ export function clearPausedQueue(): Promise<boolean> {
   return window.sonavi.desktop.clearPausedQueue()
 }
 
+export function completeQuitPreparation(): Promise<boolean> {
+  return window.sonavi.desktop.completeQuitPreparation()
+}
+
 export async function loadCoverCacheInfo(sessionId: string): Promise<CoverCacheInfo> {
   return CoverCacheInfoSchema.parse(await window.sonavi.desktop.getCoverCacheInfo(sessionId))
 }

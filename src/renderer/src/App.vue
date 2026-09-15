@@ -31,7 +31,7 @@ type ApplicationView = 'home' | 'albums' | 'artists' | 'search' | 'favorites' | 
 const activeView = ref<ApplicationView>('home')
 const selectedAlbumId = ref<string | null>(null)
 const selectedArtistId = ref<string | null>(null)
-useDesktopIntegration({
+const { flushPausedQueue } = useDesktopIntegration({
   getShortcutModifier: () => applicationInfo.value?.shortcutModifier,
   openSettings: () => {
     if (session.connection) navigate('settings')
@@ -87,6 +87,7 @@ async function handleDisconnect(): Promise<void> {
   if (!current) return
 
   sessionActionError.value = ''
+  await flushPausedQueue()
   player.stop()
   try {
     if (!(await disconnectConnection(current.sessionId))) throw new Error('session rejected')

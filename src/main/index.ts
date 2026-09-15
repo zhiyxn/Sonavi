@@ -110,6 +110,7 @@ import { NetworkPolicyService } from './services/network-policy-service'
 import {
   CLEAR_COVER_CACHE_CHANNEL,
   CLEAR_PAUSED_QUEUE_CHANNEL,
+  COMPLETE_QUIT_PREPARATION_CHANNEL,
   DESKTOP_COMMAND_CHANNEL,
   GET_COVER_CACHE_INFO_CHANNEL,
   GET_DESKTOP_PREFERENCES_CHANNEL,
@@ -624,6 +625,12 @@ function registerDesktopIpc(
     return true
   })
 
+  ipcMain.handle(COMPLETE_QUIT_PREPARATION_CHANNEL, (event) => {
+    assertTrustedIpcSender(event)
+    desktopIntegration.completeQuitPreparation()
+    return true
+  })
+
   ipcMain.handle(GET_COVER_CACHE_INFO_CHANNEL, async (event, rawSessionId: unknown) => {
     assertTrustedIpcSender(event)
     const sessionId = SessionIdSchema.parse(rawSessionId)
@@ -802,7 +809,7 @@ void app.whenReady().then(async () => {
     else desktopIntegration.showWindow()
   })
 
-  app.once('before-quit', () => {
+  app.once('will-quit', () => {
     mediaProtocol.dispose()
     mediaHandles.clear()
     desktopIntegration.dispose()

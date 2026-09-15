@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { onBeforeUnmount, onMounted, watch } from 'vue'
 import type { DesktopCommand, SavePausedQueueRequest } from '../../../shared/desktop'
 import {
+  completeQuitPreparation,
   restorePausedQueue,
   savePausedQueue,
   updateDesktopPlaybackStatus
@@ -9,6 +10,53 @@ import {
 import { useDesktopStore } from '../stores/desktop'
 import { usePlayerStore } from '../stores/player'
 import { useSessionStore } from '../stores/session'
+
+export interface PausedQueuePersistence {
+  schedule: (request: SavePausedQueueRequest) => void
+  flush: (request?: SavePausedQueueRequest) => Promise<boolean>
+  cancel: () => void
+}
+
+export function createPausedQueuePersistence(
+  persist: (request: SavePausedQueueRequest) => Promise<boolean> = savePausedQueue,
+  delayMs = 350
+): PausedQueuePersistence {
+  let timer: ReturnType<typeof setTimeout> | null = null
+  let pendingRequest: SavePausedQueueRequest | null = null
+  let saveChain = Promise.resolve(true)
+
+  const enqueue = (request: SavePausedQueueRequest): Promise<boolean> => {
+    const operation = saveChain.catch(() => false).then(() => persist(request))
+    saveChain = operation
+    return operation
+  }
+
+  const flush = (request?: SavePausedQueueRequest): Promise<boolean> => {
+    if (request) pendingRequest = request
+    if (timer) clearTimeout(timer)
+    timer = null
+    const nextRequest = pendingRequest
+    pendingRequest = null
+    return nextRequest ? enqueue(nextRequest) : saveChain
+  }
+
+  return {
+    schedule: (request) => {
+      pendingRequest = request
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => {
+        timer = null
+        void flush().catch(() => undefined)
+      }, delayMs)
+    },
+    flush,
+    cancel: () => {
+      if (timer) clearTimeout(timer)
+      timer = null
+      pendingRequest = null
+    }
+  }
+}
 
 export function shouldIgnoreDesktopShortcut(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(
@@ -42,16 +90,54 @@ function applyTheme(theme: 'system' | 'light' | 'dark'): void {
 export function useDesktopIntegration(options?: {
   getShortcutModifier: () => 'Ctrl' | 'Cmd' | undefined
   openSettings: () => void
-}): void {
+}): { flushPausedQueue: () => Promise<boolean> } {
   const player = usePlayerStore()
   const session = useSessionStore()
   const desktop = useDesktopStore()
   const queryClient = useQueryClient()
   let commandCleanup: (() => void) | null = null
-  let queueSaveTimer: ReturnType<typeof setTimeout> | null = null
   let volumeSaveTimer: ReturnType<typeof setTimeout> | null = null
   let readySessionId: string | null = null
   const mediaQuery = matchMedia('(prefers-color-scheme: dark)')
+  const queuePersistence = createPausedQueuePersistence()
+
+  const createQueueSaveRequest = (sessionId: string): SavePausedQueueRequest => {
+    const entries = player.queue.map((entry) => ({
+      queueEntryId: entry.queueEntryId,
+      track: entry.track
+    }))
+    const currentIndex = Math.max(
+      0,
+      entries.findIndex((entry) => entry.queueEntryId === player.currentEntryId)
+    )
+    return {
+      sessionId,
+      tracks: entries.map(({ track }) => ({
+        id: track.id,
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        duration: track.duration,
+        ...(track.track ? { track: track.track } : {}),
+        ...(track.disc ? { disc: track.disc } : {}),
+        ...(track.contentType ? { contentType: track.contentType } : {}),
+        starred: track.starred
+      })),
+      currentIndex,
+      playbackOrder: player.playbackOrder,
+      repeatMode: player.repeatMode
+    }
+  }
+
+  const flushPausedQueue = async (): Promise<boolean> => {
+    const connected = session.connection
+    if (!connected || readySessionId !== connected.sessionId) return false
+    try {
+      return await queuePersistence.flush(createQueueSaveRequest(connected.sessionId))
+    } catch {
+      return false
+    }
+  }
 
   const runCommand = async (command: DesktopCommand): Promise<void> => {
     if (command === 'toggle-playback') player.toggle()
@@ -78,6 +164,9 @@ export function useDesktopIntegration(options?: {
         }
         await queryClient.invalidateQueries()
       }
+    } else if (command === 'prepare-to-quit') {
+      await flushPausedQueue()
+      await completeQuitPreparation()
     }
   }
 
@@ -177,6 +266,7 @@ export function useDesktopIntegration(options?: {
   watch(
     () => session.connection,
     async (connected) => {
+      queuePersistence.cancel()
       readySessionId = null
       if (!connected) return
       const restored = await restorePausedQueue(connected.sessionId)
@@ -224,38 +314,37 @@ export function useDesktopIntegration(options?: {
   watch(
     () => ({
       sessionId: session.connection?.sessionId ?? null,
-      tracks: player.queue.map((entry) => entry.track),
+      entries: player.queue.map((entry) => ({
+        queueEntryId: entry.queueEntryId,
+        track: entry.track
+      })),
       currentEntryId: player.currentEntryId,
       playbackOrder: player.playbackOrder,
       repeatMode: player.repeatMode
     }),
     (snapshot) => {
       if (!snapshot.sessionId || readySessionId !== snapshot.sessionId) return
-      if (queueSaveTimer) clearTimeout(queueSaveTimer)
-      queueSaveTimer = setTimeout(() => {
-        const currentIndex = Math.max(
-          0,
-          player.queue.findIndex((entry) => entry.queueEntryId === player.currentEntryId)
-        )
-        const request: SavePausedQueueRequest = {
-          sessionId: snapshot.sessionId!,
-          tracks: snapshot.tracks.map((track) => ({
-            id: track.id,
-            title: track.title,
-            artist: track.artist,
-            album: track.album,
-            duration: track.duration,
-            ...(track.track ? { track: track.track } : {}),
-            ...(track.disc ? { disc: track.disc } : {}),
-            ...(track.contentType ? { contentType: track.contentType } : {}),
-            starred: track.starred
-          })),
-          currentIndex,
-          playbackOrder: snapshot.playbackOrder,
-          repeatMode: snapshot.repeatMode
-        }
-        void savePausedQueue(request)
-      }, 350)
+      const currentIndex = Math.max(
+        0,
+        snapshot.entries.findIndex((entry) => entry.queueEntryId === snapshot.currentEntryId)
+      )
+      queuePersistence.schedule({
+        sessionId: snapshot.sessionId,
+        tracks: snapshot.entries.map(({ track }) => ({
+          id: track.id,
+          title: track.title,
+          artist: track.artist,
+          album: track.album,
+          duration: track.duration,
+          ...(track.track ? { track: track.track } : {}),
+          ...(track.disc ? { disc: track.disc } : {}),
+          ...(track.contentType ? { contentType: track.contentType } : {}),
+          starred: track.starred
+        })),
+        currentIndex,
+        playbackOrder: snapshot.playbackOrder,
+        repeatMode: snapshot.repeatMode
+      })
     },
     { deep: true }
   )
@@ -270,11 +359,14 @@ export function useDesktopIntegration(options?: {
   )
 
   onBeforeUnmount(() => {
-    if (queueSaveTimer) clearTimeout(queueSaveTimer)
+    void flushPausedQueue()
+    queuePersistence.cancel()
     if (volumeSaveTimer) clearTimeout(volumeSaveTimer)
     commandCleanup?.()
     window.removeEventListener('keydown', onKeyDown)
     mediaQuery.removeEventListener('change', onSystemThemeChanged)
     clearMediaActionHandlers()
   })
+
+  return { flushPausedQueue }
 }

@@ -1,6 +1,6 @@
 import { _electron as electron } from 'playwright-core'
 import { createHash } from 'node:crypto'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -101,7 +101,7 @@ const fixturePlaylists = [
 async function waitForCondition(condition, message, timeoutMs = 10_000) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
-    if (condition()) return
+    if (await condition()) return
     await new Promise((resolveWait) => setTimeout(resolveWait, 50))
   }
   throw new Error(message)
@@ -551,6 +551,7 @@ try {
     onDesktopCommand: typeof window.sonavi?.desktop?.onCommand,
     savePausedQueue: typeof window.sonavi?.desktop?.savePausedQueue,
     restorePausedQueue: typeof window.sonavi?.desktop?.restorePausedQueue,
+    completeQuitPreparation: typeof window.sonavi?.desktop?.completeQuitPreparation,
     getCoverCacheInfo: typeof window.sonavi?.desktop?.getCoverCacheInfo,
     clearCoverCache: typeof window.sonavi?.desktop?.clearCoverCache,
     rendererProcess: typeof window.process
@@ -580,6 +581,7 @@ try {
     bridgeShape.onDesktopCommand !== 'function' ||
     bridgeShape.savePausedQueue !== 'function' ||
     bridgeShape.restorePausedQueue !== 'function' ||
+    bridgeShape.completeQuitPreparation !== 'function' ||
     bridgeShape.getCoverCacheInfo !== 'function' ||
     bridgeShape.clearCoverCache !== 'function' ||
     bridgeShape.rendererProcess !== 'undefined'
@@ -632,9 +634,10 @@ try {
     globalShortcut.isRegistered('MediaPlayPause')
   )
   if (globalMediaShortcutRegistered) throw new Error('不应同时注册全局媒体键与 Media Session')
-  if (!mediaRequests.some((request) => request.path?.includes('/stream.view'))) {
-    throw new Error('真实 HTMLAudioElement 未请求 fixture 音频流')
-  }
+  await waitForCondition(
+    () => mediaRequests.some((request) => request.path?.includes('/stream.view')),
+    '真实 HTMLAudioElement 未在时限内请求 fixture 音频流'
+  )
   await window.getByRole('button', { name: '歌词', exact: true }).click()
   await window.getByRole('heading', { name: '歌词', exact: true }).waitFor()
   await window.getByText('歌词第一行', { exact: true }).waitFor()
@@ -865,6 +868,16 @@ try {
   await window.getByRole('heading', { name: '设置', exact: true }).waitFor()
   await window.getByRole('button', { name: '断开连接' }).click()
   await window.getByRole('heading', { name: '连接你的音乐空间' }).waitFor()
+  await waitForCondition(async () => {
+    try {
+      const state = JSON.parse(
+        await readFile(join(userDataPath, 'desktop-state.v1.json'), 'utf8')
+      )
+      return state.pausedQueue?.tracks?.[state.pausedQueue.currentIndex]?.title === '跨平台试音'
+    } catch {
+      return false
+    }
+  }, '关闭进程前暂停队列未完成持久化')
   if ((await window.locator('#password').inputValue()) !== '') {
     throw new Error('连接完成后密码输入框未清空')
   }

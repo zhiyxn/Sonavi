@@ -47,6 +47,7 @@ import {
 import {
   CLEAR_COVER_CACHE_CHANNEL,
   CLEAR_PAUSED_QUEUE_CHANNEL,
+  COMPLETE_QUIT_PREPARATION_CHANNEL,
   DESKTOP_COMMAND_CHANNEL,
   GET_COVER_CACHE_INFO_CHANNEL,
   GET_DESKTOP_PREFERENCES_CHANNEL,
@@ -65,7 +66,8 @@ const DESKTOP_COMMANDS = new Set<DesktopCommand>([
   'next',
   'previous',
   'pause-for-system',
-  'network-resumed'
+  'network-resumed',
+  'prepare-to-quit'
 ])
 
 const sonaviApi: SonaviApi = Object.freeze({
@@ -134,6 +136,7 @@ const sonaviApi: SonaviApi = Object.freeze({
     restorePausedQueue: (sessionId: string) =>
       ipcRenderer.invoke(RESTORE_PAUSED_QUEUE_CHANNEL, sessionId),
     clearPausedQueue: () => ipcRenderer.invoke(CLEAR_PAUSED_QUEUE_CHANNEL),
+    completeQuitPreparation: () => ipcRenderer.invoke(COMPLETE_QUIT_PREPARATION_CHANNEL),
     getCoverCacheInfo: (sessionId: string) =>
       ipcRenderer.invoke(GET_COVER_CACHE_INFO_CHANNEL, sessionId),
     clearCoverCache: (sessionId: string) =>

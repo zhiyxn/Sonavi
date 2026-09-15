@@ -101,6 +101,7 @@ function installPlatformApi(platform: 'windows' | 'macos'): void {
       savePausedQueue: async () => true,
       restorePausedQueue: async () => null,
       clearPausedQueue: async () => true,
+      completeQuitPreparation: async () => true,
       getCoverCacheInfo: async () => ({ itemCount: 0, totalBytes: 0, maxBytes: 134_217_728 }),
       clearCoverCache: async () => ({ itemCount: 0, totalBytes: 0, maxBytes: 134_217_728 })
     }

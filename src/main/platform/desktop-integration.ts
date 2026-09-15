@@ -67,9 +67,21 @@ export class DesktopIntegrationController {
   private tray: Tray | null = null
   private playbackStatus = { ...EMPTY_PLAYBACK_STATUS }
   private quitting = false
+  private quitPreparationPending = false
+  private quitPreparationTimer: NodeJS.Timeout | null = null
   private saveTimer: NodeJS.Timeout | null = null
-  private readonly onBeforeQuit = (): void => {
-    this.quitting = true
+  private readonly onBeforeQuit = (event: Electron.Event): void => {
+    if (this.quitting) return
+    const window = this.options.getWindow()
+    if (!window || window.isDestroyed()) {
+      this.quitting = true
+      return
+    }
+    event.preventDefault()
+    if (this.quitPreparationPending) return
+    this.quitPreparationPending = true
+    this.options.sendCommand('prepare-to-quit')
+    this.quitPreparationTimer = setTimeout(() => this.finishQuit(), 5_000)
   }
   private readonly onSuspend = (): void => this.options.sendCommand('pause-for-system')
   private readonly onLockScreen = (): void => this.options.sendCommand('pause-for-system')
@@ -118,7 +130,13 @@ export class DesktopIntegrationController {
     if (this.tray) this.tray.setContextMenu(this.buildTrayMenu())
   }
 
+  completeQuitPreparation(): void {
+    if (this.quitPreparationPending) this.finishQuit()
+  }
+
   dispose(): void {
+    if (this.quitPreparationTimer) clearTimeout(this.quitPreparationTimer)
+    this.quitPreparationTimer = null
     if (this.saveTimer) clearTimeout(this.saveTimer)
     this.saveTimer = null
     app.removeListener('before-quit', this.onBeforeQuit)
@@ -142,6 +160,14 @@ export class DesktopIntegrationController {
     this.tray.setToolTip('Sonavi')
     this.tray.setContextMenu(this.buildTrayMenu())
     this.tray.on('click', () => this.showWindow())
+  }
+
+  private finishQuit(): void {
+    if (this.quitPreparationTimer) clearTimeout(this.quitPreparationTimer)
+    this.quitPreparationTimer = null
+    this.quitPreparationPending = false
+    this.quitting = true
+    app.quit()
   }
 
   private buildTrayMenu(): Menu {

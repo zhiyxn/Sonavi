@@ -5,6 +5,7 @@ export const DESKTOP_COMMAND_CHANNEL = 'sonavi:desktop:command' as const
 export const SAVE_PAUSED_QUEUE_CHANNEL = 'sonavi:desktop:save-paused-queue' as const
 export const RESTORE_PAUSED_QUEUE_CHANNEL = 'sonavi:desktop:restore-paused-queue' as const
 export const CLEAR_PAUSED_QUEUE_CHANNEL = 'sonavi:desktop:clear-paused-queue' as const
+export const COMPLETE_QUIT_PREPARATION_CHANNEL = 'sonavi:desktop:complete-quit-preparation' as const
 export const GET_COVER_CACHE_INFO_CHANNEL = 'sonavi:desktop:get-cover-cache-info' as const
 export const CLEAR_COVER_CACHE_CHANNEL = 'sonavi:desktop:clear-cover-cache' as const
 
@@ -16,6 +17,7 @@ export type DesktopCommand =
   | 'previous'
   | 'pause-for-system'
   | 'network-resumed'
+  | 'prepare-to-quit'
 
 export interface DesktopPreferences {
   closeAction: CloseAction
@@ -75,6 +77,7 @@ export interface DesktopApi {
   savePausedQueue: (request: SavePausedQueueRequest) => Promise<boolean>
   restorePausedQueue: (sessionId: string) => Promise<RestoredPausedQueue | null>
   clearPausedQueue: () => Promise<boolean>
+  completeQuitPreparation: () => Promise<boolean>
   getCoverCacheInfo: (sessionId: string) => Promise<CoverCacheInfo>
   clearCoverCache: (sessionId: string) => Promise<CoverCacheInfo>
 }
