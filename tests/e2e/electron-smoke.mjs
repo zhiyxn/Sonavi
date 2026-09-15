@@ -1,6 +1,6 @@
 import { _electron as electron } from 'playwright-core'
 import { createHash } from 'node:crypto'
-import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
+import { appendFile, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -928,6 +928,16 @@ try {
       : 'safeStorage unavailable: plaintext fallback remains disabled'
   )
 
+} catch (error) {
+  const summaryPath = process.env.GITHUB_STEP_SUMMARY
+  if (summaryPath) {
+    const details = error instanceof Error ? (error.stack ?? error.message) : String(error)
+    const redactedDetails = details
+      .replaceAll('```', '` ` `')
+      .replace(/(password|token|salt|authorization)=\S+/gi, '$1=[REDACTED]')
+    await appendFile(summaryPath, `### Electron smoke failure\n\n\`\`\`text\n${redactedDetails}\n\`\`\`\n`)
+  }
+  throw error
 } finally {
   await electronApplication.close()
   if (fixtureServer) {
