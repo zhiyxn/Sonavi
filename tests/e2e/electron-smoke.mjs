@@ -941,7 +941,7 @@ try {
       .replaceAll('%', '%25')
       .replaceAll('\r', '%0D')
       .replaceAll('\n', '%0A')
-    console.error(`::error title=Electron smoke failure::${workflowAnnotation}`)
+    console.log(`::error title=Electron smoke failure::${workflowAnnotation}`)
   }
   throw error
 } finally {
