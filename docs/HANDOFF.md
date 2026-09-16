@@ -10,14 +10,15 @@ P11 原 Critical 已修复：媒体句柄改为会话密钥加密、带 epoch �
 
 ## 分支与工作区
 
-- P11 审查起点为 `e304fb2`；用户未提交的新 logo 文件 `build/icon.png`、`src/renderer/src/assets/sonavi-logo.png` 和未跟踪的 `docs/Existing issues.md` 均须保留。
-- P11 已按用户要求修改产品代码和审查文档；未经用户要求不要提交或发布。
+- P11 审查起点为 `e304fb2`；新 logo `build/icon.png`、`src/renderer/src/assets/sonavi-logo.png` 与 `docs/Existing issues.md` 已随提交 `557b62d` 一并提交，工作区无未提交修改。
+- P11 已按用户要求修改产品代码和审查文档，并随提交 `557b62d` 推送到 `main`；候选发布只在用户明确授权后执行。
 - 分支：`main`；`1f23427 fix(p10): 稳定 macOS 冒烟与队列持久化` 随文档提交 `51cf322` 进入 run `34934352140`，三个原生目标的完整 CI 均通过。
 - 提交 `9a7af94 ci(release): 添加跨平台候选发布流程` 将版本推进到 `0.1.0-rc.1`，增加标签驱动的 GitHub Pre-release 工作流、资产收集校验与候选版说明；`v0.1.0-rc.1` 已推送，但发布 run `34937503560` 被 Intel 源码冒烟失败阻断，未创建 Release。
 - 提交 `54e15df test(e2e): 输出 CI 失败摘要` 为 Electron 冒烟增加脱敏 Check Summary 失败栈；断言与失败条件没有放宽。其 run `34938572347` 的三个目标全部通过，Intel 失败没有稳定复现。
 - `v0.1.0-rc.2` 发布 run `35036809845` 再次被 Intel 源码 Electron 冒烟阻断；Windows x64 与 Apple Silicon arm64 通过，发布 job 跳过，未创建 Release。
 - 提交 `6842e3d` 修复歌单写后刷新等待和断开连接时空队列覆盖暂停队列的竞态，增加断开顺序回归测试；提交 `09b1ab0` 改为按断开前实际当前歌曲验证落盘与重启恢复。run `35039453442` 的三个目标完整通过。
-- 提交 `cc33168 chore(release): 准备 v0.1.0-rc.3` 通过普通 CI run `35040182258` 后创建标签；release run `35040657787` 的三个目标与发布 job 全部通过，GitHub Pre-release 已创建并包含七个预期附件。
+- 提交 `cc33168 chore(release): 准备 v0.1.0-rc.3` 通过普通 CI run `35040182258` 后创建标签；release run `35040657787` 的三个目标与发布 job 全部通过，GitHub Pre-release 已创建并包含七个预期附件。该候选构建自 `cc33168`，不含 P11 修复。
+- 提交 `557b62d fix(p11): resolve release candidate audit issues` 通过普通 CI run `35061052839` 后，版本推进到 `0.1.0-rc.4`；发布 job 的 Release notes 改为按 `docs/RELEASE-NOTES-${GITHUB_REF_NAME}.md` 解析并在缺失时失败；候选标签待发布。
 - `release/` 与 `artifacts/` 被忽略；本机 DMG、manifest 和截图不会随提交上传。
 - 原始参考包保持未修改；不得重置或丢弃当前 P10 工作区。
 
@@ -83,6 +84,6 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 - Windows x64 NSIS 构建和包验证通过：安装包 112,788,192 字节，SHA-256 `72a5be09328afe0cceff365e85414880acd19e06c32cbae1265abebe0c5b9aac`，应用 unsigned，ASAR 1,862,401 字节。
 - Windows 打包应用完整冒烟通过；启动 814 ms，20 轮切页内存增量 51,308 KiB、媒体请求 +0。
 - 生产 CSP 已直接检查为 `connect-src 'self'`，不含 `ws://localhost:*`。
-- 当前工作区保留用户的新 logo 和 `docs/Existing issues.md`；没有提交、推送或发布。
+- 新 logo 与 `docs/Existing issues.md` 随提交 `557b62d` 提交并推送；P11 修复本身没有配置签名、公证或自动更新，也没有创建 Release。
 
-当前可以进入真机测试；Blocker 0，Critical 0，Major 4。下一步先在原 Windows 服务器复验艺术家/scrobble和真实格式，再按 `docs/TEST-MATRIX.md` 完成 NSIS 安装、托盘/媒体键/睡眠/长时播放，以及 macOS Intel/arm64 的原生构建、安装和桌面矩阵。保留既有 RC 标签历史；本阶段不发布新 Release。
+当前可以进入真机测试；Blocker 0，Critical 0，Major 4。下一步先在原 Windows 服务器复验艺术家/scrobble和真实格式，再按 `docs/TEST-MATRIX.md` 完成 NSIS 安装、托盘/媒体键/睡眠/长时播放，以及 macOS Intel/arm64 的原生构建、安装和桌面矩阵。保留既有 RC 标签历史，不移动或改写任何既有标签；本次经用户明确授权发布 `v0.1.0-rc.4` 测试候选（首个包含 P11 修复的包），仍不将其标为 Latest 或正式稳定版。

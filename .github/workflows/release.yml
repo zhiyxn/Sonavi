@@ -135,9 +135,11 @@ jobs:
         run: |
           set -euo pipefail
           title="Sonavi ${GITHUB_REF_NAME} 测试版"
+          notes_file="docs/RELEASE-NOTES-${GITHUB_REF_NAME}.md"
+          test -f "$notes_file" || { echo "缺少发布说明：$notes_file"; exit 1; }
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" release-upload/* --clobber
-            gh release edit "$GITHUB_REF_NAME" --title "$title" --notes-file docs/RELEASE-NOTES-v0.1.0-rc.3.md --prerelease --latest=false
+            gh release edit "$GITHUB_REF_NAME" --title "$title" --notes-file "$notes_file" --prerelease --latest=false
           else
-            gh release create "$GITHUB_REF_NAME" release-upload/* --verify-tag --title "$title" --notes-file docs/RELEASE-NOTES-v0.1.0-rc.3.md --prerelease --latest=false
+            gh release create "$GITHUB_REF_NAME" release-upload/* --verify-tag --title "$title" --notes-file "$notes_file" --prerelease --latest=false
           fi
