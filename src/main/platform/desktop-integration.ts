@@ -44,7 +44,7 @@ export function createTrayMenuTemplate(
       click: () => actions.sendCommand('next')
     },
     { type: 'separator' },
-    { label: '真正退出 Sonavi', click: actions.quit }
+    { label: '退出 Sonavi', click: actions.quit }
   ]
 }
 

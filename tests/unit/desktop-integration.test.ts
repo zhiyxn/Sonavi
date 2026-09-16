@@ -26,7 +26,7 @@ describe('P09 桌面集成', () => {
     )
 
     expect(template.map((item) => item.label).filter(Boolean)).toEqual([
-      '显示 Sonavi', '暂停', '上一首', '下一首', '真正退出 Sonavi'
+      '显示 Sonavi', '暂停', '上一首', '下一首', '退出 Sonavi'
     ])
     ;(template[0]?.click as () => void)()
     ;(template[2]?.click as () => void)()

@@ -191,6 +191,22 @@ P02 基础提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`�
 - Intel Mac 的正式签名/公证 DMG、隔离属性下 Gatekeeper、Finder/Dock 图标及人工桌面行为；未签名 DMG 挂载、临时安装和包内启动已通过。
 - P05 提交 `b8b61d5` 的 GitHub Actions run `34798063277` 已在 Windows x64、macOS Intel x64、macOS arm64 三个 job 成功；CI 仍不替代对应桌面系统与最低系统版本实机验收。
 
+## P11：Release Candidate 独立审查、修复与测试准备（进行中）
+
+- [x] 读取当前规范、架构、API、任务、交接、测试、兼容性与决策文档，并检查 git 状态、package scripts、electron-vite/electron-builder 和测试入口。
+- [x] 在不修改产品代码的前提下完成 UI、Navidrome、播放、生命周期、双平台、安全和资源/性能静态审查。
+- [x] 创建 `docs/RC-AUDIT.md`、`docs/TEST-MATRIX.md`、`docs/KNOWN-ISSUES.md`，并按 Blocker/Critical/Major/Minor/Enhancement 分类。
+- [x] Windows 审查基线执行 lint、typecheck、109 项 Vitest、build、源码 Electron E2E、Windows x64 包构建/验证/包内 E2E和 npm audit，均通过。
+- [x] 保留用户未提交的新 logo 与 `docs/Existing issues.md`，没有重构、签名、公证、自动更新或发布动作。
+- [x] 修复 RC-C-001：媒体句柄改为会话密钥加密的无状态 token + epoch 撤销；10,000 个后续封面句柄不淘汰队列音频。
+- [x] 为 `getArtists` 设置独立 16 MiB 有界响应上限；修复 ended scrobble、专辑详情错误重试和播放错误手动断点重试。
+- [x] 修复生产 CSP、假按钮、状态位移、Windows 滚动条、主题 chrome、账号入口、自动分页、设置 Select 与托盘文案问题。
+- [x] 修复加密媒体 URL 与转码 seek schema 不一致的回归；Windows 源码/打包 Electron 完整链路通过。
+- [x] 修复后执行 lint、typecheck、24 文件/115 项 Vitest、build、源码 E2E、Windows x64 构建/包验证/包内 E2E，均通过。
+- [ ] 复现真实 Windows 艺术家 API 失败、后续播放失败和 scrobble 不计数，收集脱敏诊断并确认根因。
+- [ ] 用真实 MP3、AAC/M4A、FLAC、Opus/Ogg、WAV 样本在 Windows、macOS Intel 与 macOS arm64 分别验证原始播放、Range、seek 与转码回退。
+- [ ] 完成两个 macOS 架构、Windows NSIS 安装、1440×900、字体/缩放、托盘/Dock、媒体键、睡眠/唤醒、长时播放和退出残留进程矩阵。
+
 ## 当前闸门结论
 
-P01 已达到验收条件，P02～P10 已按序达到当前可用环境的代码闸门。release run `35040657787` 已证明标签 `v0.1.0-rc.3` 在 Windows x64、macOS Intel x64 与 macOS arm64 的源码 Electron、安装包、包验证及打包应用冒烟全流程通过，并发布为明确标注未签名/未公证的 Pre-release。真实服务器/大型资料库、Windows/Apple Silicon 安装、签名/公证、手工桌面行为、最低系统和物理听音仍未完成，因此不能宣称双平台正式发布验收完成。
+P01 已达到验收条件，P02～P10 已按序达到当时可用环境的代码闸门。P11 修复复核允许进入真机测试，当前为 0 Blocker、0 Critical、4 Major；仍不能判定为发布就绪。release run `35040657787` 只证明标签 `v0.1.0-rc.3` 当时的三目标自动化闸门，不覆盖当前工作区的新 logo 与修复，也不替代真实服务器、真实格式、安装、手工桌面行为、最低系统和物理听音。

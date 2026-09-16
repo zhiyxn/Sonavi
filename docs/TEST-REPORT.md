@@ -125,3 +125,40 @@ GitHub Actions run `34934352140`（`51cf322`）已在 Windows x64、macOS Intel 
 - 构建仍有 Rollup 移除 Zod 注释位置的非阻断提示；Zod 已正确内联，类型、测试和包内运行均通过。
 
 结论：release run `35040657787` 已使 Windows x64、macOS Intel x64 与 macOS arm64 的源码、打包和包内自动闸门全部通过。`0.1.0-rc.3` 已作为明确标注未签名/未公证的 Pre-release 测试包提供下载；正式发布继续被对应实机安装、正式签名/公证、真实服务器与人工音频/桌面测试阻断。
+
+## P11 独立审查复验（2026-09-16）
+
+本节只记录 P11 本轮实际执行，不把上文历史 CI 当成本轮通过。
+
+- 环境：Windows NT 10.0.26200 x64（25H2），Node.js 22.21.1，npm 10.9.4；`.nvmrc` 精确的 22.19.0 未安装。
+- `npm run lint`：通过，0 warning。
+- `npm run typecheck`：node/web/test 三组通过。
+- 修复前基线 `npm test`：24 个文件、109 项通过。项目没有独立 integration script；集成场景包含在 Vitest 与 Electron fixture 中。
+- `npm run build`：通过；Zod PURE 注释位置产生非阻断 Rollup 提示。
+- `npm run test:e2e`：通过；启动 601 ms，20 轮切页工作集增量 52,924 KiB，媒体请求 +0。
+- `npm run build:win`：通过；生成未签名 `0.1.0-rc.3` Windows x64 NSIS，没有发布。
+- 修复前基线 `npm run verify:package -- win-x64`：通过；安装包 112,752,829 字节，SHA-256 `5f124e471b2dcb2170f39771782a2dfcff0d9740d91a4affb5cc98577298d8bf`，应用 x64、unsigned，ASAR 1,648,046 字节。
+- `npm run test:e2e:package -- win-x64`：通过；启动 760 ms，20 轮切页工作集增量 28,556 KiB，媒体请求 +0。
+- `npm audit --audit-level=high`：通过，0 vulnerabilities。
+- 960×640 自动检查无横向溢出；1440×900 未执行精确尺寸检查。
+- 本轮真实 HTMLAudioElement 仅使用合成 PCM WAV；MP3、AAC/M4A、FLAC、Opus/Ogg 与真实 MP3 转码输出均未验证。
+- 当前含未提交新 logo 的工作区未执行 macOS Intel/arm64 构建、包验证或包内冒烟。
+
+P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。该 Critical 随后已在下节修复；本阶段没有配置签名/公证/自动更新或发布 Release。
+
+## P11 问题修复验证（2026-09-16）
+
+| 验证 | 结果 | 证据 |
+| --- | --- | --- |
+| `npm run lint` | 通过 | ESLint 0 warning |
+| `npm run typecheck` | 通过 | node、web、test 三组通过 |
+| `npm test` | 通过 | 24 个文件、115 项测试 |
+| `npm run build` | 通过 | main/preload/renderer；生产 CSP 不含 localhost WebSocket |
+| `npm run test:e2e` | 通过 | 源码 Electron 完整冒烟；启动 694 ms；20 轮切页内存 +51,720 KiB，媒体请求 +0 |
+| `npm run build:win` | 通过 | 生成未签名 Windows x64 NSIS；未发布 |
+| `npm run verify:package -- win-x64` | 通过 | 112,788,192 字节；SHA-256 `72a5be09328afe0cceff365e85414880acd19e06c32cbae1265abebe0c5b9aac`；ASAR 1,862,401 字节；unsigned |
+| `npm run test:e2e:package -- win-x64` | 通过 | 启动 814 ms；20 轮切页内存 +51,308 KiB，媒体请求 +0；全链路通过 |
+
+新增回归覆盖媒体句柄 10,000 个后续封面压力、加密转码 seek URL schema、ended scrobble、播放错误按原进度重试、专辑错误原地重试和 `getArtists` 独立响应上限。端到端覆盖 Reka/shadcn 风格 Select 的键值持久化、自动分页、兼容转码 seek、凭据恢复/删除和旧媒体句柄撤销。
+
+修复后结论：可以进入真机测试；Blocker 0，Critical 0，Major 4。真实服务器艺术家/scrobble、自动断网恢复、真实格式矩阵、macOS 两架构及人工桌面/安装测试仍未验证，详见 `docs/KNOWN-ISSUES.md` 与 `docs/TEST-MATRIX.md`。

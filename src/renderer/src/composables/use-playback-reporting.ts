@@ -61,7 +61,7 @@ export class PlaybackReportingController {
     if (
       this.nowPlayingAttempted &&
       !this.submissionAttempted &&
-      this.listenedSeconds >= threshold
+      (this.listenedSeconds >= threshold || observation.state === 'ended')
     ) {
       this.submissionAttempted = true
       this.send(observation, true)

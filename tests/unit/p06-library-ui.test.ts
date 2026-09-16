@@ -1,8 +1,9 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
-import { VueQueryPlugin } from '@tanstack/vue-query'
+import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import FavoritesPanel from '../../src/renderer/src/components/FavoritesPanel.vue'
+import LibraryPanel from '../../src/renderer/src/components/LibraryPanel.vue'
 import PlaylistsPanel from '../../src/renderer/src/components/PlaylistsPanel.vue'
 import type { SonaviApi } from '../../src/shared/application'
 import {
@@ -124,5 +125,62 @@ describe('P06 收藏与歌单界面', () => {
       songIds: []
     })
     expect(wrapper.text()).toContain('歌单已创建')
+  })
+})
+
+describe('音乐库错误恢复', () => {
+  it('专辑详情失败后显示原因并允许原地重试', async () => {
+    const listAlbums = vi.fn<SonaviApi['library']['listAlbums']>().mockResolvedValue({
+      ok: true,
+      value: { items: [], nextOffset: 0, hasMore: false }
+    })
+    const getAlbum = vi.fn<SonaviApi['library']['getAlbum']>()
+      .mockResolvedValueOnce({
+        ok: false,
+        error: { code: 'network', message: '专辑请求暂时失败', retryable: true }
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        value: {
+          id: 'album-1',
+          name: '恢复后的专辑',
+          artist: 'Sonavi Artist',
+          duration: 60,
+          songCount: 0,
+          tracks: [],
+          starred: false
+        }
+      })
+    Object.defineProperty(window, 'sonavi', {
+      configurable: true,
+      value: { library: { listAlbums, getAlbum } } as unknown as SonaviApi
+    })
+
+    const wrapper = mount(LibraryPanel, {
+      props: {
+        sessionId: SESSION_ID,
+        serverId: 'https://music.example.com',
+        serverName: '测试服务器',
+        listType: 'newest',
+        title: '最近添加',
+        selectedAlbumId: 'album-1'
+      },
+      global: {
+        plugins: [
+          createPinia(),
+          [VueQueryPlugin, {
+            queryClient: new QueryClient({ defaultOptions: { queries: { retry: false } } })
+          }]
+        ]
+      }
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('专辑请求暂时失败')
+    await wrapper.get('[role="alert"] button').trigger('click')
+    await flushPromises()
+
+    expect(getAlbum).toHaveBeenCalledTimes(2)
+    expect(wrapper.text()).toContain('恢复后的专辑')
   })
 })

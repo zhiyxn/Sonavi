@@ -146,7 +146,10 @@ function toggleLyrics(): void {
     <div class="min-w-0">
       <strong class="block truncate">{{ player.track?.title ?? '选择歌曲开始播放' }}</strong>
       <span class="block truncate">{{ player.track?.artist ?? 'Sonavi AudioEngine' }}</span>
-      <span v-if="player.errorMessage" class="player-error" role="alert">{{ player.errorMessage }}</span>
+      <div v-if="player.errorMessage" class="player-error-row" role="alert">
+        <span class="player-error">{{ player.errorMessage }}</span>
+        <Button variant="ghost" size="sm" @click="player.retry">重试播放</Button>
+      </div>
       <span v-else-if="reportingError" class="player-report-warning" role="status">
         {{ reportingError }}
       </span>

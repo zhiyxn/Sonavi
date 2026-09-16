@@ -47,17 +47,17 @@ BrowserWindow 固定 `contextIsolation=true`、`sandbox=true`、`nodeIntegration
 
 应用信息、连接、音乐库与播放辅助 IPC 同时执行：主 frame/所属 BrowserWindow 检查、开发 origin 或打包后精确文件路径检查、输入/返回数据 Zod 校验。renderer 再校验返回值。连接 IPC 只接受服务器地址、用户名、一次性密码和两个布尔选项；音乐库 IPC 只接受不透明会话 ID、受限资源 ID、分页参数及 P06 明确列出的收藏/歌单变更；P07 歌词/上报只接受当前会话、曲目 ID、纯文本歌曲元数据、布尔 submission 和安全整数时间，不提供任意 URL 请求能力。
 
-P02 的连接客户端位于 `src/main/services/opensubsonic/`，使用 Electron Session 的 Chromium 网络栈，禁止自动重定向并限制 JSON 响应为 1 MiB。认证按每次请求独立 salt 生成 token，明文密码不进入 URL、日志、renderer store 或持久化文件。`ping` 成功后探测 OpenSubsonic 扩展与音乐文件夹；旧服务器缺少扩展端点时可降级，认证和音乐库权限失败不能伪装成功。
+P02 的连接客户端位于 `src/main/services/opensubsonic/`，使用 Electron Session 的 Chromium 网络栈并禁止自动重定向。JSON 默认响应上限为 1 MiB；必须一次返回完整索引的 `getArtists` 单独使用 16 MiB 有界上限，其他端点不随之放宽。认证按每次请求独立 salt 生成 token，明文密码不进入 URL、日志、renderer store 或持久化文件。`ping` 成功后探测 OpenSubsonic 扩展与音乐文件夹；旧服务器缺少扩展端点时可降级，认证和音乐库权限失败不能伪装成功。
 
 统一 `CredentialStore` 位于 `src/main/services/credentials/`，只在 app ready 后调用 Electron 44 的异步 safeStorage。持久化文件放在 `app.getPath('userData')`，通过同目录临时密文文件替换保存；密码字段只写入系统加密密文。加密或写入失败时保留 main 进程会话凭据并明确返回 `session-only`，不回退明文。启动时可解密恢复，safeStorage 请求密钥轮换时先重加密；“退出并忘记账号”显式删除持久化文件。
 
-P03 的 `MediaHandleRegistry` 只向 renderer 返回随机、不透明的 `sonavi-media://media/<uuid>`。P08 在 main 内为音频句柄增加原始/转码、码率和可选时间偏移元数据，但 URL 形状不变，renderer 仍看不到上游地址或认证参数。自定义 scheme 在 app ready 前注册为 standard/secure/fetch/stream，但不启用 bypassCSP；处理器在 default Session 上注册。main 根据当前会话解析句柄并重新生成认证 URL，拒绝重定向、非法/多段 Range、非媒体内容类型与非 200/206/416 响应。音频响应体始终以保留背压的 Web Stream 传递，不调用 `arrayBuffer()`、不做 Base64 IPC；P09 只有带已知 Content-Length 且不超过 5 MiB 的图片响应可被有界缓冲并写入封面缓存。退出、忘记账号、切换账号、代理/播放策略切换与真正退出会撤销对应句柄并通过 AbortController 中止尚未完成的上游流。
+P03 的 `MediaHandleRegistry` 只向 renderer 返回不透明的 `sonavi-media://media/<token>`。token 由进程内随机 AES-256-GCM 密钥认证加密，携带媒体类型、会话、资源 ID、原始/转码策略、码率、可选时间偏移和会话 epoch；renderer 仍看不到上游地址或认证参数。该无状态设计不会因大库浏览淘汰队列句柄，也不为每个句柄保留 Map 项；断开、忘记账号、代理切换与退出通过递增 epoch 或轮换密钥使旧 token 整体失效。自定义 scheme 在 app ready 前注册为 standard/secure/fetch/stream，但不启用 bypassCSP；处理器在 default Session 上注册。main 根据当前会话解析句柄并重新生成认证 URL，拒绝超长/篡改 token、重定向、非法/多段 Range、非媒体内容类型与非 200/206/416 响应。音频响应体始终以保留背压的 Web Stream 传递，不调用 `arrayBuffer()`、不做 Base64 IPC；P09 只有带已知 Content-Length 且不超过 5 MiB 的图片响应可被有界缓冲并写入封面缓存。
 
 ## P04 播放核心
 
 AudioEngine 快照只有一个枚举状态：`idle/loading/playing/paused/buffering/seeking/ended/error`，同时携带 generation、曲目、进度、时长、音量与错误。只有 `HtmlAudioEngine` 创建 HTMLAudioElement；切换来源时先移除旧监听、停止并释放旧元素，再创建当前 generation 的唯一活动元素。每次来源切换递增 generation，每次 play/pause 递增命令序号，旧元素事件和迟到的 `play()` 拒绝不会覆盖新曲目或用户的加载中暂停操作。
 
-Pinia player store 管理队列。每个条目使用随机 `queueEntryId`，将服务端 `trackId`、不透明媒体句柄和当前 `serverId/accountId/sessionId` 范围绑定在一起；重复 track 可以形成不同队列项。顺序与随机都以 queueEntryId 导航，随机模式在队列不变时保留稳定顺序，并以实际播放历史实现上一首。自然 ended 在单曲循环下重播当前项；手动下一首忽略单曲循环并选择后继。删除当前项优先选择其播放顺序中的后继、否则前项，并保留播放/暂停意图；空队列停止引擎并回到 idle。
+Pinia player store 管理队列。每个条目使用随机 `queueEntryId`，将服务端 `trackId`、不透明媒体句柄和当前 `serverId/accountId/sessionId` 范围绑定在一起；重复 track 可以形成不同队列项。顺序与随机都以 queueEntryId 导航，随机模式在队列不变时保留稳定顺序，并以实际播放历史实现上一首。自然 ended 在单曲循环下重播当前项；手动下一首忽略单曲循环并选择后继。删除当前项优先选择其播放顺序中的后继、否则前项，并保留播放/暂停意图；空队列停止引擎并回到 idle。音频 error 会显示显式重试：原始流按当前进度重建，具备 `transcodeOffset` 的转码流从当前时间换取新句柄；该动作不等同于自动断网恢复。
 
 P09 将非敏感队列元数据保存到 main 的 `desktop-state.v1.json`，不保存 sessionId、密码、认证参数或 `sonavi-media` URL。main 以服务地址和用户名计算账号哈希并校验当前连接；恢复时由 `LibraryService` 重新生成短期媒体句柄，renderer 以暂停状态和曲目起点重建队列。P04 的运行时队列和 AudioEngine 仍只有一份。
 

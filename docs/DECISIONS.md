@@ -259,3 +259,14 @@ Electron 冒烟不以固定睡眠推断落盘完成。测试在关闭隔离测�
 - https://docs.github.com/en/actions/concepts/security/github_token
 - https://cli.github.com/manual/gh_release_create
 - https://github.com/actions/upload-artifact/releases
+
+## D022：媒体句柄使用会话密钥加密的无状态 token
+
+- 日期：2026-09-16
+- 状态：已接受；取代固定容量 FIFO 句柄表
+
+renderer 继续只接收 `sonavi-media://media/<opaque-token>`，但 token 不再引用 main 中的全局 2,000 项 Map。main 使用进程内随机 AES-256-GCM 密钥加密媒体类型、会话、资源 ID、流策略和会话 epoch；URL 不暴露资源 ID、服务地址或认证参数。这样大库浏览、封面加载和大队列不会淘汰仍待播放的音频句柄，也不会让内存随每个资源句柄持续增长。
+
+每个会话维护小型 epoch 与签发计数。断开、忘记账号、代理切换或生命周期清理时递增 epoch，使该会话此前签发的全部 token 立即失效；全局清理则轮换进程密钥。解密、认证标签、URL 结构、字段类型、会话存在性任一校验失败都拒绝请求。句柄只在当前进程有效，重启队列仍必须由 main 重新生成。
+
+OpenSubsonic JSON 默认响应上限仍为 1 MiB；只有必须一次返回完整索引的 `getArtists` 使用独立 16 MiB 上限。该调整保持明确的内存边界，不把真实大型资料库问题扩散为所有端点的无限响应读取。

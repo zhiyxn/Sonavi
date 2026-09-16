@@ -47,7 +47,7 @@ export const CancelSearchRequestSchema = z.object({
   requestId: RequestIdSchema
 }) satisfies z.ZodType<CancelSearchRequest>
 
-const MediaUrlSchema = z.string().regex(/^sonavi-media:\/\/media\/[0-9a-f-]+$/i)
+export const MediaUrlSchema = z.string().regex(/^sonavi-media:\/\/media\/[a-z0-9_-]+$/i)
 
 export const AlbumSummarySchema = z.object({
   id: z.string().min(1),

@@ -4,10 +4,14 @@
 
 ## 当前目标与状态
 
-P01～P10 已按顺序落地到当前发布前代码闸门。P10 已在 macOS 13.7.8 Intel x64 生成未签名 DMG，完成包结构验证、只读挂载、复制到临时安装目录、真实 Electron 全链路冒烟和截图检查。该结果只证明当前 Intel Mac 的开发测试包；Windows 11、Apple Silicon、正式签名/公证、最低系统和完整人工发布验收仍未完成。
+P01～P10 已完成，当前处于 P11 Release Candidate 独立审查、修复与真机测试准备。未换框架或大重构，也未配置签名/公证/自动更新或发布 Release。修复后 Windows 自动化允许进入真机测试，当前为 0 Blocker、0 Critical、4 Major；仍不能判定为发布就绪。完整结论见 `docs/RC-AUDIT.md`、`docs/TEST-MATRIX.md` 与 `docs/KNOWN-ISSUES.md`。
+
+P11 原 Critical 已修复：媒体句柄改为会话密钥加密、带 epoch 的无状态 token，不再因 2,000 项 FIFO 淘汰；10,000 个后续封面句柄回归测试通过。用户真实 Windows 记录 `docs/Existing issues.md` 中的艺术家大响应、后续播放、scrobble 和 UI 问题均有针对性代码修复，但艺术家/scrobble 必须回到原服务器复验，不能仅凭 fixture 宣称关闭。
 
 ## 分支与工作区
 
+- P11 审查起点为 `e304fb2`；用户未提交的新 logo 文件 `build/icon.png`、`src/renderer/src/assets/sonavi-logo.png` 和未跟踪的 `docs/Existing issues.md` 均须保留。
+- P11 已按用户要求修改产品代码和审查文档；未经用户要求不要提交或发布。
 - 分支：`main`；`1f23427 fix(p10): 稳定 macOS 冒烟与队列持久化` 随文档提交 `51cf322` 进入 run `34934352140`，三个原生目标的完整 CI 均通过。
 - 提交 `9a7af94 ci(release): 添加跨平台候选发布流程` 将版本推进到 `0.1.0-rc.1`，增加标签驱动的 GitHub Pre-release 工作流、资产收集校验与候选版说明；`v0.1.0-rc.1` 已推送，但发布 run `34937503560` 被 Intel 源码冒烟失败阻断，未创建 Release。
 - 提交 `54e15df test(e2e): 输出 CI 失败摘要` 为 Electron 冒烟增加脱敏 Check Summary 失败栈；断言与失败条件没有放宽。其 run `34938572347` 的三个目标全部通过，Intel 失败没有稳定复现。
@@ -71,6 +75,14 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 - 三个平台的真实服务器、真实大型资料库、最低系统版本和跨候选升级；0.1.0 是首个候选，没有旧公开版本迁移样本。
 - Windows Authenticode 与 macOS Developer ID/公证均无真实凭据，本轮没有索取、使用或伪造签名成功。
 
-## 下一入口
+## P11 问题修复复验（2026-09-16）
 
-保留失败的 `v0.1.0-rc.1` 与 `v0.1.0-rc.2` 远端标签，不改写历史。`v0.1.0-rc.3` 已可供下载；下一步只在对应实机执行 `docs/RELEASE-CHECKLIST.md` 的安装、升级、真实服务器、物理听音与签名/公证矩阵。当前仍是测试版，不索取签名密钥、不将其标为正式稳定版。
+- 修复内容：无状态加密媒体句柄与会话撤销、`getArtists` 独立 16 MiB 上限、ended scrobble、播放错误手动断点重试、专辑错误重试、生产 CSP、自动分页、设置 Select、主题/滚动条/状态宽度及文案/入口修正。
+- `npm run lint`、`npm run typecheck`、`npm test`、`npm run build` 和 `npm run test:e2e` 均通过；Vitest 为 24 个文件、115 项。
+- 源码 Electron 冒烟通过；启动 694 ms，20 轮切页内存增量 51,720 KiB、媒体请求 +0。数值是单次样本，不是性能承诺。
+- Windows x64 NSIS 构建和包验证通过：安装包 112,788,192 字节，SHA-256 `72a5be09328afe0cceff365e85414880acd19e06c32cbae1265abebe0c5b9aac`，应用 unsigned，ASAR 1,862,401 字节。
+- Windows 打包应用完整冒烟通过；启动 814 ms，20 轮切页内存增量 51,308 KiB、媒体请求 +0。
+- 生产 CSP 已直接检查为 `connect-src 'self'`，不含 `ws://localhost:*`。
+- 当前工作区保留用户的新 logo 和 `docs/Existing issues.md`；没有提交、推送或发布。
+
+当前可以进入真机测试；Blocker 0，Critical 0，Major 4。下一步先在原 Windows 服务器复验艺术家/scrobble和真实格式，再按 `docs/TEST-MATRIX.md` 完成 NSIS 安装、托盘/媒体键/睡眠/长时播放，以及 macOS Intel/arm64 的原生构建、安装和桌面矩阵。保留既有 RC 标签历史；本阶段不发布新 Release。

@@ -30,6 +30,7 @@ import {
 } from './transport'
 
 const RESPONSE_TIMEOUT_MS = 12_000
+const LARGE_LIBRARY_RESPONSE_BYTES = 16 * 1024 * 1024
 
 const SubsonicErrorSchema = z.object({
   code: z.number().int(),
@@ -709,7 +710,11 @@ export class OpenSubsonicClient {
 
     try {
       const url = buildEndpointUrl(baseUrl, endpoint, username, password, undefined, parameters)
-      const response = await this.transport.request(url, signal)
+      const response = await this.transport.request(
+        url,
+        signal,
+        endpoint === 'getArtists' ? { maxResponseBytes: LARGE_LIBRARY_RESPONSE_BYTES } : undefined
+      )
       return parseResponse(response)
     } catch (error) {
       if (error instanceof ConnectionFailure) throw error

@@ -10,6 +10,12 @@
   --sonavi-accent-subtle: #f4e5cd;
   --sonavi-night: #1f211e;
   --sonavi-night-secondary: #c9cebd;
+  --sonavi-chrome: #f2efe9;
+  --sonavi-chrome-raised: #ffffff;
+  --sonavi-chrome-text: #302d28;
+  --sonavi-chrome-secondary: #6f685f;
+  --sonavi-chrome-border: #d8d1c5;
+  --sonavi-chrome-hover: rgb(168 97 34 / 10%);
   --sonavi-success: #61725b;
   --sonavi-danger: #a13f32;
   --sonavi-control-radius: 10px;
@@ -39,6 +45,12 @@
   --sonavi-accent-subtle: #4a3622;
   --sonavi-night: #11120f;
   --sonavi-night-secondary: #d7dbcc;
+  --sonavi-chrome: #11120f;
+  --sonavi-chrome-raised: #272a24;
+  --sonavi-chrome-text: #f8f5ec;
+  --sonavi-chrome-secondary: #d7dbcc;
+  --sonavi-chrome-border: #3e4138;
+  --sonavi-chrome-hover: rgb(255 255 255 / 9%);
   --sonavi-success: #91aa87;
   --sonavi-danger: #e07a6d;
 }

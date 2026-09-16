@@ -107,6 +107,16 @@ async function waitForCondition(condition, message, timeoutMs = 10_000) {
   throw new Error(message)
 }
 
+async function chooseSelectOption(page, label, option) {
+  const trigger = page.getByRole('combobox', { name: label, exact: true })
+  await trigger.click()
+  await page.getByRole('option', { name: option, exact: true }).click()
+  await waitForCondition(
+    async () => (await trigger.textContent())?.includes(option),
+    `${label} 未更新为 ${option}`
+  )
+}
+
 function playlistPayload(playlist) {
   const entries = playlist.songIds
     .map((songId) => fixtureTracks.find((track) => track.id === songId))
@@ -522,7 +532,11 @@ try {
   const csp = await window
     .locator('meta[http-equiv="Content-Security-Policy"]')
     .getAttribute('content')
-  if (!csp?.includes("default-src 'none'") || !csp.includes("frame-ancestors 'none'")) {
+  if (
+    !csp?.includes("default-src 'none'") ||
+    !csp.includes("frame-ancestors 'none'") ||
+    csp.includes('ws://localhost')
+  ) {
     throw new Error(`CSP 默认拒绝策略缺失：${csp ?? '空'}`)
   }
 
@@ -614,10 +628,10 @@ try {
   await window.getByRole('heading', { name: '设置', exact: true }).waitFor()
   await window.getByRole('button', { name: '首页', exact: true }).click()
   await window.getByRole('heading', { name: '最近添加' }).waitFor()
-  await window.getByRole('button', { name: '加载更多专辑' }).click()
+  await window.locator('.workspace').evaluate((element) => element.scrollTo(0, element.scrollHeight))
   await window.getByRole('button', { name: /分页专辑 31/ }).waitFor()
-  if ((await window.getByRole('button', { name: '加载更多专辑' }).count()) !== 0) {
-    throw new Error('最后一页加载后仍显示加载更多按钮')
+  if ((await window.getByText('继续向下滚动加载更多专辑', { exact: true }).count()) !== 0) {
+    throw new Error('最后一页加载后仍显示自动加载提示')
   }
   await window.getByRole('button', { name: /石与琥珀/ }).click()
   await window.getByRole('heading', { name: '专辑详情' }).waitFor()
@@ -763,18 +777,24 @@ try {
 
   await window.getByRole('button', { name: '设置', exact: true }).click()
   await window.getByRole('heading', { name: '设置', exact: true }).waitFor()
-  const playbackSettings = window.locator('fieldset').filter({ hasText: '播放策略' })
-  await playbackSettings.locator('select').first().selectOption('compatible')
-  await playbackSettings.locator('select').nth(1).selectOption('192')
-  const proxySettings = window.locator('fieldset').filter({ hasText: '网络代理' })
-  await proxySettings.locator('select').selectOption('direct')
+  await chooseSelectOption(window, '播放模式', 'MP3 兼容转码')
+  await chooseSelectOption(window, '转码最高码率', '192 kbps')
+  await chooseSelectOption(window, '代理模式', '直接连接')
   await window.getByRole('button', { name: '保存播放与网络设置' }).click()
   await window.getByText('代理已切换，旧连接和当前播放已安全停止。').waitFor()
-
+  const savedNetworkSettings = await window.evaluate(() => window.sonavi.network.getSettings())
+  if (
+    savedNetworkSettings.playback.mode !== 'compatible' ||
+    savedNetworkSettings.playback.maxBitRate !== 192 ||
+    savedNetworkSettings.proxy.mode !== 'direct'
+  ) {
+    throw new Error(`设置组件未持久化所选值：${JSON.stringify(savedNetworkSettings)}`)
+  }
   await window.getByRole('button', { name: '首页', exact: true }).click()
   await window.getByRole('button', { name: /石与琥珀/ }).first().click()
   await window.getByRole('button', { name: '播放 跨平台试音' }).click()
   await window.getByRole('button', { name: '暂停' }).waitFor()
+  await window.locator('footer[aria-label="播放器"]').getByText('兼容转码', { exact: true }).waitFor()
   await window.locator('input[aria-label="播放进度"]').evaluate((element) => {
     element.value = '2'
     element.dispatchEvent(new Event('change', { bubbles: true }))
@@ -802,9 +822,8 @@ try {
   await window.getByRole('button', { name: '设置', exact: true }).click()
   await window.getByRole('button', { name: '刷新', exact: true }).click()
   await window.getByText('转码音频', { exact: true }).first().waitFor()
-  const desktopSettings = window.locator('fieldset').filter({ hasText: '桌面行为' })
-  await desktopSettings.locator('select').first().selectOption('hide')
-  await desktopSettings.locator('select').nth(1).selectOption('dark')
+  await chooseSelectOption(window, '关闭窗口时', '隐藏窗口并继续播放（默认）')
+  await chooseSelectOption(window, '外观', '深色')
   await window.getByRole('button', { name: '保存桌面设置' }).click()
   await window.getByText('桌面设置已保存。关闭窗口时将按新规则执行。').waitFor()
   if ((await window.locator('html').getAttribute('data-theme')) !== 'dark') {
@@ -929,6 +948,8 @@ try {
   console.log('Credential restore passed: encrypted credential restored after application restart')
   console.log('P09 queue restore passed: queue metadata restored paused with fresh media handles')
 
+  await window.getByRole('button', { name: '设置', exact: true }).click()
+  await window.getByRole('heading', { name: '设置', exact: true }).waitFor()
   window.once('dialog', (dialog) => dialog.accept())
   await window.getByRole('button', { name: '退出并忘记账号' }).click()
   await window.getByRole('heading', { name: '连接你的音乐空间' }).waitFor()

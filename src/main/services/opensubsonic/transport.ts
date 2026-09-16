@@ -5,7 +5,11 @@ import {
   NetworkDiagnosticRecorder
 } from '../network-diagnostics'
 
-const MAX_RESPONSE_BYTES = 1024 * 1024
+const DEFAULT_MAX_RESPONSE_BYTES = 1024 * 1024
+
+export interface ApiRequestOptions {
+  maxResponseBytes?: number
+}
 
 export interface TransportResponse {
   status: number
@@ -15,7 +19,11 @@ export interface TransportResponse {
 }
 
 export interface ApiTransport {
-  request: (url: string, signal: AbortSignal) => Promise<TransportResponse>
+  request: (
+    url: string,
+    signal: AbortSignal,
+    options?: ApiRequestOptions
+  ) => Promise<TransportResponse>
 }
 
 export class ResponseLimitError extends Error {
@@ -25,7 +33,7 @@ export class ResponseLimitError extends Error {
   }
 }
 
-async function readLimitedBody(response: Response): Promise<string> {
+async function readLimitedBody(response: Response, maxResponseBytes: number): Promise<string> {
   if (!response.body) return ''
 
   const reader = response.body.getReader()
@@ -38,7 +46,7 @@ async function readLimitedBody(response: Response): Promise<string> {
     if (done) break
 
     byteCount += value.byteLength
-    if (byteCount > MAX_RESPONSE_BYTES) {
+    if (byteCount > maxResponseBytes) {
       await reader.cancel()
       throw new ResponseLimitError()
     }
@@ -62,7 +70,11 @@ export class ElectronSessionTransport implements ApiTransport {
     private readonly getProxyMode: () => ProxyMode = () => 'system'
   ) {}
 
-  async request(url: string, signal: AbortSignal): Promise<TransportResponse> {
+  async request(
+    url: string,
+    signal: AbortSignal,
+    options: ApiRequestOptions = {}
+  ): Promise<TransportResponse> {
     const startedAt = performance.now()
     try {
       const response = await session.defaultSession.fetch(url, {
@@ -74,7 +86,10 @@ export class ElectronSessionTransport implements ApiTransport {
         signal
       })
       const contentType = response.headers.get('content-type') ?? ''
-      const body = await readLimitedBody(response)
+      const body = await readLimitedBody(
+        response,
+        options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES
+      )
       const errorCategory =
         response.status === 401
           ? 'http-authentication'

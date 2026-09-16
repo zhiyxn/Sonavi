@@ -2,6 +2,22 @@ import { resolve } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'electron-vite'
+import type { Plugin } from 'vite'
+
+function rendererCspPlugin(): Plugin {
+  return {
+    name: 'sonavi-renderer-csp',
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html, context) {
+        const connectSources = context.server
+          ? "'self' ws://localhost:*"
+          : "'self'"
+        return html.replace('__SONAVI_CONNECT_SOURCES__', connectSources)
+      }
+    }
+  }
+}
 
 export default defineConfig({
   main: {
@@ -37,6 +53,6 @@ export default defineConfig({
         input: resolve('src/renderer/index.html')
       }
     },
-    plugins: [vue(), tailwindcss()]
+    plugins: [rendererCspPlugin(), vue(), tailwindcss()]
   }
 })

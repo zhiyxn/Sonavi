@@ -133,14 +133,14 @@ async function handleForget(): Promise<void> {
       </div>
 
       <nav>
-        <button
+        <span
           v-if="!session.connection"
-          type="button"
           class="nav-item"
           :class="{ active: !session.connection }"
+          aria-current="page"
         >
           连接服务器
-        </button>
+        </span>
         <template v-else>
           <button class="nav-item" :class="{ active: activeView === 'home' }" @click="navigate('home')">
             首页
@@ -185,7 +185,6 @@ async function handleForget(): Promise<void> {
             :server-id="session.connection.server.baseUrl"
             :list-type="activeView === 'home' ? 'newest' : 'alphabeticalByName'"
             :title="activeView === 'home' ? '最近添加' : '全部专辑'"
-            @forget="handleForget"
           />
           <ArtistsPanel
             v-else-if="activeView === 'artists'"

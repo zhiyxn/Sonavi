@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useInfiniteQuery } from '@tanstack/vue-query'
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { AlbumSummary, ArtistSummary, TrackSummary } from '../../../shared/library'
 import { useStarredMutation } from '../composables/use-starred-mutation'
 import { searchLibrary } from '../services/library'
@@ -20,6 +20,8 @@ const input = ref('')
 const debouncedQuery = ref('')
 let debounceTimer: ReturnType<typeof setTimeout> | undefined
 const SEARCH_PAGE_SIZE = 25
+const loadMoreSentinel = ref<HTMLElement | null>(null)
+let loadMoreObserver: IntersectionObserver | null = null
 
 watch(input, (value) => {
   clearTimeout(debounceTimer)
@@ -28,7 +30,29 @@ watch(input, (value) => {
   }, 300)
 })
 
-onBeforeUnmount(() => clearTimeout(debounceTimer))
+onMounted(() => {
+  if (!('IntersectionObserver' in globalThis)) return
+  loadMoreObserver = new IntersectionObserver((entries) => {
+    if (
+      entries.some((entry) => entry.isIntersecting) &&
+      searchQuery.hasNextPage.value &&
+      !searchQuery.isFetchingNextPage.value
+    ) {
+      void searchQuery.fetchNextPage()
+    }
+  }, { rootMargin: '240px 0px' })
+  if (loadMoreSentinel.value) loadMoreObserver.observe(loadMoreSentinel.value)
+})
+
+watch(loadMoreSentinel, (sentinel, previous) => {
+  if (previous) loadMoreObserver?.unobserve(previous)
+  if (sentinel) loadMoreObserver?.observe(sentinel)
+})
+
+onBeforeUnmount(() => {
+  clearTimeout(debounceTimer)
+  loadMoreObserver?.disconnect()
+})
 
 const searchQuery = useInfiniteQuery({
   queryKey: computed(() => ['search', props.sessionId, debouncedQuery.value]),
@@ -169,15 +193,14 @@ function appendTrack(track: TrackSummary): void {
         </ol>
       </section>
 
-      <div v-if="searchQuery.hasNextPage.value" class="flex justify-center">
-        <Button
-          variant="outline"
-          :disabled="searchQuery.isFetchingNextPage.value"
-          @click="searchQuery.fetchNextPage()"
-        >
-          {{ searchQuery.isFetchingNextPage.value ? '正在加载…' : '加载更多结果' }}
-        </Button>
-      </div>
+      <p
+        v-if="searchQuery.hasNextPage.value"
+        ref="loadMoreSentinel"
+        class="settings-help text-center"
+        role="status"
+      >
+        {{ searchQuery.isFetchingNextPage.value ? '正在加载更多结果…' : '继续滚动以加载更多结果' }}
+      </p>
     </div>
     <p v-if="starredError" class="mutation-error" role="alert">{{ starredError }}</p>
   </section>

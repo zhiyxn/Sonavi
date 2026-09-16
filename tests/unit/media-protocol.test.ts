@@ -7,6 +7,7 @@ import { NetworkDiagnosticRecorder } from '../../src/main/services/network-diagn
 import { OpenSubsonicClient } from '../../src/main/services/opensubsonic/client'
 import type { ApiTransport } from '../../src/main/services/opensubsonic/transport'
 import type { CoverCacheService } from '../../src/main/services/cover-cache-service'
+import { TranscodeSeekResultSchema } from '../../src/shared/network-schema'
 
 const credentialStore: CredentialStore = {
   save: async () => true,
@@ -47,6 +48,45 @@ async function connectedService(): Promise<{ service: ConnectionService; session
 }
 
 describe('sonavi-media 协议', () => {
+  it('大量封面句柄不会淘汰仍在队列中的音频句柄', () => {
+    const registry = new MediaHandleRegistry()
+    const sessionId = '9f73bd9a-acde-4f0f-a3f6-3ddff7d09342'
+    const audioUrl = registry.create({ sessionId, kind: 'audio', resourceId: 'queued-song' })
+
+    for (let index = 0; index < 10_000; index += 1) {
+      registry.create({ sessionId, kind: 'cover', resourceId: `cover-${index}` })
+    }
+
+    expect(registry.resolve(audioUrl)).toMatchObject({
+      sessionId,
+      kind: 'audio',
+      resourceId: 'queued-song'
+    })
+    expect(audioUrl).not.toContain('queued-song')
+    expect(registry.resolve(`sonavi-media://media/${'a'.repeat(4_097)}`)).toBeNull()
+  })
+
+  it('转码跳转接受加密句柄并保留流参数', () => {
+    const registry = new MediaHandleRegistry()
+    const streamUrl = registry.create({
+      sessionId: '9f73bd9a-acde-4f0f-a3f6-3ddff7d09342',
+      kind: 'audio',
+      resourceId: 'seek-song',
+      streamMode: 'transcode',
+      maxBitRate: 192,
+      timeOffset: 17
+    })
+
+    expect(TranscodeSeekResultSchema.safeParse({ ok: true, streamUrl, timelineOffset: 17 }).success)
+      .toBe(true)
+    expect(registry.resolve(streamUrl)).toMatchObject({
+      resourceId: 'seek-song',
+      streamMode: 'transcode',
+      maxBitRate: 192,
+      timeOffset: 17
+    })
+  })
+
   it('只用不透明句柄解析媒体，并流式转发 Range 与 206 响应', async () => {
     const { service, sessionId } = await connectedService()
     const registry = new MediaHandleRegistry()

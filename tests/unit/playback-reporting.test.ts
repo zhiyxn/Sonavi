@@ -56,4 +56,19 @@ describe('播放上报控制器', () => {
     expect(report).toHaveBeenCalledTimes(2)
     expect(report.mock.calls.every((call) => call[0].submission === false)).toBe(true)
   })
+
+  it('完整播放结束时即使进度事件稀疏也提交一次 scrobble', async () => {
+    const report = vi.fn().mockResolvedValue({ reported: true })
+    const controller = new PlaybackReportingController(report, vi.fn(), () => 456)
+
+    controller.observe(base)
+    controller.observe({ ...base, state: 'playing' })
+    controller.observe({ ...base, state: 'playing', currentTime: 20 })
+    controller.observe({ ...base, state: 'ended', currentTime: 100 })
+    controller.observe({ ...base, state: 'ended', currentTime: 100 })
+    await Promise.resolve()
+
+    expect(report).toHaveBeenCalledTimes(2)
+    expect(report.mock.calls[1]?.[0]).toMatchObject({ submission: true, playedAtMs: 456 })
+  })
 })

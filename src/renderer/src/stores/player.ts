@@ -293,6 +293,37 @@ export const usePlayerStore = defineStore('player', () => {
     )
   }
 
+  async function retry(): Promise<void> {
+    const entry = currentEntry.value
+    if (!entry) return
+    const resumeAt = Math.min(Math.max(0, currentTime.value), entry.track.duration)
+    if (entry.track.playback.seekMode === 'transcode-offset' && resumeAt > 0) {
+      const result = await createTranscodeSeek({
+        sessionId: entry.scope.sessionId,
+        trackId: entry.trackId,
+        timeOffset: Math.floor(resumeAt)
+      })
+      if (currentEntryId.value !== entry.queueEntryId) return
+      if (!result.ok) {
+        errorMessage.value = result.message
+        return
+      }
+      await engine.load(
+        {
+          trackId: entry.trackId,
+          streamUrl: result.streamUrl,
+          duration: entry.track.duration,
+          timelineOffset: result.timelineOffset
+        },
+        true
+      )
+      return
+    }
+
+    await loadEntry(entry, true, false)
+    if (entry.track.playback.seekMode === 'native' && resumeAt > 0) engine.seek(resumeAt)
+  }
+
   async function restartCurrent(): Promise<void> {
     const entry = currentEntry.value
     if (!entry) return
@@ -362,6 +393,7 @@ export const usePlayerStore = defineStore('player', () => {
     toggle,
     pause,
     seek,
+    retry,
     setVolume,
     togglePlaybackOrder,
     cycleRepeatMode,

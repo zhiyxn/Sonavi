@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { AlbumListType, AlbumSummary, TrackSummary } from '../../../shared/library'
 import { useStarredMutation } from '../composables/use-starred-mutation'
 import { getAlbum, listAlbums } from '../services/library'
@@ -16,7 +16,6 @@ const props = defineProps<{
   selectedAlbumId: string | null
 }>()
 const emit = defineEmits<{
-  forget: []
   'update:selectedAlbumId': [albumId: string | null]
 }>()
 const player = usePlayerStore()
@@ -24,6 +23,8 @@ const { errorMessage: starredError, pendingKey, toggleStarred } = useStarredMuta
   () => props.sessionId
 )
 const ALBUM_PAGE_SIZE = 30
+const loadMoreSentinel = ref<HTMLElement | null>(null)
+let loadMoreObserver: IntersectionObserver | null = null
 
 const albumsQuery = useInfiniteQuery({
   queryKey: computed(() => ['albums', props.sessionId, props.listType]),
@@ -78,6 +79,27 @@ function appendTrack(track: TrackSummary): void {
     { sessionId: props.sessionId, serverId: props.serverId, accountId: props.sessionId }
   )
 }
+
+onMounted(() => {
+  if (!('IntersectionObserver' in globalThis)) return
+  loadMoreObserver = new IntersectionObserver((entries) => {
+    if (
+      entries.some((entry) => entry.isIntersecting) &&
+      albumsQuery.hasNextPage.value &&
+      !albumsQuery.isFetchingNextPage.value
+    ) {
+      void albumsQuery.fetchNextPage()
+    }
+  }, { rootMargin: '240px 0px' })
+  if (loadMoreSentinel.value) loadMoreObserver.observe(loadMoreSentinel.value)
+})
+
+watch(loadMoreSentinel, (sentinel, previous) => {
+  if (previous) loadMoreObserver?.unobserve(previous)
+  if (sentinel) loadMoreObserver?.observe(sentinel)
+})
+
+onBeforeUnmount(() => loadMoreObserver?.disconnect())
 </script>
 
 <template>
@@ -106,7 +128,6 @@ function appendTrack(track: TrackSummary): void {
         >
           返回专辑
         </Button>
-        <Button variant="ghost" @click="emit('forget')">退出并忘记账号</Button>
       </div>
     </div>
 
@@ -122,6 +143,14 @@ function appendTrack(track: TrackSummary): void {
 
     <template v-else-if="selectedAlbumId">
       <p v-if="albumQuery.isPending.value" role="status">正在读取专辑…</p>
+      <div
+        v-else-if="albumQuery.isError.value"
+        class="rounded-2xl border border-sonavi-border bg-sonavi-raised p-6"
+        role="alert"
+      >
+        <p>{{ albumQuery.error.value?.message ?? '专辑详情加载失败。' }}</p>
+        <Button class="mt-4" size="sm" @click="albumQuery.refetch()">重试</Button>
+      </div>
       <div v-else-if="albumQuery.data.value" class="grid gap-8 lg:grid-cols-[220px_1fr]">
         <div>
           <img
@@ -203,14 +232,13 @@ function appendTrack(track: TrackSummary): void {
           重试加载
         </Button>
       </div>
-      <div v-else-if="albumsQuery.hasNextPage.value" class="mt-8 flex justify-center">
-        <Button
-          variant="outline"
-          :disabled="albumsQuery.isFetchingNextPage.value"
-          @click="albumsQuery.fetchNextPage()"
-        >
-          {{ albumsQuery.isFetchingNextPage.value ? '正在加载…' : '加载更多专辑' }}
-        </Button>
+      <div
+        v-else-if="albumsQuery.hasNextPage.value"
+        ref="loadMoreSentinel"
+        class="mt-8 flex justify-center text-xs text-sonavi-muted"
+        role="status"
+      >
+        {{ albumsQuery.isFetchingNextPage.value ? '正在加载更多专辑…' : '继续向下滚动加载更多专辑' }}
       </div>
       <p v-else-if="albums.length > 0" class="mt-8 text-center text-xs text-sonavi-muted">
         已加载全部 {{ albums.length }} 张专辑

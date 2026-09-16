@@ -176,6 +176,26 @@ describe('P04 播放队列', () => {
     expect(player.state).toBe('paused')
   })
 
+  it('音频流失败后可在原进度创建新宿主并重试', async () => {
+    const player = usePlayerStore()
+    await player.replaceQueue([track('retryable')], 0, scope)
+    const failedAudio = FakeAudio.instances.at(-1)!
+    failedAudio.currentTime = 5
+    failedAudio.dispatchEvent(new Event('timeupdate'))
+    failedAudio.dispatchEvent(new Event('error'))
+    expect(player.state).toBe('error')
+
+    await player.retry()
+
+    expect(FakeAudio.instances).toHaveLength(2)
+    expect(FakeAudio.instances.at(-1)).toMatchObject({
+      src: 'sonavi-media://retryable',
+      currentTime: 5,
+      paused: false
+    })
+    expect(player.errorMessage).toBe('')
+  })
+
   it('转码跳转通过受限 API 换流，并保持完整时间线与暂停意图', async () => {
     const createTranscodeSeek = vi.fn().mockResolvedValue({
       ok: true,

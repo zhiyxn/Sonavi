@@ -7,7 +7,7 @@ import type {
   TranscodeSeekRequest,
   TranscodeSeekResult
 } from './network'
-import { ResourceIdSchema, SessionIdSchema } from './library-schema'
+import { MediaUrlSchema, ResourceIdSchema, SessionIdSchema } from './library-schema'
 
 export const PlaybackPolicySchema = z.object({
   mode: z.enum(['original', 'compatible', 'automatic']),
@@ -72,6 +72,6 @@ export const TranscodeSeekRequestSchema = z.object({
 }) satisfies z.ZodType<TranscodeSeekRequest>
 
 export const TranscodeSeekResultSchema = z.discriminatedUnion('ok', [
-  z.object({ ok: z.literal(true), streamUrl: z.string().regex(/^sonavi-media:\/\/media\/[0-9a-f-]+$/i), timelineOffset: z.number().nonnegative() }),
+  z.object({ ok: z.literal(true), streamUrl: MediaUrlSchema, timelineOffset: z.number().nonnegative() }),
   z.object({ ok: z.literal(false), message: z.string().min(1).max(500) })
 ]) satisfies z.ZodType<TranscodeSeekResult>

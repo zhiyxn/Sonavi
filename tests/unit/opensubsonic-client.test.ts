@@ -4,6 +4,7 @@ import {
   OpenSubsonicClient
 } from '../../src/main/services/opensubsonic/client'
 import type {
+  ApiRequestOptions,
   ApiTransport,
   TransportResponse
 } from '../../src/main/services/opensubsonic/transport'
@@ -20,11 +21,18 @@ function jsonResponse(body: unknown, status = 200): TransportResponse {
 
 class EndpointTransport implements ApiTransport {
   readonly requestedUrls: string[] = []
+  readonly requestedOptions: Array<ApiRequestOptions | undefined> = []
 
   constructor(private readonly responses: Record<string, TransportResponse | Error>) {}
 
-  async request(url: string): Promise<TransportResponse> {
+  async request(
+    url: string,
+    signal: AbortSignal,
+    options?: ApiRequestOptions
+  ): Promise<TransportResponse> {
+    void signal
     this.requestedUrls.push(url)
+    this.requestedOptions.push(options)
     const endpoint = new URL(url).pathname.match(/\/rest\/(.+)\.view$/)?.[1]
     const response = endpoint ? this.responses[endpoint] : undefined
     if (!response) throw new Error('missing fixture')
@@ -52,6 +60,32 @@ const successfulFolders = {
 }
 
 describe('OpenSubsonicClient', () => {
+  it('只为完整艺术家索引使用仍然有界的较大响应上限', async () => {
+    const transport = new EndpointTransport({
+      getArtists: jsonResponse({
+        'subsonic-response': {
+          status: 'ok',
+          version: '1.16.1',
+          artists: { index: [] }
+        }
+      }),
+      getAlbumList2: jsonResponse({
+        'subsonic-response': {
+          status: 'ok',
+          version: '1.16.1',
+          albumList2: { album: [] }
+        }
+      })
+    })
+    const client = new OpenSubsonicClient(transport)
+
+    await client.getArtists('https://music.example.com', 'listener', 'secret')
+    await client.getAlbumList2('https://music.example.com', 'listener', 'secret', 0, 30, 'newest')
+
+    expect(transport.requestedOptions[0]).toEqual({ maxResponseBytes: 16 * 1024 * 1024 })
+    expect(transport.requestedOptions[1]).toBeUndefined()
+  })
+
   it('探测 ping、扩展和音乐文件夹，并把服务端 ID 统一为 string', async () => {
     const client = new OpenSubsonicClient(
       new EndpointTransport({

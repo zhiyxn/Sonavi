@@ -11,6 +11,7 @@ import {
   saveNetworkSettings
 } from '../services/network'
 import { Button } from './ui/button'
+import { Select, type SelectOption } from './ui/select'
 import { clearCoverCache, loadCoverCacheInfo } from '../services/desktop'
 import { useDesktopStore } from '../stores/desktop'
 
@@ -33,6 +34,27 @@ const desktop = useDesktopStore()
 const supportsTranscodeOffset = computed(() =>
   props.connection.server.extensions.some((name) => name.toLowerCase() === 'transcodeoffset')
 )
+
+const closeActionOptions = [
+  { value: 'hide', label: '隐藏窗口并继续播放（默认）' },
+  { value: 'quit', label: '退出 Sonavi' }
+] as const satisfies readonly SelectOption[]
+const themeOptions = [
+  { value: 'system', label: '跟随系统' },
+  { value: 'light', label: '浅色' },
+  { value: 'dark', label: '深色' }
+] as const satisfies readonly SelectOption[]
+const playbackModeOptions = [
+  { value: 'automatic', label: '自动（已知格式优先原始，否则兼容转码）' },
+  { value: 'original', label: '仅原始音频' },
+  { value: 'compatible', label: 'MP3 兼容转码' }
+] as const satisfies readonly SelectOption[]
+const bitRateOptions = [128, 192, 256, 320].map((value) => ({ value, label: `${value} kbps` }))
+const proxyModeOptions = [
+  { value: 'system', label: '跟随系统代理' },
+  { value: 'direct', label: '直接连接' },
+  { value: 'manual', label: '手动代理' }
+] as const satisfies readonly SelectOption[]
 
 const stageLabels = {
   api: 'API',
@@ -144,7 +166,7 @@ async function exportDiagnostics(): Promise<void> {
         <dt>转码跳转</dt>
         <dd>{{ supportsTranscodeOffset ? '服务器已声明 transcodeOffset' : '未确认支持，将禁用转码进度跳转' }}</dd>
       </div>
-      <div><dt>后台播放</dt><dd>托盘 / 菜单栏驻留；“真正退出”才停止播放宿主</dd></div>
+      <div><dt>后台播放</dt><dd>托盘 / 菜单栏驻留；选择“退出 Sonavi”才停止播放宿主</dd></div>
     </dl>
 
     <form v-if="desktopSettings" class="settings-form" @submit.prevent="saveDesktopSettings">
@@ -152,21 +174,18 @@ async function exportDiagnostics(): Promise<void> {
         <legend>桌面行为</legend>
         <label>
           关闭窗口时
-          <select v-model="desktopSettings.closeAction">
-            <option value="hide">隐藏窗口并继续播放（默认）</option>
-            <option value="quit">真正退出 Sonavi</option>
-          </select>
+          <Select
+            v-model="desktopSettings.closeAction"
+            label="关闭窗口时"
+            :options="closeActionOptions"
+          />
         </label>
         <label>
           外观
-          <select v-model="desktopSettings.theme">
-            <option value="system">跟随系统</option>
-            <option value="light">浅色</option>
-            <option value="dark">深色</option>
-          </select>
+          <Select v-model="desktopSettings.theme" label="外观" :options="themeOptions" />
         </label>
         <p class="settings-help">
-          最小化始终保留播放。隐藏后可从 Windows 托盘或 macOS 菜单栏重新显示；托盘菜单中的“真正退出”会停止播放并退出进程。
+          最小化始终保留播放。隐藏后可从 Windows 托盘或 macOS 菜单栏重新显示；托盘菜单中的“退出 Sonavi”会停止播放并退出进程。
         </p>
       </fieldset>
       <Button type="submit" :disabled="savingDesktop">
@@ -179,20 +198,19 @@ async function exportDiagnostics(): Promise<void> {
         <legend>播放策略</legend>
         <label>
           模式
-          <select v-model="settings.playback.mode">
-            <option value="automatic">自动（已知格式优先原始，否则兼容转码）</option>
-            <option value="original">仅原始音频</option>
-            <option value="compatible">MP3 兼容转码</option>
-          </select>
+          <Select
+            v-model="settings.playback.mode"
+            label="播放模式"
+            :options="playbackModeOptions"
+          />
         </label>
         <label>
           转码最高码率
-          <select v-model.number="settings.playback.maxBitRate">
-            <option :value="128">128 kbps</option>
-            <option :value="192">192 kbps</option>
-            <option :value="256">256 kbps</option>
-            <option :value="320">320 kbps</option>
-          </select>
+          <Select
+            v-model="settings.playback.maxBitRate"
+            label="转码最高码率"
+            :options="bitRateOptions"
+          />
         </label>
         <p class="settings-help">
           自动模式的原始音频若发生浏览器解码错误，只尝试一次兼容转码；不会无限重试。
@@ -203,11 +221,7 @@ async function exportDiagnostics(): Promise<void> {
         <legend>网络代理</legend>
         <label>
           模式
-          <select v-model="settings.proxy.mode">
-            <option value="system">跟随系统代理</option>
-            <option value="direct">直接连接</option>
-            <option value="manual">手动代理</option>
-          </select>
+          <Select v-model="settings.proxy.mode" label="代理模式" :options="proxyModeOptions" />
         </label>
         <label v-if="settings.proxy.mode === 'manual'">
           代理地址
