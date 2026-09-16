@@ -867,6 +867,12 @@ try {
 
   await window.getByRole('button', { name: '设置', exact: true }).click()
   await window.getByRole('heading', { name: '设置', exact: true }).waitFor()
+  const expectedPausedTitle = (await window
+    .locator('footer[aria-label="播放器"] > div.min-w-0 > strong')
+    .textContent())?.trim()
+  if (!expectedPausedTitle || !fixtureTracks.some((track) => track.title === expectedPausedTitle)) {
+    throw new Error(`断开前无法确定当前歌曲：${expectedPausedTitle ?? '空'}`)
+  }
   await window.getByRole('button', { name: '断开连接' }).click()
   await window.getByRole('heading', { name: '连接你的音乐空间' }).waitFor()
   try {
@@ -875,7 +881,7 @@ try {
         const state = JSON.parse(
           await readFile(join(userDataPath, 'desktop-state.v1.json'), 'utf8')
         )
-        return state.pausedQueue?.tracks?.[state.pausedQueue.currentIndex]?.title === '跨平台试音'
+        return state.pausedQueue?.tracks?.[state.pausedQueue.currentIndex]?.title === expectedPausedTitle
       } catch {
         return false
       }
@@ -888,6 +894,7 @@ try {
       )
       diagnostic = {
         file: 'readable',
+        expectedTitle: expectedPausedTitle,
         currentIndex: state.pausedQueue?.currentIndex ?? null,
         currentTitle: state.pausedQueue?.tracks?.[state.pausedQueue.currentIndex]?.title ?? null,
         trackCount: state.pausedQueue?.tracks?.length ?? 0,
@@ -916,7 +923,7 @@ try {
   await window.getByRole('heading', { name: '最近添加' }).waitFor()
   await window
     .locator('footer[aria-label="播放器"] > div.min-w-0 > strong')
-    .getByText('跨平台试音')
+    .getByText(expectedPausedTitle, { exact: true })
     .waitFor()
   await window.getByRole('button', { name: '继续播放' }).waitFor()
   console.log('Credential restore passed: encrypted credential restored after application restart')
