@@ -18,7 +18,7 @@ P11 原 Critical 已修复：媒体句柄改为会话密钥加密、带 epoch �
 - `v0.1.0-rc.2` 发布 run `35036809845` 再次被 Intel 源码 Electron 冒烟阻断；Windows x64 与 Apple Silicon arm64 通过，发布 job 跳过，未创建 Release。
 - 提交 `6842e3d` 修复歌单写后刷新等待和断开连接时空队列覆盖暂停队列的竞态，增加断开顺序回归测试；提交 `09b1ab0` 改为按断开前实际当前歌曲验证落盘与重启恢复。run `35039453442` 的三个目标完整通过。
 - 提交 `cc33168 chore(release): 准备 v0.1.0-rc.3` 通过普通 CI run `35040182258` 后创建标签；release run `35040657787` 的三个目标与发布 job 全部通过，GitHub Pre-release 已创建并包含七个预期附件。该候选构建自 `cc33168`，不含 P11 修复。
-- 提交 `557b62d fix(p11): resolve release candidate audit issues` 通过普通 CI run `35061052839` 后，版本推进到 `0.1.0-rc.4`；发布 job 的 Release notes 改为按 `docs/RELEASE-NOTES-${GITHUB_REF_NAME}.md` 解析并在缺失时失败；候选标签待发布。
+- 提交 `557b62d fix(p11): resolve release candidate audit issues` 通过普通 CI run `35061052839` 后，版本推进到 `0.1.0-rc.4`，发布 job 的 Release notes 改为按 `docs/RELEASE-NOTES-${GITHUB_REF_NAME}.md` 解析并在缺失时失败。提交 `acb7c8c chore(release): 准备 v0.1.0-rc.4` 通过普通 CI run `35062596436` 后创建标签；release run `35063014155` 的三个目标与发布 job 全部通过，GitHub Pre-release 已创建并包含七个预期附件。
 - `release/` 与 `artifacts/` 被忽略；本机 DMG、manifest 和截图不会随提交上传。
 - 原始参考包保持未修改；不得重置或丢弃当前 P10 工作区。
 
@@ -68,6 +68,8 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 
 版本提交 `cc33168` 的普通 CI run `35040182258` 与标签发布 run `35040657787` 均在三个目标完整通过。Release `https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.3` 为非草稿 Pre-release、不是 Latest；附件包含三个安装包、三个验证 manifest 与一份覆盖六个文件的 `SHA256SUMS.txt`。
 
+标签 `v0.1.0-rc.4` 的 Release 为 `https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.4`，非草稿 Pre-release、不是 Latest（仓库当前没有 Latest）；附件为三个安装包、三个验证 manifest 与一份覆盖六个文件的 `SHA256SUMS.txt`。
+
 ## 未验证与发布阻断项
 
 - Windows 11 x64 当前 P10 NSIS 的实际安装、开始菜单/图标、卸载保留 userData、桌面行为和物理听音；当前 Windows 构建 10.0.26200 的未安装目录包不替代这些验收。
@@ -86,4 +88,4 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 - 生产 CSP 已直接检查为 `connect-src 'self'`，不含 `ws://localhost:*`。
 - 新 logo 与 `docs/Existing issues.md` 随提交 `557b62d` 提交并推送；P11 修复本身没有配置签名、公证或自动更新，也没有创建 Release。
 
-当前可以进入真机测试；Blocker 0，Critical 0，Major 4。下一步先在原 Windows 服务器复验艺术家/scrobble和真实格式，再按 `docs/TEST-MATRIX.md` 完成 NSIS 安装、托盘/媒体键/睡眠/长时播放，以及 macOS Intel/arm64 的原生构建、安装和桌面矩阵。保留既有 RC 标签历史，不移动或改写任何既有标签；本次经用户明确授权发布 `v0.1.0-rc.4` 测试候选（首个包含 P11 修复的包），仍不将其标为 Latest 或正式稳定版。
+当前可以进入真机测试；Blocker 0，Critical 0，Major 4。下一步先在原 Windows 服务器复验艺术家/scrobble和真实格式，再按 `docs/TEST-MATRIX.md` 完成 NSIS 安装、托盘/媒体键/睡眠/长时播放，以及 macOS Intel/arm64 的原生构建、安装和桌面矩阵。`v0.1.0-rc.4` 已可供下载；随后只在对应实机执行 `docs/RELEASE-CHECKLIST.md` 的安装、升级、真实服务器、物理听音与签名/公证矩阵。保留既有 RC 标签历史，不移动或改写任何既有标签；当前仍是测试版，不索取签名密钥、不将其标为 Latest 或正式稳定版。

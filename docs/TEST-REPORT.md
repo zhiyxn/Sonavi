@@ -1,7 +1,7 @@
 # P10 打包、兼容性与发布前审计报告
 
 日期：2026-09-16
-状态：`v0.1.0-rc.3`（构建自 `cc33168`，不含 P11 修复）已在 release run `35040657787` 三目标全通过并发布为 GitHub Pre-release；P11 修复后的版本推进到 `0.1.0-rc.4`，候选标签 `v0.1.0-rc.4` 待发布；正式签名/公证和各平台完整实机发布验收未完成
+状态：P11 修复后的 `v0.1.0-rc.4`（提交 `acb7c8c`）已在 release run `35063014155` 三目标全通过并发布为 GitHub Pre-release；更早的 `v0.1.0-rc.3` 构建自 `cc33168`，不含 P11 修复；正式签名/公证和各平台完整实机发布验收未完成
 
 ## 测试环境
 
@@ -98,7 +98,7 @@ GitHub Actions run `34934352140`（`51cf322`）已在 Windows x64、macOS Intel 
 
 候选标签 `v0.1.0-rc.2` 触发 release run `35036809845`：Windows x64 与 macOS Apple Silicon arm64 release gate 通过，macOS Intel x64 在源码 Electron 冒烟失败，发布 job 再次安全跳过。随后检查注释先后定位歌单写后刷新竞态、断开时空队列覆盖和测试硬编码短音频当前曲目三处问题；提交 `09b1ab0` 的普通 CI run `35039453442` 已在三个目标完成源码/打包应用 Electron 冒烟、安装包构建和包验证并全部通过。`rc.1` 与 `rc.2` 标签均保留且不改写，下一候选为 `v0.1.0-rc.3`。
 
-版本提交 `cc33168` 的普通 CI run `35040182258` 与标签 `v0.1.0-rc.3` 的 release run `35040657787` 均在 Windows x64、macOS Intel x64 与 macOS Apple Silicon arm64 完整通过。发布 job 创建了非草稿、非 Latest 的 Pre-release，共七个附件：三个安装包、三个 manifest 与 `SHA256SUMS.txt`；校验清单为 610 字节且恰好包含六行，对应六个文件名。Release 地址为 `https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.3`。该候选的构建源是版本提交 `cc33168`，因此不包含 P11 审查修复；P11 修复提交 `557b62d` 的普通 CI run `35061052839` 在三个目标通过后，版本推进到 `0.1.0-rc.4`，候选标签 `v0.1.0-rc.4` 待发布。发布 job 不再写死 Release notes 文件名，改为按标签读取 `docs/RELEASE-NOTES-${GITHUB_REF_NAME}.md` 并在缺失时失败，避免新候选静默套用旧候选说明。
+版本提交 `cc33168` 的普通 CI run `35040182258` 与标签 `v0.1.0-rc.3` 的 release run `35040657787` 均在 Windows x64、macOS Intel x64 与 macOS Apple Silicon arm64 完整通过。发布 job 创建了非草稿、非 Latest 的 Pre-release，共七个附件：三个安装包、三个 manifest 与 `SHA256SUMS.txt`；校验清单为 610 字节且恰好包含六行，对应六个文件名。Release 地址为 `https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.3`。该候选的构建源是版本提交 `cc33168`，因此不包含 P11 审查修复；P11 修复提交 `557b62d` 的普通 CI run `35061052839` 在三个目标通过后，版本推进到 `0.1.0-rc.4`。提交 `acb7c8c chore(release): 准备 v0.1.0-rc.4` 的普通 CI run `35062596436` 三目标全通过，随后创建标签 `v0.1.0-rc.4`；release run `35063014155` 的 Windows x64、macOS Intel x64、macOS Apple Silicon arm64 三个 release gate 与发布 job 全部通过，发布 job 创建了非草稿、非 Latest 的 Pre-release，共七个附件：三个安装包、三个 manifest 与 610 字节、六行的 `SHA256SUMS.txt`。Release 地址为 `https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.4`。发布 job 不再写死 Release notes 文件名，改为按标签读取 `docs/RELEASE-NOTES-${GITHUB_REF_NAME}.md` 并在缺失时失败，避免新候选静默套用旧候选说明。
 
 ## 发布前安全审计
 
