@@ -87,12 +87,13 @@ async function handleDisconnect(): Promise<void> {
   if (!current) return
 
   sessionActionError.value = ''
+  player.pause()
   await flushPausedQueue()
-  player.stop()
   try {
     if (!(await disconnectConnection(current.sessionId))) throw new Error('session rejected')
     queryClient.clear()
     session.disconnect()
+    player.stop()
     selectedAlbumId.value = null
     selectedArtistId.value = null
     activeView.value = 'home'

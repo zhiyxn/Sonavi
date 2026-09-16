@@ -740,9 +740,10 @@ try {
   await window.getByRole('button', { name: '播放全部', exact: true }).click()
   await playlistTracks.getByRole('button', { name: '移除', exact: true }).first().click()
   await window.getByText('歌曲已从歌单移除。').waitFor()
-  if ((await playlistTracks.getByText('跨平台试音', { exact: true }).count()) !== 1) {
-    throw new Error('歌单按索引移除未生效')
-  }
+  await waitForCondition(
+    async () => (await playlistTracks.getByText('跨平台试音', { exact: true }).count()) === 1,
+    '歌单按索引移除未生效'
+  )
   await window.getByRole('button', { name: '返回歌单', exact: true }).click()
   await window.getByPlaceholder('例如：夜间聆听').fill('P06 自动化')
   await window.getByLabel(/包含当前队列/).check()
