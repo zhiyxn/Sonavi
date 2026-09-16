@@ -11,7 +11,9 @@ P01～P10 已按顺序落地到当前发布前代码闸门。P10 已在 macOS 13
 - 分支：`main`；`1f23427 fix(p10): 稳定 macOS 冒烟与队列持久化` 随文档提交 `51cf322` 进入 run `34934352140`，三个原生目标的完整 CI 均通过。
 - 提交 `9a7af94 ci(release): 添加跨平台候选发布流程` 将版本推进到 `0.1.0-rc.1`，增加标签驱动的 GitHub Pre-release 工作流、资产收集校验与候选版说明；`v0.1.0-rc.1` 已推送，但发布 run `34937503560` 被 Intel 源码冒烟失败阻断，未创建 Release。
 - 提交 `54e15df test(e2e): 输出 CI 失败摘要` 为 Electron 冒烟增加脱敏 Check Summary 失败栈；断言与失败条件没有放宽。其 run `34938572347` 的三个目标全部通过，Intel 失败没有稳定复现。
-- 提交 `8dcd9ab chore(release): 准备 v0.1.0-rc.2` 将失败候选之后的版本推进到 `0.1.0-rc.2`，更新发布工作流和 Release notes；待文档提交、推送和标签发布。
+- `v0.1.0-rc.2` 发布 run `35036809845` 再次被 Intel 源码 Electron 冒烟阻断；Windows x64 与 Apple Silicon arm64 通过，发布 job 跳过，未创建 Release。
+- 提交 `6842e3d` 修复歌单写后刷新等待和断开连接时空队列覆盖暂停队列的竞态，增加断开顺序回归测试；提交 `09b1ab0` 改为按断开前实际当前歌曲验证落盘与重启恢复。run `35039453442` 的三个目标完整通过。
+- 当前版本推进到 `0.1.0-rc.3`，发布工作流使用 `docs/RELEASE-NOTES-v0.1.0-rc.3.md`；待提交、推送和标签发布。
 - `release/` 与 `artifacts/` 被忽略；本机 DMG、manifest 和截图不会随提交上传。
 - 原始参考包保持未修改；不得重置或丢弃当前 P10 工作区。
 
@@ -33,8 +35,8 @@ P01～P10 已按顺序落地到当前发布前代码闸门。P10 已在 macOS 13
 - `git diff --check` 与 `npm run lint`：最终复验通过，0 warning。
 - `npm run typecheck`：最终复验通过；生产构建与源码 Electron 冒烟也重复通过三套类型检查。
 - 当前 Windows 主机：Windows 10.0.26200 x64，Node.js v22.21.1，npm 10.9.4；未替代 macOS 或 Windows 11 最低目标实机。
-- `npm test`：24 个文件、108 项通过；除显式 queue flush 定向测试外，新增候选标签匹配、允许附件收集和 SHA-256 清单测试。
-- `npm run test:e2e`：当前 Windows 源码 Electron 完整通过；最终启动约 562 ms，20 轮切页工作集增量约 50,788 KiB、媒体请求 +0；真实音频请求等待、队列落盘证据、退出握手与跨进程恢复均通过。
+- `npm test`：24 个文件、109 项通过；除显式 queue flush 定向测试外，新增断开时暂停/保存/清队列顺序、候选标签匹配、允许附件收集和 SHA-256 清单测试。
+- `npm run test:e2e`：当前 Windows 源码 Electron 完整通过；最近一次启动约 489 ms，20 轮切页工作集增量约 51,188 KiB、媒体请求 +0；真实音频请求等待、队列落盘证据、退出握手与跨进程恢复均通过。
 - `npm audit --audit-level=high --registry=https://registry.npmjs.org`：0 vulnerabilities。
 - `npm run build:mac:x64`：通过，生成 `release/0.1.0/Sonavi-0.1.0-mac-x64.dmg`；无 Developer ID，明确跳过签名。
 - `npm run verify:package -- mac-x64`：通过；DMG 137,343,264 字节，SHA-256 `f5afe1f70024d71cdf319b561f4a59d0fb7c8fb4ffe682b889b6f6855a648074`，x64、`com.sonavi.desktop`、0.1.0、macOS 13.0、未签名。
@@ -57,6 +59,8 @@ GitHub Actions run `34912793294` 对应提交 `ce82e9e`，三个 job 的 lint、
 
 run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Intel x64 与 macOS arm64 的源码和打包应用完整冒烟均通过。
 
+候选 release run `35036809845` 对 `v0.1.0-rc.2` 再次执行门禁：Windows x64 和 macOS Apple Silicon arm64 通过，macOS Intel x64 源码冒烟失败，因而没有创建 Release。后续公开检查注释定位并修复三处慢速 runner 时序问题；普通 CI run `35039453442` 已确认 Windows x64、macOS Intel x64 与 macOS arm64 的源码、打包、包验证和打包应用冒烟全部通过。
+
 ## 未验证与发布阻断项
 
 - Windows 11 x64 当前 P10 NSIS 的实际安装、开始菜单/图标、卸载保留 userData、桌面行为和物理听音；当前 Windows 构建 10.0.26200 的未安装目录包不替代这些验收。
@@ -67,4 +71,4 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 
 ## 下一入口
 
-保留失败的 `v0.1.0-rc.1` 远端标签，不改写历史。提交并推送 `0.1.0-rc.2` 后创建同名标签，确认三个 release gate、七个附件和 Pre-release 安全说明后记录结果。随后只在对应实机执行 `docs/RELEASE-CHECKLIST.md` 的安装/签名/公证矩阵；本次用户只授权测试版发布，不索取签名密钥、不将其标为正式稳定版。
+保留失败的 `v0.1.0-rc.1` 与 `v0.1.0-rc.2` 远端标签，不改写历史。提交并推送 `0.1.0-rc.3` 后创建同名标签，确认三个 release gate、七个附件和 Pre-release 安全说明后记录结果。随后只在对应实机执行 `docs/RELEASE-CHECKLIST.md` 的安装/签名/公证矩阵；本次用户只授权测试版发布，不索取签名密钥、不将其标为正式稳定版。

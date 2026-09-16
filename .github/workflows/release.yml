@@ -137,7 +137,7 @@ jobs:
           title="Sonavi ${GITHUB_REF_NAME} 测试版"
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" release-upload/* --clobber
-            gh release edit "$GITHUB_REF_NAME" --title "$title" --notes-file docs/RELEASE-NOTES-v0.1.0-rc.2.md --prerelease --latest=false
+            gh release edit "$GITHUB_REF_NAME" --title "$title" --notes-file docs/RELEASE-NOTES-v0.1.0-rc.3.md --prerelease --latest=false
           else
-            gh release create "$GITHUB_REF_NAME" release-upload/* --verify-tag --title "$title" --notes-file docs/RELEASE-NOTES-v0.1.0-rc.2.md --prerelease --latest=false
+            gh release create "$GITHUB_REF_NAME" release-upload/* --verify-tag --title "$title" --notes-file docs/RELEASE-NOTES-v0.1.0-rc.3.md --prerelease --latest=false
           fi

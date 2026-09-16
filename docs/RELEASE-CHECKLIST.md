@@ -35,7 +35,7 @@ npm run test:e2e:package -- mac-arm64
 
 验证器会在 `release/<version>/` 写入本地 JSON 清单，记录目标、宿主、包大小、SHA-256、应用标识、版本、架构、资源和签名状态。普通 CI 只构建并验证，不上传安装包。只有用户明确授权后创建的 `v*-rc.*` 标签会触发候选发布工作流；标签必须等于 `v` 加 `package.json` 版本，三个原生目标会重新执行完整检查，全部通过后只上传三个安装包、三份 manifest 和 `SHA256SUMS.txt`，并标记为 Pre-release。
 
-首个测试候选 `v0.1.0-rc.1` 因 Intel release gate 失败而没有创建 Release，远端标签保留且不改写。下一候选使用版本/标签 `0.1.0-rc.2` / `v0.1.0-rc.2`；其 Release notes 必须使用 `docs/RELEASE-NOTES-v0.1.0-rc.2.md` 的未签名/未公证提示，不得标为 Latest 或正式稳定版。
+测试候选 `v0.1.0-rc.1` 与 `v0.1.0-rc.2` 均因 Electron release gate 失败而没有创建 Release，远端标签保留且不改写。下一候选使用版本/标签 `0.1.0-rc.3` / `v0.1.0-rc.3`；其 Release notes 必须使用 `docs/RELEASE-NOTES-v0.1.0-rc.3.md` 的未签名/未公证提示，不得标为 Latest 或正式稳定版。
 
 ## 签名与公证接口
 

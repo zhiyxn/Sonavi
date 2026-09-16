@@ -1,7 +1,7 @@
 # P10 打包、兼容性与发布前审计报告
 
 日期：2026-09-16
-状态：`0.1.0-rc.1` 发布 run 的 Intel 冒烟失败且未创建 Release；诊断提交 `54e15df` 的三目标 CI 随后全通过，`0.1.0-rc.2` 待标签发布，正式签名/公证和各平台完整实机发布验收未完成
+状态：`0.1.0-rc.1` 与 `0.1.0-rc.2` 发布 run 均被 Electron 冒烟失败安全阻断且未创建 Release；修复提交 `09b1ab0` 的 run `35039453442` 三目标全通过，`0.1.0-rc.3` 待标签发布，正式签名/公证和各平台完整实机发布验收未完成
 
 ## 测试环境
 
@@ -18,7 +18,7 @@
 | --- | --- | --- |
 | `git diff --check` / `npm run lint` | 通过 | 无空白错误；0 warning |
 | `npm run typecheck` | 通过 | node/preload、renderer、tests 三组；x64 构建重复通过 |
-| `npm test` | 通过 | 24 个文件、108 项测试；新增候选标签、附件白名单和 SHA-256 清单测试 |
+| `npm test` | 通过 | 24 个文件、109 项测试；新增断开顺序、候选标签、附件白名单和 SHA-256 清单测试 |
 | 包验证器定向测试 | 通过 | 9 项：三个目标、PE 架构/Certificate Table/增量读取、PowerShell 路径隔离、Mach-O 名称归一、发行签名判定、权限拒绝、SHA-256 |
 | `npm audit --audit-level=high --registry=https://registry.npmjs.org` | 通过 | 0 vulnerabilities |
 | `npm run test:e2e` | 通过 | 最终源码 Electron 完整 P01～P10 回归 |
@@ -41,6 +41,9 @@
 5. run `34910450288` 的 arm64 主可执行文件带有 linker ad-hoc seal，但应用 bundle 没有资源封印；旧验证器误按完整已签名 bundle 校验。现在 ad-hoc 只校验代码页并明确记录 `ad-hoc`，资源继续由 ASAR/图标/Info.plist/DMG/SHA-256 独立检查；严格发行门禁仍拒绝它。
 6. Windows 无签名应用没有 PE Certificate Table，旧验证器仍调用 PowerShell，且把 EXE 路径追加到 `-Command` 后，造成模块加载和参数绑定连锁错误。现在先增量解析 PE；无表直接记录 `unsigned`，有表才调用 Authenticode，并通过环境变量传入路径。
 7. Intel CI 在播放器已显示 0:02 后立即检查 Node 侧请求数组，新的转码请求可能尚未到达 fixture。现在最长等待 10 秒直到实际出现 `format=mp3&timeOffset=2` 请求，再继续断言 `maxBitRate=192`；本机完整 Electron 冒烟已通过。
+8. 歌单移除成功提示先于 TanStack Query 写后重读完成，测试立即计数会误报。现在仍严格要求重复歌曲从 2 条降为 1 条，但以最长 10 秒条件等待实际 UI 刷新。
+9. 断开连接曾在暂停队列 flush 后先清空播放器，慢速主进程断开超过 350 ms 时可能把空队列覆盖到磁盘。现在先暂停并 flush，主进程确认断开后在同一批更新中清除 session 与播放器；新增单元测试验证保存早于断开、清队列晚于断开确认。
+10. 4 秒合成音频在慢速 Intel runner 的 20 轮切页期间会自然进入下一首；测试硬编码第 1 首会把正确持久化误判为失败。现在记录断开前的实际当前歌曲，并严格验证磁盘与重启后恢复同一首。
 
 ## 最终 macOS Intel 包
 
@@ -93,6 +96,8 @@ GitHub Actions run `34934352140`（`51cf322`）已在 Windows x64、macOS Intel 
 
 诊断提交 `54e15df` 保持全部原断言，只在失败时将脱敏错误栈写入 Check Summary。本机源码 Electron 冒烟通过；GitHub Actions run `34938572347` 的 Windows x64、macOS Intel x64 与 macOS arm64 全流程也全部通过，Intel 前两次失败未稳定复现。为保留标签审计历史，不移动或强推 `v0.1.0-rc.1`；下一个发布候选递增为 `v0.1.0-rc.2` 并重新执行三个 release gate。
 
+候选标签 `v0.1.0-rc.2` 触发 release run `35036809845`：Windows x64 与 macOS Apple Silicon arm64 release gate 通过，macOS Intel x64 在源码 Electron 冒烟失败，发布 job 再次安全跳过。随后检查注释先后定位歌单写后刷新竞态、断开时空队列覆盖和测试硬编码短音频当前曲目三处问题；提交 `09b1ab0` 的普通 CI run `35039453442` 已在三个目标完成源码/打包应用 Electron 冒烟、安装包构建和包验证并全部通过。`rc.1` 与 `rc.2` 标签均保留且不改写，下一候选为 `v0.1.0-rc.3`。
+
 ## 发布前安全审计
 
 - [x] Electron 安全偏好、严格 CSP、导航/新窗口/权限默认拒绝未放宽。
@@ -117,4 +122,4 @@ GitHub Actions run `34934352140`（`51cf322`）已在 Windows x64、macOS Intel 
 - 0.1.0 没有旧公开版本迁移样本；当前只证明同一 candidate 的 versioned userData 可跨进程重启恢复。
 - 构建仍有 Rollup 移除 Zod 注释位置的非阻断提示；Zod 已正确内联，类型、测试和包内运行均通过。
 
-结论：run `34934352140` 已使 Windows x64、macOS Intel x64 与 macOS arm64 的源码、打包和包内自动闸门全部通过。`0.1.0-rc.1` 可在标签发布工作流再次验证后作为明确标注未签名/未公证的 Pre-release 测试包提供下载；正式发布继续被对应实机安装、正式签名/公证、真实服务器与人工音频/桌面测试阻断。
+结论：run `35039453442` 已使 Windows x64、macOS Intel x64 与 macOS arm64 的源码、打包和包内自动闸门全部通过。`0.1.0-rc.3` 可在标签发布工作流再次验证后作为明确标注未签名/未公证的 Pre-release 测试包提供下载；正式发布继续被对应实机安装、正式签名/公证、真实服务器与人工音频/桌面测试阻断。
