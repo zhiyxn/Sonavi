@@ -869,16 +869,35 @@ try {
   await window.getByRole('heading', { name: '设置', exact: true }).waitFor()
   await window.getByRole('button', { name: '断开连接' }).click()
   await window.getByRole('heading', { name: '连接你的音乐空间' }).waitFor()
-  await waitForCondition(async () => {
+  try {
+    await waitForCondition(async () => {
+      try {
+        const state = JSON.parse(
+          await readFile(join(userDataPath, 'desktop-state.v1.json'), 'utf8')
+        )
+        return state.pausedQueue?.tracks?.[state.pausedQueue.currentIndex]?.title === '跨平台试音'
+      } catch {
+        return false
+      }
+    }, '关闭进程前暂停队列未完成持久化')
+  } catch {
+    let diagnostic = { file: 'unreadable' }
     try {
       const state = JSON.parse(
         await readFile(join(userDataPath, 'desktop-state.v1.json'), 'utf8')
       )
-      return state.pausedQueue?.tracks?.[state.pausedQueue.currentIndex]?.title === '跨平台试音'
+      diagnostic = {
+        file: 'readable',
+        currentIndex: state.pausedQueue?.currentIndex ?? null,
+        currentTitle: state.pausedQueue?.tracks?.[state.pausedQueue.currentIndex]?.title ?? null,
+        trackCount: state.pausedQueue?.tracks?.length ?? 0,
+        trackTitles: state.pausedQueue?.tracks?.map((track) => track.title) ?? []
+      }
     } catch {
-      return false
+      // The diagnostic intentionally excludes credentials and account hashes.
     }
-  }, '关闭进程前暂停队列未完成持久化')
+    throw new Error(`关闭进程前暂停队列未完成持久化：${JSON.stringify(diagnostic)}`)
+  }
   if ((await window.locator('#password').inputValue()) !== '') {
     throw new Error('连接完成后密码输入框未清空')
   }
