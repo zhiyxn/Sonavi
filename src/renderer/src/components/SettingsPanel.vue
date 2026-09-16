@@ -246,7 +246,7 @@ async function exportDiagnostics(): Promise<void> {
       <header>
         <div>
           <h2 id="diagnostics-title">连接诊断</h2>
-          <p>仅记录阶段、状态、类型、分类和耗时，不记录 URL、账号、token、资源 ID 或响应正文。</p>
+          <p>仅记录阶段、端点名、状态、类型、分类、耗时与脱敏后的错误文本，不记录 URL、账号、token、资源 ID 或响应正文。</p>
         </div>
         <div class="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" @click="refreshDiagnostics">刷新</Button>
@@ -257,8 +257,9 @@ async function exportDiagnostics(): Promise<void> {
       <ol v-else class="diagnostics-list">
         <li v-for="entry in diagnostics.slice(0, 20)" :key="entry.id">
           <strong>{{ stageLabels[entry.stage] }}</strong>
-          <span>{{ entry.status ?? '—' }} · {{ entry.contentType || '无类型' }} · {{ entry.durationMs }} ms</span>
+          <span>{{ entry.operation || '—' }} · {{ entry.status ?? '—' }} · {{ entry.contentType || '无类型' }} · {{ entry.durationMs }} ms</span>
           <span>{{ entry.errorCategory }} · {{ entry.recommendation }}</span>
+          <span v-if="entry.errorDetail">{{ entry.errorName || 'Error' }}: {{ entry.errorDetail }}</span>
         </li>
       </ol>
     </section>

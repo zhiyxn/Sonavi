@@ -1,6 +1,7 @@
 import { session } from 'electron'
 import type { ProxyMode } from '../../../shared/network'
 import {
+  type AbortClassification,
   classifyNetworkError,
   NetworkDiagnosticRecorder
 } from '../network-diagnostics'
@@ -9,6 +10,8 @@ const DEFAULT_MAX_RESPONSE_BYTES = 1024 * 1024
 
 export interface ApiRequestOptions {
   maxResponseBytes?: number
+  operation?: string
+  describeAbort?: () => AbortClassification
 }
 
 export interface TransportResponse {
@@ -106,6 +109,7 @@ export class ElectronSessionTransport implements ApiTransport {
         stage: 'api',
         proxyMode: this.getProxyMode(),
         startedAt,
+        ...(options.operation ? { operation: options.operation } : {}),
         status: response.status,
         ...(contentType ? { contentType } : {}),
         errorCategory
@@ -121,8 +125,12 @@ export class ElectronSessionTransport implements ApiTransport {
         stage: 'api',
         proxyMode: this.getProxyMode(),
         startedAt,
+        ...(options.operation ? { operation: options.operation } : {}),
+        error,
         errorCategory:
-          error instanceof ResponseLimitError ? 'unexpected-content' : classifyNetworkError(error)
+          error instanceof ResponseLimitError
+            ? 'unexpected-content'
+            : classifyNetworkError(error, options.describeAbort?.())
       })
       throw error
     }

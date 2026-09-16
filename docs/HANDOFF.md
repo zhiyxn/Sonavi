@@ -88,4 +88,11 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 - 生产 CSP 已直接检查为 `connect-src 'self'`，不含 `ws://localhost:*`。
 - 新 logo 与 `docs/Existing issues.md` 随提交 `557b62d` 提交并推送；P11 修复本身没有配置签名、公证或自动更新，也没有创建 Release。
 
+## 诊断分类修正（2026-09-16）
+
+- 背景：用户导出的真实运行诊断里，6 次 API 请求（`durationMs` 12002–12015、无 HTTP 状态）被记为 `cancelled`，推荐语误导为“因切换连接、代理或播放项目取消”；同一个音频请求出现 `cancelled` 与 `broken-stream` 两条互相矛盾的记录。
+- 修正：`network-diagnostics.ts` 新增 `timeout` 分类与显式中断原因（`timedOut` / `cancelledByCaller`）；`transport.ts` 由 `client.ts` 传入端点名与中断原因；`media-protocol.ts` 改为单一终态记录，消除 `cancel()` 与 `pull()` 的竞争；条目新增 `operation`、`errorName`、`errorDetail`，错误文本写入前替换 URL 与 `u/p/t/s/token/apikey/salt` 参数值。
+- 验证：`npm run lint`、`npm run typecheck`、`npm test`（24 文件、122 项）均通过；新增回归测试在回退源码后确实失败（12 秒超时被断为 `cancelled`、媒体请求双记录），恢复修正后通过。本机为 Node.js v24.13.0，与 `.nvmrc` 的 22.19.0 存在偏差，最终以三目标 CI 为准。
+- 未改变：API 超时仍是固定 12 秒、Vue Query 仍是默认重试 3 次、消费者取消仍未主动中止上游 fetch；这三项留给后续决定。
+
 当前可以进入真机测试；Blocker 0，Critical 0，Major 4。下一步先在原 Windows 服务器复验艺术家/scrobble和真实格式，再按 `docs/TEST-MATRIX.md` 完成 NSIS 安装、托盘/媒体键/睡眠/长时播放，以及 macOS Intel/arm64 的原生构建、安装和桌面矩阵。`v0.1.0-rc.4` 已可供下载；随后只在对应实机执行 `docs/RELEASE-CHECKLIST.md` 的安装、升级、真实服务器、物理听音与签名/公证矩阵。保留既有 RC 标签历史，不移动或改写任何既有标签；当前仍是测试版，不索取签名密钥、不将其标为 Latest 或正式稳定版。

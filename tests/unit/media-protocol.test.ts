@@ -292,9 +292,45 @@ describe('sonavi-media 协议', () => {
 
     const response = await protocol.handle(new Request(mediaUrl))
     await expect(response.arrayBuffer()).rejects.toThrow()
+    expect(diagnostics.list()).toHaveLength(1)
     expect(diagnostics.list()[0]).toMatchObject({
       stage: 'audio-original',
-      errorCategory: 'broken-stream'
+      operation: 'stream',
+      errorCategory: 'broken-stream',
+      errorName: 'Error',
+      errorDetail: 'connection reset'
+    })
+  })
+
+  it('消费者取消与上游读取竞争时只留下一条终态记录', async () => {
+    const { service, sessionId } = await connectedService()
+    const registry = new MediaHandleRegistry()
+    const mediaUrl = registry.create({ sessionId, kind: 'audio', resourceId: 'song-1' })
+    const diagnostics = new NetworkDiagnosticRecorder()
+    const upstreamBody = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array([1, 2, 3]))
+      }
+    })
+    const protocol = new MediaProtocolService(
+      service,
+      registry,
+      async () => new Response(upstreamBody, { headers: { 'content-type': 'audio/mpeg' } }),
+      diagnostics
+    )
+
+    const response = await protocol.handle(new Request(mediaUrl))
+    const reader = response.body!.getReader()
+    await reader.read()
+    const pendingRead = reader.read()
+    await reader.cancel().catch(() => undefined)
+    await pendingRead.catch(() => undefined)
+
+    expect(diagnostics.list()).toHaveLength(1)
+    expect(diagnostics.list()[0]).toMatchObject({
+      stage: 'audio-original',
+      operation: 'stream',
+      errorCategory: 'cancelled'
     })
   })
 

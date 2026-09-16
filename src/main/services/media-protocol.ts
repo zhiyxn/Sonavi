@@ -125,17 +125,22 @@ export class MediaProtocolService {
         : handle.streamMode === 'transcode'
           ? 'audio-transcode'
           : 'audio-original'
+    const endpoint = handle.kind === 'cover' ? 'getCoverArt' : 'stream'
+    const operation: string = endpoint
     const record = (
       errorCategory: Parameters<NetworkDiagnosticRecorder['record']>[0]['errorCategory'],
       status?: number,
-      contentType?: string
+      contentType?: string,
+      error?: unknown
     ): void =>
       this.diagnostics?.record({
         stage: diagnosticStage,
         proxyMode: this.getProxyMode(),
         startedAt,
+        operation,
         ...(status ? { status } : {}),
         ...(contentType ? { contentType } : {}),
+        ...(error !== undefined ? { error } : {}),
         errorCategory
       })
     const sessionRequests = this.activeRequests.get(handle.sessionId) ?? new Set<AbortController>()
@@ -151,9 +156,22 @@ export class MediaProtocolService {
       sessionRequests.delete(abortController)
       if (sessionRequests.size === 0) this.activeRequests.delete(handle.sessionId)
     }
+    let settled = false
+    let clientCancelled = false
+    // 一个媒体请求只允许一条终态记录：消费者取消与上游断流可能同时发生，先到者胜出。
+    const settle = (
+      errorCategory: Parameters<NetworkDiagnosticRecorder['record']>[0]['errorCategory'],
+      status?: number,
+      contentType?: string,
+      error?: unknown
+    ): void => {
+      if (settled) return
+      settled = true
+      cleanup()
+      record(errorCategory, status, contentType, error)
+    }
 
     const { serverUrl, username, password } = connected.credential
-    const endpoint = handle.kind === 'cover' ? 'getCoverArt' : 'stream'
     const url = buildEndpointUrl(serverUrl, endpoint, username, password, undefined, {
       id: handle.resourceId,
       ...(handle.kind === 'audio' && handle.streamMode === 'original' ? { format: 'raw' } : {}),
@@ -178,8 +196,12 @@ export class MediaProtocolService {
         ...(range ? { headers: { range } } : {})
       })
     } catch (error) {
-      cleanup()
-      record(classifyNetworkError(error))
+      settle(
+        classifyNetworkError(error, { cancelledByCaller: abortController.signal.aborted }),
+        undefined,
+        undefined,
+        error
+      )
       return errorResponse(502, 'Upstream media request failed')
     }
 
@@ -251,11 +273,13 @@ export class MediaProtocolService {
         headers.set('cache-control', 'private, max-age=86400')
         return new Response(responseBody(bytes), { status: 200, headers })
       } catch (error) {
-        cleanup()
-        record(
-          abortController.signal.aborted ? 'cancelled' : classifyNetworkError(error),
+        settle(
+          clientCancelled || abortController.signal.aborted
+            ? 'cancelled'
+            : classifyNetworkError(error),
           upstream.status,
-          contentType
+          contentType,
+          error
         )
         return errorResponse(502, 'Upstream cover request failed')
       }
@@ -268,23 +292,27 @@ export class MediaProtocolService {
           const chunk = await reader.read()
           if (chunk.done) {
             controller.close()
-            cleanup()
-            record('none', upstream.status, contentType)
+            settle('none', upstream.status, contentType)
           } else {
             controller.enqueue(chunk.value)
           }
         } catch (error) {
           controller.error(error)
-          cleanup()
-          record(abortController.signal.aborted ? 'cancelled' : 'broken-stream', upstream.status, contentType)
+          settle(
+            clientCancelled || abortController.signal.aborted ? 'cancelled' : 'broken-stream',
+            upstream.status,
+            contentType,
+            error
+          )
         }
       },
       async cancel(reason) {
+        clientCancelled = true
+        settle('cancelled', upstream.status, contentType)
         try {
           await reader.cancel(reason)
-        } finally {
-          cleanup()
-          record('cancelled', upstream.status, contentType)
+        } catch {
+          // 上游流可能已结束或已中断；终态记录不依赖它。
         }
       }
     })

@@ -1,14 +1,50 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { session } from 'electron'
 import {
   ConnectionFailure,
   OpenSubsonicClient
 } from '../../src/main/services/opensubsonic/client'
+import { NetworkDiagnosticRecorder } from '../../src/main/services/network-diagnostics'
 import type {
   ApiRequestOptions,
   ApiTransport,
   TransportResponse
 } from '../../src/main/services/opensubsonic/transport'
-import { ResponseLimitError } from '../../src/main/services/opensubsonic/transport'
+import {
+  ElectronSessionTransport,
+  ResponseLimitError
+} from '../../src/main/services/opensubsonic/transport'
+
+vi.mock('electron', () => ({
+  session: { defaultSession: { fetch: vi.fn() } }
+}))
+
+type SessionFetch = (url: string, init: { signal: AbortSignal }) => Promise<Response>
+
+function rejectOnAbort(): SessionFetch {
+  return (_url, init) =>
+    new Promise<Response>((_resolve, reject) => {
+      init.signal.addEventListener(
+        'abort',
+        () => reject(new DOMException('This operation was aborted', 'AbortError')),
+        { once: true }
+      )
+    })
+}
+
+function clientWithDiagnostics(): { client: OpenSubsonicClient; recorder: NetworkDiagnosticRecorder } {
+  const recorder = new NetworkDiagnosticRecorder()
+  const target = session.defaultSession as unknown as { fetch: SessionFetch }
+  target.fetch = vi.fn(rejectOnAbort())
+  return {
+    client: new OpenSubsonicClient(new ElectronSessionTransport(recorder, () => 'system')),
+    recorder
+  }
+}
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 function jsonResponse(body: unknown, status = 200): TransportResponse {
   return {
@@ -82,8 +118,12 @@ describe('OpenSubsonicClient', () => {
     await client.getArtists('https://music.example.com', 'listener', 'secret')
     await client.getAlbumList2('https://music.example.com', 'listener', 'secret', 0, 30, 'newest')
 
-    expect(transport.requestedOptions[0]).toEqual({ maxResponseBytes: 16 * 1024 * 1024 })
-    expect(transport.requestedOptions[1]).toBeUndefined()
+    expect(transport.requestedOptions[0]).toMatchObject({
+      maxResponseBytes: 16 * 1024 * 1024,
+      operation: 'getArtists'
+    })
+    expect(transport.requestedOptions[1]).not.toHaveProperty('maxResponseBytes')
+    expect(transport.requestedOptions[1]).toMatchObject({ operation: 'getAlbumList2' })
   })
 
   it('探测 ping、扩展和音乐文件夹，并把服务端 ID 统一为 string', async () => {
@@ -573,5 +613,48 @@ describe('OpenSubsonicClient', () => {
     await expect(
       client.testConnection('https://music.example.com', 'listener', 'secret')
     ).rejects.toMatchObject({ code: expectedCode })
+  })
+
+  it('内部 12 秒超时记为 timeout，而不是 cancelled', async () => {
+    vi.useFakeTimers()
+    const { client, recorder } = clientWithDiagnostics()
+
+    const pending = client.getAlbumList2('https://music.example.com', 'listener', 'secret')
+    const assertion = expect(pending).rejects.toMatchObject({ code: 'timeout' })
+    await vi.advanceTimersByTimeAsync(12_000)
+    await assertion
+
+    expect(recorder.list()).toHaveLength(1)
+    expect(recorder.list()[0]).toMatchObject({
+      stage: 'api',
+      operation: 'getAlbumList2',
+      errorCategory: 'timeout',
+      errorName: 'AbortError'
+    })
+    expect(recorder.list()[0]?.status).toBeUndefined()
+  })
+
+  it('调用方取消记为 cancelled，而不是 timeout', async () => {
+    const { client, recorder } = clientWithDiagnostics()
+    const controller = new AbortController()
+
+    const pending = client.search3(
+      'https://music.example.com',
+      'listener',
+      'secret',
+      'sonavi',
+      0,
+      10,
+      controller.signal
+    )
+    controller.abort()
+    await expect(pending).rejects.toBeDefined()
+
+    expect(recorder.list()).toHaveLength(1)
+    expect(recorder.list()[0]).toMatchObject({
+      stage: 'api',
+      operation: 'search3',
+      errorCategory: 'cancelled'
+    })
   })
 })

@@ -126,6 +126,13 @@ GitHub Actions run `34934352140`（`51cf322`）已在 Windows x64、macOS Intel 
 
 结论：release run `35040657787` 已使 Windows x64、macOS Intel x64 与 macOS arm64 的源码、打包和包内自动闸门全部通过。`0.1.0-rc.3` 已作为明确标注未签名/未公证的 Pre-release 测试包提供下载；正式发布继续被对应实机安装、正式签名/公证、真实服务器与人工音频/桌面测试阻断。
 
+## 诊断分类与媒体终态修正复验（2026-09-16）
+
+- 触发证据：用户导出的诊断中 6 次 API 请求 duration 12002–12015ms 且无 `status`，被记为 `cancelled`；两对音频记录（1,007ms 与 60,132ms）同一时间戳各出现 `cancelled` 与 `broken-stream`。代码定位到 `network-diagnostics.ts` 的文本分类器把内部超时的 AbortError 归为取消，以及 `media-protocol.ts` 的 `cancel()` 与 `pull()` 各记一条终态。
+- 修正后的验证：`npm run lint`（0 warning）、`npm run typecheck`（node/web/test 三组）、`npm test`（24 文件、122 项）通过；新增 7 项测试覆盖超时/取消分类、`operation` 与脱敏错误文本、媒体单终态。
+- 回归证据：把四个源码文件回退到修正前、只保留测试，新增测试 9 项失败（含 `expected 'cancelled' to be 'timeout'` 与媒体双记录）；恢复修正后全部通过。
+- 未验证：真实服务器/代理路径下的 12 秒超时是否消失、直连对照、macOS/Windows 实机；本机执行环境为 Node.js v24.13.0，未使用 `.nvmrc` 的 22.19.0。
+
 ## P11 独立审查复验（2026-09-16）
 
 本节只记录 P11 本轮实际执行，不把上文历史 CI 当成本轮通过。

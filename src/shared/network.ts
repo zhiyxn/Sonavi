@@ -41,15 +41,20 @@ export type DiagnosticErrorCategory =
   | 'unexpected-content'
   | 'broken-stream'
   | 'cancelled'
+  | 'timeout'
 
 export interface NetworkDiagnosticEntry {
   id: string
   timestamp: string
   stage: DiagnosticStage
   proxyMode: ProxyMode
+  /** 请求的协议端点名（如 getArtists、stream），不含 URL 与参数。 */
+  operation?: string | undefined
   status?: number | undefined
   contentType?: string | undefined
   errorCategory: DiagnosticErrorCategory
+  errorName?: string | undefined
+  errorDetail?: string | undefined
   durationMs: number
   recommendation: string
 }

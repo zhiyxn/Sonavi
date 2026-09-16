@@ -8,9 +8,28 @@ import type {
 
 const MAX_ENTRIES = 200
 const MAX_EXPORT_BYTES = 256 * 1024
+const MAX_ERROR_DETAIL_LENGTH = 200
+const MAX_OPERATION_LENGTH = 64
+const MAX_ERROR_NAME_LENGTH = 64
 
-export function classifyNetworkError(error: unknown): DiagnosticErrorCategory {
-  const message = error instanceof Error ? error.message.toLowerCase() : ''
+export interface AbortClassification {
+  timedOut?: boolean | undefined
+  cancelledByCaller?: boolean | undefined
+}
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? `${error.name} ${error.message}` : ''
+}
+
+export function classifyNetworkError(
+  error: unknown,
+  abort: AbortClassification = {}
+): DiagnosticErrorCategory {
+  // 内部超时同样以 AbortError 抛出，必须先看显式中断原因，否则会被记成调用方取消。
+  if (abort.timedOut) return 'timeout'
+  if (abort.cancelledByCaller) return 'cancelled'
+
+  const message = errorText(error).toLowerCase()
   if (message.includes('abort') || message.includes('cancel')) return 'cancelled'
   if (
     message.includes('certificate') ||
@@ -21,6 +40,28 @@ export function classifyNetworkError(error: unknown): DiagnosticErrorCategory {
     return 'certificate'
   }
   return 'network'
+}
+
+export function redactDiagnosticText(value: string): string {
+  return value
+    .replace(/[a-z][a-z0-9+.-]*:\/\/\S+/gi, '<url>')
+    .replace(/([?&](?:u|p|t|s|token|apikey|salt)=)[^&\s]*/gi, '$1<redacted>')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, MAX_ERROR_DETAIL_LENGTH)
+}
+
+export function describeError(
+  error: unknown
+): Pick<NetworkDiagnosticEntry, 'errorName' | 'errorDetail'> {
+  if (!(error instanceof Error)) return {}
+
+  const errorName = redactDiagnosticText(error.name).slice(0, MAX_ERROR_NAME_LENGTH) || 'Error'
+  const errorDetail = redactDiagnosticText(error.message)
+  return {
+    errorName,
+    ...(errorDetail ? { errorDetail } : {})
+  }
 }
 
 export function recommendationFor(category: DiagnosticErrorCategory): string {
@@ -41,6 +82,8 @@ export function recommendationFor(category: DiagnosticErrorCategory): string {
       return '服务器返回了非预期内容，可能是登录页、代理错误页或协议错误体。'
     case 'broken-stream':
       return '音频流在传输中断开，请检查网络、代理和服务器转码日志。'
+    case 'timeout':
+      return '请求在超时时间内没有收到服务器响应，请检查网络、代理与服务器负载后重试。'
     case 'cancelled':
       return '请求已因切换连接、代理或播放项目而取消。'
     case 'network':
@@ -52,9 +95,11 @@ export interface DiagnosticRecordInput {
   stage: DiagnosticStage
   proxyMode: ProxyMode
   startedAt: number
+  operation?: string | undefined
   status?: number | undefined
   contentType?: string | undefined
   errorCategory: DiagnosticErrorCategory
+  error?: unknown
 }
 
 export class NetworkDiagnosticRecorder {
@@ -66,9 +111,11 @@ export class NetworkDiagnosticRecorder {
       timestamp: new Date().toISOString(),
       stage: input.stage,
       proxyMode: input.proxyMode,
+      ...(input.operation ? { operation: input.operation.slice(0, MAX_OPERATION_LENGTH) } : {}),
       ...(input.status ? { status: input.status } : {}),
       ...(input.contentType ? { contentType: input.contentType.slice(0, 200) } : {}),
       errorCategory: input.errorCategory,
+      ...describeError(input.error),
       durationMs: Math.max(0, Math.round(performance.now() - input.startedAt)),
       recommendation: recommendationFor(input.errorCategory)
     }
@@ -85,7 +132,8 @@ export class NetworkDiagnosticRecorder {
       {
         schemaVersion: 1,
         generatedAt: new Date().toISOString(),
-        redaction: 'URL、账号、凭据、token、资源 ID 与响应正文未被记录。',
+        redaction:
+          'URL、账号、凭据、token、资源 ID 与响应正文未被记录；端点名与错误文本在写入前已脱敏。',
         entries: this.entries
       },
       null,
@@ -97,7 +145,8 @@ export class NetworkDiagnosticRecorder {
           {
             schemaVersion: 1,
             generatedAt: new Date().toISOString(),
-            redaction: 'URL、账号、凭据、token、资源 ID 与响应正文未被记录。',
+            redaction:
+              'URL、账号、凭据、token、资源 ID 与响应正文未被记录；端点名与错误文本在写入前已脱敏。',
             entries: this.entries.slice(0, 100)
           },
           null,

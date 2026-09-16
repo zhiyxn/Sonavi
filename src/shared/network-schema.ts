@@ -40,6 +40,7 @@ export const NetworkDiagnosticEntrySchema = z.object({
   timestamp: z.string().datetime(),
   stage: z.enum(['api', 'cover', 'audio-original', 'audio-transcode']),
   proxyMode: z.enum(['system', 'direct', 'manual']),
+  operation: z.string().min(1).max(64).optional(),
   status: z.number().int().min(100).max(599).optional(),
   contentType: z.string().max(200).optional(),
   errorCategory: z.enum([
@@ -52,8 +53,11 @@ export const NetworkDiagnosticEntrySchema = z.object({
     'server-response',
     'unexpected-content',
     'broken-stream',
-    'cancelled'
+    'cancelled',
+    'timeout'
   ]),
+  errorName: z.string().max(64).optional(),
+  errorDetail: z.string().max(200).optional(),
   durationMs: z.number().int().nonnegative(),
   recommendation: z.string().min(1).max(500)
 }) satisfies z.ZodType<NetworkDiagnosticEntry>

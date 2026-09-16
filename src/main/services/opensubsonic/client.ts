@@ -710,11 +710,16 @@ export class OpenSubsonicClient {
 
     try {
       const url = buildEndpointUrl(baseUrl, endpoint, username, password, undefined, parameters)
-      const response = await this.transport.request(
-        url,
-        signal,
-        endpoint === 'getArtists' ? { maxResponseBytes: LARGE_LIBRARY_RESPONSE_BYTES } : undefined
-      )
+      const response = await this.transport.request(url, signal, {
+        ...(endpoint === 'getArtists'
+          ? { maxResponseBytes: LARGE_LIBRARY_RESPONSE_BYTES }
+          : {}),
+        operation: endpoint,
+        describeAbort: () => ({
+          timedOut: timeoutController.signal.aborted,
+          cancelledByCaller: externalSignal?.aborted === true
+        })
+      })
       return parseResponse(response)
     } catch (error) {
       if (error instanceof ConnectionFailure) throw error
