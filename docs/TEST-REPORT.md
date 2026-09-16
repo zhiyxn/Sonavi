@@ -1,7 +1,7 @@
 # P10 打包、兼容性与发布前审计报告
 
 日期：2026-09-16
-状态：`0.1.0-rc.1` 与 `0.1.0-rc.2` 发布 run 均被 Electron 冒烟失败安全阻断且未创建 Release；修复提交 `09b1ab0` 的 run `35039453442` 三目标全通过，`0.1.0-rc.3` 待标签发布，正式签名/公证和各平台完整实机发布验收未完成
+状态：`v0.1.0-rc.3` 已在 release run `35040657787` 三目标全通过并发布为 GitHub Pre-release；正式签名/公证和各平台完整实机发布验收未完成
 
 ## 测试环境
 
@@ -98,6 +98,8 @@ GitHub Actions run `34934352140`（`51cf322`）已在 Windows x64、macOS Intel 
 
 候选标签 `v0.1.0-rc.2` 触发 release run `35036809845`：Windows x64 与 macOS Apple Silicon arm64 release gate 通过，macOS Intel x64 在源码 Electron 冒烟失败，发布 job 再次安全跳过。随后检查注释先后定位歌单写后刷新竞态、断开时空队列覆盖和测试硬编码短音频当前曲目三处问题；提交 `09b1ab0` 的普通 CI run `35039453442` 已在三个目标完成源码/打包应用 Electron 冒烟、安装包构建和包验证并全部通过。`rc.1` 与 `rc.2` 标签均保留且不改写，下一候选为 `v0.1.0-rc.3`。
 
+版本提交 `cc33168` 的普通 CI run `35040182258` 与标签 `v0.1.0-rc.3` 的 release run `35040657787` 均在 Windows x64、macOS Intel x64 与 macOS Apple Silicon arm64 完整通过。发布 job 创建了非草稿、非 Latest 的 Pre-release，共七个附件：三个安装包、三个 manifest 与 `SHA256SUMS.txt`；校验清单为 610 字节且恰好包含六行，对应六个文件名。Release 地址为 `https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.3`。
+
 ## 发布前安全审计
 
 - [x] Electron 安全偏好、严格 CSP、导航/新窗口/权限默认拒绝未放宽。
@@ -122,4 +124,4 @@ GitHub Actions run `34934352140`（`51cf322`）已在 Windows x64、macOS Intel 
 - 0.1.0 没有旧公开版本迁移样本；当前只证明同一 candidate 的 versioned userData 可跨进程重启恢复。
 - 构建仍有 Rollup 移除 Zod 注释位置的非阻断提示；Zod 已正确内联，类型、测试和包内运行均通过。
 
-结论：run `35039453442` 已使 Windows x64、macOS Intel x64 与 macOS arm64 的源码、打包和包内自动闸门全部通过。`0.1.0-rc.3` 可在标签发布工作流再次验证后作为明确标注未签名/未公证的 Pre-release 测试包提供下载；正式发布继续被对应实机安装、正式签名/公证、真实服务器与人工音频/桌面测试阻断。
+结论：release run `35040657787` 已使 Windows x64、macOS Intel x64 与 macOS arm64 的源码、打包和包内自动闸门全部通过。`0.1.0-rc.3` 已作为明确标注未签名/未公证的 Pre-release 测试包提供下载；正式发布继续被对应实机安装、正式签名/公证、真实服务器与人工音频/桌面测试阻断。

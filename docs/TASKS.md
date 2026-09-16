@@ -179,7 +179,7 @@ P02 基础提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`�
 - [x] Electron 冒烟将脱敏失败栈写入 Check Summary 和公开检查注释；不增加自动重试、不删除断言。诊断注释定位了歌单写后刷新、断开时空队列覆盖，以及慢速 runner 上 4 秒测试音频自然切歌三处时序问题。
 - [x] 推送 `v0.1.0-rc.2`；release run `35036809845` 的 Windows x64 与 Apple Silicon arm64 通过，Intel 源码 Electron 冒烟失败，发布 job 按设计跳过，没有创建 Release。
 - [x] 修复异步歌单计数等待与断开队列持久化竞态，按断开前实际当前歌曲验证落盘/重启恢复；新增断开顺序回归测试。提交 `09b1ab0` 的 run `35039453442` 三目标全部通过。
-- [ ] 推送 `v0.1.0-rc.3`，重新运行三个 release gate，并确认七个下载附件与 Pre-release 安全说明。
+- [x] 推送 `v0.1.0-rc.3`；release run `35040657787` 的三个 release gate 与发布 job 全部通过，GitHub Pre-release 已创建，三个安装包、三个 manifest 和 `SHA256SUMS.txt` 共七个附件齐全。
 - [ ] Windows 11 x64 安装 NSIS 并完成人工图标、开始菜单、卸载保留 userData、桌面行为与物理听音验收。
 - [ ] macOS Apple Silicon 原生构建/安装 arm64 DMG 并完成人工图标、Dock/菜单栏、桌面行为与物理听音验收。
 - [ ] 使用正式证书验证 Windows Authenticode、macOS Developer ID、公证与 stapling；未经授权不索取或使用密钥。
@@ -193,4 +193,4 @@ P02 基础提交：`282ce86 feat(p02): 建立安全连接与凭据保存基础`�
 
 ## 当前闸门结论
 
-P01 已达到验收条件，P02～P10 已按序达到当前可用环境的代码闸门。run `35039453442` 已证明提交 `09b1ab0` 在 Windows x64、macOS Intel x64 与 macOS arm64 的源码 Electron、安装包、包验证及打包应用冒烟全流程通过。`0.1.0-rc.3` 将由标签驱动的独立工作流重新验证并发布为未签名/未公证 Pre-release；真实服务器/大型资料库、Windows/Apple Silicon 安装、签名/公证、手工桌面行为、最低系统和物理听音仍未完成，因此不能宣称双平台正式发布验收完成。
+P01 已达到验收条件，P02～P10 已按序达到当前可用环境的代码闸门。release run `35040657787` 已证明标签 `v0.1.0-rc.3` 在 Windows x64、macOS Intel x64 与 macOS arm64 的源码 Electron、安装包、包验证及打包应用冒烟全流程通过，并发布为明确标注未签名/未公证的 Pre-release。真实服务器/大型资料库、Windows/Apple Silicon 安装、签名/公证、手工桌面行为、最低系统和物理听音仍未完成，因此不能宣称双平台正式发布验收完成。

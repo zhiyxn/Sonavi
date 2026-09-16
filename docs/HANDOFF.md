@@ -13,7 +13,7 @@ P01～P10 已按顺序落地到当前发布前代码闸门。P10 已在 macOS 13
 - 提交 `54e15df test(e2e): 输出 CI 失败摘要` 为 Electron 冒烟增加脱敏 Check Summary 失败栈；断言与失败条件没有放宽。其 run `34938572347` 的三个目标全部通过，Intel 失败没有稳定复现。
 - `v0.1.0-rc.2` 发布 run `35036809845` 再次被 Intel 源码 Electron 冒烟阻断；Windows x64 与 Apple Silicon arm64 通过，发布 job 跳过，未创建 Release。
 - 提交 `6842e3d` 修复歌单写后刷新等待和断开连接时空队列覆盖暂停队列的竞态，增加断开顺序回归测试；提交 `09b1ab0` 改为按断开前实际当前歌曲验证落盘与重启恢复。run `35039453442` 的三个目标完整通过。
-- 当前版本推进到 `0.1.0-rc.3`，发布工作流使用 `docs/RELEASE-NOTES-v0.1.0-rc.3.md`；待提交、推送和标签发布。
+- 提交 `cc33168 chore(release): 准备 v0.1.0-rc.3` 通过普通 CI run `35040182258` 后创建标签；release run `35040657787` 的三个目标与发布 job 全部通过，GitHub Pre-release 已创建并包含七个预期附件。
 - `release/` 与 `artifacts/` 被忽略；本机 DMG、manifest 和截图不会随提交上传。
 - 原始参考包保持未修改；不得重置或丢弃当前 P10 工作区。
 
@@ -61,6 +61,8 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 
 候选 release run `35036809845` 对 `v0.1.0-rc.2` 再次执行门禁：Windows x64 和 macOS Apple Silicon arm64 通过，macOS Intel x64 源码冒烟失败，因而没有创建 Release。后续公开检查注释定位并修复三处慢速 runner 时序问题；普通 CI run `35039453442` 已确认 Windows x64、macOS Intel x64 与 macOS arm64 的源码、打包、包验证和打包应用冒烟全部通过。
 
+版本提交 `cc33168` 的普通 CI run `35040182258` 与标签发布 run `35040657787` 均在三个目标完整通过。Release `https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.3` 为非草稿 Pre-release、不是 Latest；附件包含三个安装包、三个验证 manifest 与一份覆盖六个文件的 `SHA256SUMS.txt`。
+
 ## 未验证与发布阻断项
 
 - Windows 11 x64 当前 P10 NSIS 的实际安装、开始菜单/图标、卸载保留 userData、桌面行为和物理听音；当前 Windows 构建 10.0.26200 的未安装目录包不替代这些验收。
@@ -71,4 +73,4 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 
 ## 下一入口
 
-保留失败的 `v0.1.0-rc.1` 与 `v0.1.0-rc.2` 远端标签，不改写历史。提交并推送 `0.1.0-rc.3` 后创建同名标签，确认三个 release gate、七个附件和 Pre-release 安全说明后记录结果。随后只在对应实机执行 `docs/RELEASE-CHECKLIST.md` 的安装/签名/公证矩阵；本次用户只授权测试版发布，不索取签名密钥、不将其标为正式稳定版。
+保留失败的 `v0.1.0-rc.1` 与 `v0.1.0-rc.2` 远端标签，不改写历史。`v0.1.0-rc.3` 已可供下载；下一步只在对应实机执行 `docs/RELEASE-CHECKLIST.md` 的安装、升级、真实服务器、物理听音与签名/公证矩阵。当前仍是测试版，不索取签名密钥、不将其标为正式稳定版。
