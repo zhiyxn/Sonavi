@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/vue-query'
 import { computed } from 'vue'
 import type { TrackSummary } from '../../../shared/library'
 import { useStarredMutation } from '../composables/use-starred-mutation'
+import { useErrorToast } from '../lib/notifications'
 import { listStarred } from '../services/library'
 import { usePlayerStore } from '../stores/player'
 import { Button } from './ui/button'
@@ -16,9 +17,19 @@ const player = usePlayerStore()
 const starredQuery = useQuery({
   queryKey: computed(() => ['starred', props.sessionId]),
   queryFn: () => listStarred(props.sessionId),
-  staleTime: 15_000
+  staleTime: Number.POSITIVE_INFINITY,
+  gcTime: Number.POSITIVE_INFINITY,
+  refetchOnMount: false,
+  refetchOnWindowFocus: false
 })
-const { errorMessage, pendingKey, toggleStarred } = useStarredMutation(() => props.sessionId)
+const { pendingKey, toggleStarred } = useStarredMutation(() => props.sessionId)
+
+useErrorToast(
+  () => starredQuery.isError.value
+    ? (starredQuery.error.value?.message ?? '收藏加载失败。')
+    : null,
+  { title: '收藏加载失败', id: 'starred-query-error' }
+)
 
 const hasItems = computed(() => {
   const value = starredQuery.data.value
@@ -46,9 +57,20 @@ function appendTrack(track: TrackSummary): void {
 
 <template>
   <section class="min-h-full" aria-labelledby="favorites-title">
-    <p class="eyebrow">06 / FAVORITES</p>
-    <h1 id="favorites-title" class="mt-4 text-4xl font-medium tracking-[-0.04em]">收藏</h1>
-    <p class="mt-2 text-sm text-sonavi-muted">与服务器账号实时同步，不在本机伪造收藏状态</p>
+    <div class="flex items-end justify-between gap-4">
+      <div>
+        <p class="eyebrow">FAVORITES</p>
+        <h1 id="favorites-title" class="mt-4 text-4xl font-medium tracking-[-0.04em]">收藏</h1>
+        <p class="mt-2 text-sm text-sonavi-muted">与服务器账号实时同步，不在本机伪造收藏状态</p>
+      </div>
+      <Button
+        variant="outline"
+        :disabled="starredQuery.isFetching.value"
+        @click="starredQuery.refetch()"
+      >
+        {{ starredQuery.isFetching.value ? '正在刷新…' : '刷新' }}
+      </Button>
+    </div>
 
     <p v-if="starredQuery.isPending.value" class="mt-8" role="status">正在读取收藏…</p>
     <div v-else-if="starredQuery.isError.value" class="state-card" role="alert">
@@ -120,6 +142,5 @@ function appendTrack(track: TrackSummary): void {
         </ol>
       </section>
     </div>
-    <p v-if="errorMessage" class="mutation-error" role="alert">{{ errorMessage }}</p>
   </section>
 </template>

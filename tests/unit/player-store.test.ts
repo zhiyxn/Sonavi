@@ -255,4 +255,80 @@ describe('P04 播放队列', () => {
     expect(player.state).toBe('playing')
     expect(FakeAudio.instances).toHaveLength(1)
   })
+
+  it('主播放控制保留独立的高对比样式标记', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const player = usePlayerStore()
+    await player.replaceQueue([track('contrast')], 0, scope)
+    const wrapper = mount(PlayerBar, { global: { plugins: [pinia] } })
+
+    const primaryControl = wrapper.get('button[aria-label="暂停"]')
+    expect(primaryControl.classes()).toContain('transport-primary')
+    expect(primaryControl.find('svg').exists()).toBe(true)
+  })
+
+  it('播放区域优先显示当前歌曲封面，没有封面时保留占位符', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const player = usePlayerStore()
+    await player.replaceQueue(
+      [{ ...track('covered'), coverUrl: 'sonavi-media://media/cover-handle' }],
+      0,
+      scope,
+      false
+    )
+    const wrapper = mount(PlayerBar, { global: { plugins: [pinia] } })
+
+    expect(wrapper.get('.album-placeholder img').attributes('src')).toBe(
+      'sonavi-media://media/cover-handle'
+    )
+    player.stop()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.get('.album-placeholder').text()).toBe('S')
+  })
+
+  it('打开播放队列时将当前歌曲滚动到可视区域中央', async () => {
+    const scrollIntoView = vi
+      .spyOn(HTMLElement.prototype, 'scrollIntoView')
+      .mockImplementation(() => undefined)
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const player = usePlayerStore()
+    await player.replaceQueue(
+      Array.from({ length: 12 }, (_, index) => track(`track-${index + 1}`)),
+      8,
+      scope,
+      false
+    )
+    const wrapper = mount(PlayerBar, { global: { plugins: [pinia] } })
+
+    await wrapper.get('button[aria-label="播放队列"]').trigger('click')
+    await wrapper.vm.$nextTick()
+
+    const currentItem = wrapper.get('li[aria-current="true"]')
+    expect(currentItem.classes()).toContain('current')
+    expect(currentItem.get('.queue-track strong').text()).toBe('track-9')
+    expect(currentItem.text()).toContain('track-9')
+    expect(scrollIntoView).toHaveBeenCalledOnce()
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center' })
+  })
+
+  it('点击播放器其他区域会关闭播放队列', async () => {
+    vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(() => undefined)
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const player = usePlayerStore()
+    await player.replaceQueue([track('one'), track('two')], 0, scope, false)
+    const wrapper = mount(PlayerBar, { global: { plugins: [pinia] } })
+
+    await wrapper.get('button[aria-label="播放队列"]').trigger('click')
+    expect(wrapper.find('#player-queue').exists()).toBe(true)
+
+    await wrapper.get('.queue-track').trigger('click')
+    expect(wrapper.find('#player-queue').exists()).toBe(true)
+
+    await wrapper.get('.album-placeholder').trigger('click')
+    expect(wrapper.find('#player-queue').exists()).toBe(false)
+  })
 })

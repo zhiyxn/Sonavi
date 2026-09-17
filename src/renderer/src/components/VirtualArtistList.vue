@@ -1,21 +1,28 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { ArtistSummary } from '../../../shared/library'
 
-const props = defineProps<{ artists: ArtistSummary[] }>()
-const emit = defineEmits<{ select: [artist: ArtistSummary] }>()
-const scrollTop = ref(0)
+const props = withDefaults(defineProps<{ artists: ArtistSummary[]; scrollTop?: number }>(), {
+  scrollTop: 0
+})
+const emit = defineEmits<{
+  select: [artist: ArtistSummary]
+  'update:scrollTop': [scrollTop: number]
+}>()
+const currentScrollTop = ref(props.scrollTop)
+const viewport = ref<HTMLElement | null>(null)
+const viewportHeight = ref(480)
 const ROW_HEIGHT = 72
-const VIEWPORT_HEIGHT = 480
 const OVERSCAN = 4
+let resizeObserver: ResizeObserver | null = null
 
 const startIndex = computed(() =>
-  Math.max(0, Math.floor(scrollTop.value / ROW_HEIGHT) - OVERSCAN)
+  Math.max(0, Math.floor(currentScrollTop.value / ROW_HEIGHT) - OVERSCAN)
 )
 const endIndex = computed(() =>
   Math.min(
     props.artists.length,
-    Math.ceil((scrollTop.value + VIEWPORT_HEIGHT) / ROW_HEIGHT) + OVERSCAN
+    Math.ceil((currentScrollTop.value + viewportHeight.value) / ROW_HEIGHT) + OVERSCAN
   )
 )
 const visibleArtists = computed(() =>
@@ -24,14 +31,48 @@ const visibleArtists = computed(() =>
     index: startIndex.value + index
   }))
 )
+
+function updateViewportHeight(height: number): void {
+  if (height > 0) viewportHeight.value = height
+}
+
+function applyScrollTop(scrollTop: number): void {
+  currentScrollTop.value = scrollTop
+  if (viewport.value && viewport.value.scrollTop !== scrollTop) {
+    viewport.value.scrollTop = scrollTop
+  }
+}
+
+function handleScroll(event: Event): void {
+  const scrollTop = (event.currentTarget as HTMLElement).scrollTop
+  currentScrollTop.value = scrollTop
+  emit('update:scrollTop', scrollTop)
+}
+
+onMounted(() => {
+  if (!viewport.value) return
+  applyScrollTop(props.scrollTop)
+  updateViewportHeight(viewport.value.clientHeight)
+  if (!('ResizeObserver' in globalThis)) return
+  resizeObserver = new ResizeObserver((entries) => {
+    const entry = entries[0]
+    if (entry) updateViewportHeight(entry.contentRect.height)
+  })
+  resizeObserver.observe(viewport.value)
+})
+
+watch(() => props.scrollTop, applyScrollTop)
+onBeforeUnmount(() => resizeObserver?.disconnect())
 </script>
 
 <template>
   <div
+    ref="viewport"
     class="virtual-artists"
-    :style="{ height: `${VIEWPORT_HEIGHT}px` }"
     data-testid="virtual-artist-list"
-    @scroll="scrollTop = ($event.currentTarget as HTMLElement).scrollTop"
+    tabindex="0"
+    aria-label="艺术家列表"
+    @scroll="handleScroll"
   >
     <div class="relative" :style="{ height: `${artists.length * ROW_HEIGHT}px` }">
       <button
@@ -63,7 +104,11 @@ const visibleArtists = computed(() =>
 
 <style scoped>
 .virtual-artists {
+  flex: 1 1 480px;
+  height: 480px;
+  min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   border: 1px solid var(--sonavi-border);
   border-radius: var(--sonavi-card-radius);
   background: var(--sonavi-raised);

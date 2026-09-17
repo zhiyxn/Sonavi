@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useQueryClient } from '@tanstack/vue-query'
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
+import 'vue-sonner/style.css'
 import sonaviLogoUrl from './assets/sonavi-logo.png'
 import ConnectPanel from './components/ConnectPanel.vue'
 import FavoritesPanel from './components/FavoritesPanel.vue'
@@ -18,6 +19,8 @@ import { useSessionStore } from './stores/session'
 import { usePlayerStore } from './stores/player'
 import { usePlaybackReporting } from './composables/use-playback-reporting'
 import { useDesktopIntegration } from './composables/use-desktop-integration'
+import { requestConfirmation, useErrorToast } from './lib/notifications'
+import { Toaster } from './components/ui/sonner'
 
 const applicationInfo = ref<ApplicationInfo | null>(null)
 const loadingError = ref('')
@@ -31,6 +34,13 @@ type ApplicationView = 'home' | 'albums' | 'artists' | 'search' | 'favorites' | 
 const activeView = ref<ApplicationView>('home')
 const selectedAlbumId = ref<string | null>(null)
 const selectedArtistId = ref<string | null>(null)
+const workspace = ref<HTMLElement | null>(null)
+const workspaceScrollPositions = new Map<string, number>()
+const artistListScrollTop = ref(0)
+const homeAlbumPage = ref(1)
+const albumsAlbumPage = ref(1)
+const viewCacheRevision = ref(0)
+const forgetConfirmationPending = ref(false)
 const { flushPausedQueue } = useDesktopIntegration({
   getShortcutModifier: () => applicationInfo.value?.shortcutModifier,
   openSettings: () => {
@@ -41,6 +51,16 @@ const { flushPausedQueue } = useDesktopIntegration({
 const shortcutHint = computed(() =>
   applicationInfo.value ? `${applicationInfo.value.shortcutModifier}+,` : '…'
 )
+const activeAlbumPage = computed(() => {
+  if (activeView.value === 'home') return homeAlbumPage.value
+  if (activeView.value === 'albums') return albumsAlbumPage.value
+  return 1
+})
+
+useErrorToast(loadingError, { title: '应用启动失败', id: 'application-startup-error' })
+useErrorToast(sessionActionError, { title: '账号操作失败', id: 'session-action-error' })
+useErrorToast(playbackReportError, { title: '播放记录同步失败', id: 'playback-report-error' })
+useErrorToast(() => player.errorMessage, { title: '播放失败', id: 'player-error' })
 
 onMounted(async () => {
   try {
@@ -55,6 +75,7 @@ onMounted(async () => {
 })
 
 function handleConnected(result: ConnectionSuccessResult): void {
+  resetWorkspaceScrollPositions()
   session.establish(result)
   activeView.value = 'home'
 }
@@ -62,24 +83,94 @@ function handleConnected(result: ConnectionSuccessResult): void {
 function handleNetworkChanged(): void {
   player.stop()
   queryClient.clear()
+  viewCacheRevision.value += 1
 }
 
-function navigate(view: ApplicationView): void {
+function workspaceScrollKey(): string {
+  if (activeView.value === 'artists' && selectedArtistId.value && selectedAlbumId.value) {
+    return `artists:artist:${selectedArtistId.value}:album:${selectedAlbumId.value}`
+  }
+  if ((activeView.value === 'home' || activeView.value === 'albums') && selectedAlbumId.value) {
+    return `${activeView.value}:album:${selectedAlbumId.value}`
+  }
+  if (activeView.value === 'artists' && selectedArtistId.value) {
+    return `artists:artist:${selectedArtistId.value}`
+  }
+  return activeView.value
+}
+
+function rememberWorkspaceScroll(): void {
+  if (workspace.value && activeView.value !== 'settings') {
+    workspaceScrollPositions.set(workspaceScrollKey(), workspace.value.scrollTop)
+  }
+}
+
+function resetWorkspaceScrollPositions(): void {
+  workspaceScrollPositions.clear()
+  artistListScrollTop.value = 0
+  homeAlbumPage.value = 1
+  albumsAlbumPage.value = 1
+  if (workspace.value) workspace.value.scrollTop = 0
+}
+
+async function restoreWorkspaceScroll(): Promise<void> {
+  await nextTick()
+  if (workspace.value) {
+    workspace.value.scrollTop = activeView.value === 'settings'
+      ? 0
+      : (workspaceScrollPositions.get(workspaceScrollKey()) ?? 0)
+  }
+}
+
+function updateArtistListScrollTop(scrollTop: number): void {
+  artistListScrollTop.value = scrollTop
+}
+
+function updateAlbumPage(page: number): void {
+  if (activeView.value === 'home') homeAlbumPage.value = page
+  if (activeView.value === 'albums') albumsAlbumPage.value = page
+}
+
+async function navigate(view: ApplicationView): Promise<void> {
+  rememberWorkspaceScroll()
   activeView.value = view
   if (view !== 'albums' && view !== 'home') selectedAlbumId.value = null
   if (view !== 'artists') selectedArtistId.value = null
+  await restoreWorkspaceScroll()
 }
 
-function openAlbum(albumId: string): void {
+async function updateSelectedAlbumId(albumId: string | null): Promise<void> {
+  rememberWorkspaceScroll()
+  selectedAlbumId.value = albumId
+  await restoreWorkspaceScroll()
+}
+
+async function updateSelectedArtistId(artistId: string | null): Promise<void> {
+  rememberWorkspaceScroll()
+  selectedArtistId.value = artistId
+  await restoreWorkspaceScroll()
+}
+
+async function openAlbum(albumId: string): Promise<void> {
+  rememberWorkspaceScroll()
   selectedAlbumId.value = albumId
   selectedArtistId.value = null
   activeView.value = 'albums'
+  await restoreWorkspaceScroll()
 }
 
-function openArtist(artistId: string): void {
+async function openAlbumFromArtist(albumId: string): Promise<void> {
+  rememberWorkspaceScroll()
+  selectedAlbumId.value = albumId
+  await restoreWorkspaceScroll()
+}
+
+async function openArtist(artistId: string): Promise<void> {
+  rememberWorkspaceScroll()
   selectedArtistId.value = artistId
   selectedAlbumId.value = null
   activeView.value = 'artists'
+  await restoreWorkspaceScroll()
 }
 
 async function handleDisconnect(): Promise<void> {
@@ -97,6 +188,7 @@ async function handleDisconnect(): Promise<void> {
     selectedAlbumId.value = null
     selectedArtistId.value = null
     activeView.value = 'home'
+    resetWorkspaceScrollPositions()
   } catch {
     sessionActionError.value = '无法安全断开当前会话，请重新启动 Sonavi。'
   }
@@ -104,7 +196,19 @@ async function handleDisconnect(): Promise<void> {
 
 async function handleForget(): Promise<void> {
   const current = session.connection
-  if (!current || !window.confirm('退出当前账号并删除这台设备上保存的加密凭据？')) return
+  if (!current || forgetConfirmationPending.value) return
+  forgetConfirmationPending.value = true
+  let confirmed: boolean
+  try {
+    confirmed = await requestConfirmation({
+      title: '退出并忘记账号？',
+      description: '将删除这台设备上保存的加密凭据、暂停队列和当前账号封面缓存。',
+      confirmLabel: '退出并删除'
+    })
+  } finally {
+    forgetConfirmationPending.value = false
+  }
+  if (!confirmed) return
 
   sessionActionError.value = ''
   player.stop()
@@ -115,6 +219,7 @@ async function handleForget(): Promise<void> {
     selectedAlbumId.value = null
     selectedArtistId.value = null
     activeView.value = 'home'
+    resetWorkspaceScrollPositions()
   } catch {
     sessionActionError.value = '无法删除保存的凭据；当前界面未退出，请重试。'
   }
@@ -174,45 +279,65 @@ async function handleForget(): Promise<void> {
       </div>
     </aside>
 
-    <section id="main-content" class="workspace">
+    <section
+      id="main-content"
+      ref="workspace"
+      class="workspace"
+      :class="{
+        'workspace-album-detail': selectedAlbumId,
+        'workspace-artists-list': activeView === 'artists' && !selectedArtistId && !selectedAlbumId
+      }"
+      @scroll.passive="rememberWorkspaceScroll"
+    >
       <div id="connect" class="content-frame">
         <template v-if="applicationInfo && !startupPending && session.connection">
-          <LibraryPanel
-            v-if="activeView === 'home' || activeView === 'albums'"
-            v-model:selected-album-id="selectedAlbumId"
-            :session-id="session.connection.sessionId"
-            :server-name="session.connection.server.serverType ?? 'Subsonic 服务器'"
-            :server-id="session.connection.server.baseUrl"
-            :list-type="activeView === 'home' ? 'newest' : 'alphabeticalByName'"
-            :title="activeView === 'home' ? '最近添加' : '全部专辑'"
-          />
-          <ArtistsPanel
-            v-else-if="activeView === 'artists'"
-            v-model:selected-artist-id="selectedArtistId"
-            :session-id="session.connection.sessionId"
-            @open-album="openAlbum"
-          />
-          <SearchPanel
-            v-else-if="activeView === 'search'"
-            :session-id="session.connection.sessionId"
-            :server-id="session.connection.server.baseUrl"
-            @open-album="openAlbum"
-            @open-artist="openArtist"
-          />
-          <FavoritesPanel
-            v-else-if="activeView === 'favorites'"
-            :session-id="session.connection.sessionId"
-            :server-id="session.connection.server.baseUrl"
-            @open-album="openAlbum"
-            @open-artist="openArtist"
-          />
-          <PlaylistsPanel
-            v-else-if="activeView === 'playlists'"
-            :session-id="session.connection.sessionId"
-            :server-id="session.connection.server.baseUrl"
-          />
+          <KeepAlive :key="viewCacheRevision">
+            <LibraryPanel
+              v-if="selectedAlbumId || activeView === 'home' || activeView === 'albums'"
+              :key="activeView"
+              :selected-album-id="selectedAlbumId"
+              :session-id="session.connection.sessionId"
+              :server-name="session.connection.server.serverType ?? 'Subsonic 服务器'"
+              :server-id="session.connection.server.baseUrl"
+              :list-type="activeView === 'home' ? 'newest' : 'alphabeticalByName'"
+              :title="activeView === 'home' ? '最近添加' : '全部专辑'"
+              :back-label="activeView === 'artists' ? '返回艺术家详情' : '返回专辑'"
+              :album-list-enabled="activeView !== 'artists'"
+              :page="activeAlbumPage"
+              @update:page="updateAlbumPage"
+              @update:selected-album-id="updateSelectedAlbumId"
+            />
+            <ArtistsPanel
+              v-else-if="activeView === 'artists'"
+              :list-scroll-top="artistListScrollTop"
+              :selected-artist-id="selectedArtistId"
+              :session-id="session.connection.sessionId"
+              @update:list-scroll-top="updateArtistListScrollTop"
+              @update:selected-artist-id="updateSelectedArtistId"
+              @open-album="openAlbumFromArtist"
+            />
+            <SearchPanel
+              v-else-if="activeView === 'search'"
+              :session-id="session.connection.sessionId"
+              :server-id="session.connection.server.baseUrl"
+              @open-album="openAlbum"
+              @open-artist="openArtist"
+            />
+            <FavoritesPanel
+              v-else-if="activeView === 'favorites'"
+              :session-id="session.connection.sessionId"
+              :server-id="session.connection.server.baseUrl"
+              @open-album="openAlbum"
+              @open-artist="openArtist"
+            />
+            <PlaylistsPanel
+              v-else-if="activeView === 'playlists'"
+              :session-id="session.connection.sessionId"
+              :server-id="session.connection.server.baseUrl"
+            />
+          </KeepAlive>
           <SettingsPanel
-            v-else
+            v-if="activeView === 'settings'"
             :application-info="applicationInfo"
             :connection="session.connection"
             @disconnect="handleDisconnect"
@@ -227,12 +352,23 @@ async function handleForget(): Promise<void> {
         />
         <p v-else-if="loadingError" class="startup-error" role="alert">{{ loadingError }}</p>
         <p v-else class="startup-status" role="status">正在读取应用信息…</p>
-        <p v-if="sessionActionError" class="startup-error" role="alert">
-          {{ sessionActionError }}
-        </p>
       </div>
     </section>
 
-    <PlayerBar :reporting-error="playbackReportError" />
+    <PlayerBar />
+    <Toaster
+      position="top-center"
+      rich-colors
+      close-button
+      :visible-toasts="4"
+      container-aria-label="Sonavi 通知"
+      :toast-options="{
+        classes: {
+          toast: 'sonavi-toast',
+          actionButton: 'sonavi-toast-action',
+          cancelButton: 'sonavi-toast-cancel'
+        }
+      }"
+    />
   </main>
 </template>

@@ -3,26 +3,32 @@ import { useQuery } from '@tanstack/vue-query'
 import { computed } from 'vue'
 import type { ArtistSummary } from '../../../shared/library'
 import { useStarredMutation } from '../composables/use-starred-mutation'
+import { useErrorToast } from '../lib/notifications'
 import { getArtist, listArtists } from '../services/library'
 import { Button } from './ui/button'
 import VirtualArtistList from './VirtualArtistList.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   sessionId: string
   selectedArtistId: string | null
-}>()
+  listScrollTop?: number
+}>(), {
+  listScrollTop: 0
+})
 const emit = defineEmits<{
   'update:selectedArtistId': [artistId: string | null]
+  'update:listScrollTop': [scrollTop: number]
   openAlbum: [albumId: string]
 }>()
-const { errorMessage: starredError, pendingKey, toggleStarred } = useStarredMutation(
-  () => props.sessionId
-)
+const { pendingKey, toggleStarred } = useStarredMutation(() => props.sessionId)
 
 const artistsQuery = useQuery({
   queryKey: computed(() => ['artists', props.sessionId]),
   queryFn: () => listArtists(props.sessionId),
-  staleTime: 30_000
+  staleTime: Number.POSITIVE_INFINITY,
+  gcTime: Number.POSITIVE_INFINITY,
+  refetchOnMount: false,
+  refetchOnWindowFocus: false
 })
 
 const artists = computed(() =>
@@ -33,34 +39,79 @@ const artistQuery = useQuery({
   queryKey: computed(() => ['artist', props.sessionId, props.selectedArtistId]),
   queryFn: () => getArtist(props.sessionId, props.selectedArtistId ?? ''),
   enabled: computed(() => props.selectedArtistId !== null),
-  staleTime: 30_000
+  staleTime: Number.POSITIVE_INFINITY,
+  gcTime: Number.POSITIVE_INFINITY,
+  refetchOnMount: false,
+  refetchOnWindowFocus: false
 })
+
+useErrorToast(
+  () => artistsQuery.isError.value
+    ? (artistsQuery.error.value?.message ?? '艺术家列表加载失败。')
+    : null,
+  { title: '艺术家列表加载失败', id: 'artists-query-error' }
+)
+useErrorToast(
+  () => artistQuery.isError.value
+    ? (artistQuery.error.value?.message ?? '艺术家详情加载失败。')
+    : null,
+  { title: '艺术家详情加载失败', id: 'artist-query-error' }
+)
 
 function openArtist(artist: ArtistSummary): void {
   emit('update:selectedArtistId', artist.id)
 }
+
+function refreshCurrentView(): void {
+  if (props.selectedArtistId) {
+    void artistQuery.refetch()
+    return
+  }
+  void artistsQuery.refetch()
+}
 </script>
 
 <template>
-  <section class="min-h-full" aria-labelledby="artists-title">
-    <div class="mb-8 flex items-end justify-between gap-4">
+  <section
+    class="artists-page min-h-full"
+    :class="{ 'artists-list-page': !selectedArtistId }"
+    aria-labelledby="artists-title"
+  >
+    <div class="artists-page-header mb-8 flex items-end justify-between gap-4">
       <div class="min-w-0">
-        <p class="eyebrow">05 / ARTISTS</p>
+        <p class="eyebrow">ARTISTS</p>
         <h1 id="artists-title" class="mt-4 truncate text-4xl font-medium tracking-[-0.04em]">
           {{ selectedArtistId ? (artistQuery.data.value?.name ?? '艺术家详情') : '艺术家' }}
         </h1>
         <p class="mt-2 text-sm text-sonavi-muted">按服务器提供的索引浏览</p>
       </div>
-      <div v-if="selectedArtistId" class="flex gap-2">
+      <div class="flex gap-2">
         <Button
-          v-if="artistQuery.data.value"
+          variant="outline"
+          :disabled="selectedArtistId ? artistQuery.isFetching.value : artistsQuery.isFetching.value"
+          @click="refreshCurrentView"
+        >
+          {{
+            (selectedArtistId ? artistQuery.isFetching.value : artistsQuery.isFetching.value)
+              ? '正在刷新…'
+              : '刷新'
+          }}
+        </Button>
+        <Button
+          v-if="selectedArtistId && artistQuery.data.value"
           variant="outline"
           :disabled="pendingKey === `artist:${artistQuery.data.value.id}`"
           @click="toggleStarred('artist', artistQuery.data.value.id, !artistQuery.data.value.starred)"
         >
           {{ artistQuery.data.value.starred ? '取消收藏' : '收藏艺术家' }}
         </Button>
-        <Button variant="outline" @click="emit('update:selectedArtistId', null)">返回艺术家</Button>
+        <Button
+          v-if="selectedArtistId"
+          variant="outline"
+          @click="emit('update:selectedArtistId', null)"
+        >
+          返回艺术家
+        </Button>
       </div>
     </div>
 
@@ -123,8 +174,13 @@ function openArtist(artist: ArtistSummary): void {
         <Button class="mt-4" size="sm" @click="artistsQuery.refetch()">重试</Button>
       </div>
       <p v-else-if="artists.length === 0" class="text-sonavi-muted">音乐库中暂无艺术家。</p>
-      <VirtualArtistList v-else :artists="artists" @select="openArtist" />
+      <VirtualArtistList
+        v-else
+        :artists="artists"
+        :scroll-top="listScrollTop"
+        @select="openArtist"
+        @update:scroll-top="emit('update:listScrollTop', $event)"
+      />
     </template>
-    <p v-if="starredError" class="mutation-error" role="alert">{{ starredError }}</p>
   </section>
 </template>

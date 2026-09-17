@@ -628,11 +628,13 @@ try {
   await window.getByRole('heading', { name: '设置', exact: true }).waitFor()
   await window.getByRole('button', { name: '首页', exact: true }).click()
   await window.getByRole('heading', { name: '最近添加' }).waitFor()
-  await window.locator('.workspace').evaluate((element) => element.scrollTo(0, element.scrollHeight))
+  await window.getByRole('button', { name: '下一页', exact: true }).click()
   await window.getByRole('button', { name: /分页专辑 31/ }).waitFor()
-  if ((await window.getByText('继续向下滚动加载更多专辑', { exact: true }).count()) !== 0) {
-    throw new Error('最后一页加载后仍显示自动加载提示')
+  if (!(await window.getByRole('button', { name: '下一页', exact: true }).isDisabled())) {
+    throw new Error('最后一页的下一页按钮没有禁用')
   }
+  await window.getByRole('button', { name: '上一页', exact: true }).click()
+  await window.getByRole('button', { name: /石与琥珀/ }).waitFor()
   await window.getByRole('button', { name: /石与琥珀/ }).click()
   await window.getByRole('heading', { name: '专辑详情' }).waitFor()
   await window.getByRole('button', { name: '播放 跨平台试音' }).click()
@@ -768,8 +770,8 @@ try {
   await window.getByLabel('对服务器上的其他用户公开').check()
   await window.getByRole('button', { name: '保存信息', exact: true }).click()
   await window.getByText('歌单信息已更新。').waitFor()
-  window.once('dialog', (dialog) => dialog.accept())
   await window.getByRole('button', { name: '删除歌单', exact: true }).click()
+  await window.getByRole('button', { name: '删除歌单', exact: true }).last().click()
   await window.getByText('歌单已删除。').waitFor()
   await window.getByRole('button', { name: /现有歌单/ }).waitFor()
   await window.screenshot({ path: screenshotPath, fullPage: true })
@@ -950,8 +952,8 @@ try {
 
   await window.getByRole('button', { name: '设置', exact: true }).click()
   await window.getByRole('heading', { name: '设置', exact: true }).waitFor()
-  window.once('dialog', (dialog) => dialog.accept())
   await window.getByRole('button', { name: '退出并忘记账号' }).click()
+  await window.getByRole('button', { name: '退出并删除', exact: true }).click()
   await window.getByRole('heading', { name: '连接你的音乐空间' }).waitFor()
   await electronApplication.close()
   electronApplication = await launchApplication()

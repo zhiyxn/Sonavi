@@ -63,11 +63,15 @@ P09 将非敏感队列元数据保存到 main 的 `desktop-state.v1.json`，不�
 
 ## P05 音乐库与搜索
 
-首页与全部专辑共用 `LibraryPanel.vue`，仅以受限的 `AlbumListType` 区分 `newest` 和 `alphabeticalByName`；查询 key 包含 session 与类型，翻页结果按服务端 ID 去重。艺术家列表使用 `getArtists` 的协议索引，但 renderer 只挂载固定行高可见窗口和 overscan；艺术家详情通过 `getArtist` 复用同一专辑卡片语义。
+首页与全部专辑共用 `LibraryPanel.vue`，仅以受限的 `AlbumListType` 区分 `newest` 和 `alphabeticalByName`；查询 key 包含 session、类型与页码，每页请求 30 张。renderer 使用项目持有的 shadcn-vue Pagination 源码显示页码、上一页和下一页；由于公共响应只有 `hasMore` 而没有总数，控件只公布已知页和下一可用页，不猜测远端总量。首页与专辑页分别在应用外壳保存当前页。艺术家列表使用 `getArtists` 的协议索引，但 renderer 只挂载固定行高可见窗口和 overscan；艺术家详情通过 `getArtist` 复用同一专辑卡片语义。
 
-搜索只调用公共 `search3`，艺术家、专辑和歌曲使用相同 offset/size 分页。输入在 renderer 防抖 300ms，TanStack Query 为每个查询提供 AbortSignal；renderer 生成随机 requestId，通过固定 `cancel-search` preload 方法请求 main 中止对应 AbortController。main 同时校验 sessionId/requestId，断开或轮换账号时取消该会话的全部活动搜索。搜索结果只返回纯文本元数据及随机媒体句柄，不允许 renderer 访问任意 URL。
+搜索只调用公共 `search3`，艺术家、专辑和歌曲使用相同 offset/size 分页。输入与已提交关键词分离，只有按 Enter 或点击搜索按钮才更新查询；TanStack Query 为每个查询提供 AbortSignal。renderer 生成随机 requestId，通过固定 `cancel-search` preload 方法请求 main 中止对应 AbortController。main 同时校验 sessionId/requestId，断开或轮换账号时取消该会话的全部活动搜索。搜索结果只返回纯文本元数据及随机媒体句柄，不允许 renderer 访问任意 URL。
+
+首页、专辑、艺术家、搜索、收藏与歌单组件由 `KeepAlive` 保留已访问实例，避免栏目切换重建搜索条件、歌单详情和查询观察器；设置页不缓存。服务器读取按 session 与资源键在当前连接会话内保持新鲜，禁用挂载和窗口聚焦自动重取，各页的刷新按钮直接 `refetch` 当前列表、当前分页或当前详情，不清空全局缓存。收藏/歌单写入仍按资源失效并重读服务器事实；代理变更、恢复/解锁、断开和忘记账号继续清除查询缓存，其中网络设置变更同时轮换页面缓存实例，确保不会复用旧网络上下文。
 
 设置页在同一共享组件中呈现平台、服务器、协议、播放/网络策略、关闭动作、主题、当前账号封面缓存与安全退出；平台行为由 preload/main 适配，不在 Vue 组件读取 `process`。
+
+renderer 根节点只挂载一个项目持有的 shadcn-vue Sonner `Toaster`。连接、设置、收藏/歌单 mutation、查询、播放和上报错误通过统一通知工具调用 `toast.error`，稳定 ID 避免同一错误重复堆叠；阻断当前页面的加载错误仍保留带重试按钮的状态卡。删除歌单与退出并忘记账号不再调用原生 `window.confirm`，而使用持续显示、可关闭且带确认/取消 action 的 Sonner；关闭或取消解析为拒绝，确认后才进入既有受限 IPC/服务调用，组件同时阻止重复确认。
 
 ## P06 收藏与歌单
 

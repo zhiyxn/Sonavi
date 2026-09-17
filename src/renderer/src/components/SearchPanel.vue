@@ -3,6 +3,7 @@ import { useInfiniteQuery } from '@tanstack/vue-query'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { AlbumSummary, ArtistSummary, TrackSummary } from '../../../shared/library'
 import { useStarredMutation } from '../composables/use-starred-mutation'
+import { useErrorToast } from '../lib/notifications'
 import { searchLibrary } from '../services/library'
 import { usePlayerStore } from '../stores/player'
 import { Button } from './ui/button'
@@ -13,22 +14,12 @@ const emit = defineEmits<{
   openArtist: [artistId: string]
 }>()
 const player = usePlayerStore()
-const { errorMessage: starredError, pendingKey, toggleStarred } = useStarredMutation(
-  () => props.sessionId
-)
+const { pendingKey, toggleStarred } = useStarredMutation(() => props.sessionId)
 const input = ref('')
-const debouncedQuery = ref('')
-let debounceTimer: ReturnType<typeof setTimeout> | undefined
+const submittedQuery = ref('')
 const SEARCH_PAGE_SIZE = 25
 const loadMoreSentinel = ref<HTMLElement | null>(null)
 let loadMoreObserver: IntersectionObserver | null = null
-
-watch(input, (value) => {
-  clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(() => {
-    debouncedQuery.value = value.trim()
-  }, 300)
-})
 
 onMounted(() => {
   if (!('IntersectionObserver' in globalThis)) return
@@ -50,19 +41,47 @@ watch(loadMoreSentinel, (sentinel, previous) => {
 })
 
 onBeforeUnmount(() => {
-  clearTimeout(debounceTimer)
   loadMoreObserver?.disconnect()
 })
 
 const searchQuery = useInfiniteQuery({
-  queryKey: computed(() => ['search', props.sessionId, debouncedQuery.value]),
+  queryKey: computed(() => ['search', props.sessionId, submittedQuery.value]),
   queryFn: ({ pageParam, signal }) =>
-    searchLibrary(props.sessionId, debouncedQuery.value, pageParam, SEARCH_PAGE_SIZE, signal),
-  enabled: computed(() => debouncedQuery.value.length > 0),
+    searchLibrary(props.sessionId, submittedQuery.value, pageParam, SEARCH_PAGE_SIZE, signal),
+  enabled: computed(() => submittedQuery.value.length > 0),
   initialPageParam: 0,
   getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextOffset : undefined),
-  staleTime: 30_000
+  staleTime: Number.POSITIVE_INFINITY,
+  gcTime: Number.POSITIVE_INFINITY,
+  refetchOnMount: false,
+  refetchOnWindowFocus: false
 })
+
+useErrorToast(
+  () => searchQuery.isError.value
+    ? (searchQuery.error.value?.message ?? '搜索失败。')
+    : null,
+  { title: '搜索失败', id: 'search-query-error' }
+)
+
+function submitSearch(): void {
+  const nextQuery = input.value.trim()
+  if (!nextQuery) {
+    submittedQuery.value = ''
+    return
+  }
+  if (nextQuery === submittedQuery.value) {
+    void searchQuery.refetch()
+    return
+  }
+  submittedQuery.value = nextQuery
+}
+
+function handleSearchEnter(event: KeyboardEvent): void {
+  if (event.isComposing) return
+  event.preventDefault()
+  submitSearch()
+}
 
 function unique<T extends { id: string }>(items: T[]): T[] {
   return [...new Map(items.map((item) => [item.id, item])).values()]
@@ -101,24 +120,34 @@ function appendTrack(track: TrackSummary): void {
 
 <template>
   <section class="min-h-full" aria-labelledby="search-title">
-    <p class="eyebrow">05 / SEARCH</p>
+    <p class="eyebrow">SEARCH</p>
     <h1 id="search-title" class="mt-4 text-4xl font-medium tracking-[-0.04em]">搜索音乐库</h1>
-    <label class="search-field">
-      <span class="sr-only">搜索艺术家、专辑或歌曲</span>
-      <input
-        v-model="input"
-        type="search"
-        maxlength="200"
-        autocomplete="off"
-        placeholder="搜索艺术家、专辑或歌曲"
-      />
-    </label>
+    <form class="search-form" role="search" @submit.prevent="submitSearch">
+      <label class="search-field">
+        <span class="sr-only">搜索艺术家、专辑或歌曲</span>
+        <input
+          v-model="input"
+          type="search"
+          maxlength="200"
+          autocomplete="off"
+          placeholder="搜索艺术家、专辑或歌曲"
+          @keydown.enter="handleSearchEnter"
+        />
+      </label>
+      <Button type="button" :disabled="!input.trim()" @click="submitSearch">搜索</Button>
+      <Button
+        v-if="submittedQuery"
+        type="button"
+        variant="outline"
+        :disabled="searchQuery.isFetching.value"
+        @click="searchQuery.refetch()"
+      >
+        {{ searchQuery.isFetching.value ? '正在刷新…' : '刷新结果' }}
+      </Button>
+    </form>
 
-    <p v-if="input.trim() && input.trim() !== debouncedQuery" class="mt-5 text-sonavi-muted" role="status">
-      正在准备搜索…
-    </p>
-    <p v-else-if="searchQuery.isPending.value && debouncedQuery" class="mt-5" role="status">
-      正在搜索“{{ debouncedQuery }}”…
+    <p v-if="searchQuery.isPending.value && submittedQuery" class="mt-5" role="status">
+      正在搜索“{{ submittedQuery }}”…
     </p>
     <div
       v-else-if="searchQuery.isError.value"
@@ -128,8 +157,8 @@ function appendTrack(track: TrackSummary): void {
       <p>{{ searchQuery.error.value?.message ?? '搜索失败。' }}</p>
       <Button class="mt-4" size="sm" @click="searchQuery.refetch()">重试</Button>
     </div>
-    <p v-else-if="debouncedQuery && !hasResults" class="mt-6 text-sonavi-muted">
-      没有找到“{{ debouncedQuery }}”的结果。
+    <p v-else-if="submittedQuery && !hasResults" class="mt-6 text-sonavi-muted">
+      没有找到“{{ submittedQuery }}”的结果。
     </p>
 
     <div v-if="hasResults" class="search-results">
@@ -202,6 +231,5 @@ function appendTrack(track: TrackSummary): void {
         {{ searchQuery.isFetchingNextPage.value ? '正在加载更多结果…' : '继续滚动以加载更多结果' }}
       </p>
     </div>
-    <p v-if="starredError" class="mutation-error" role="alert">{{ starredError }}</p>
   </section>
 </template>

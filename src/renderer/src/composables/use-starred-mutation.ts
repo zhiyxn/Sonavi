@@ -1,15 +1,14 @@
 import { useQueryClient } from '@tanstack/vue-query'
 import { ref } from 'vue'
 import type { StarTargetType } from '../../../shared/library'
+import { showErrorToast } from '../lib/notifications'
 import { setStarred } from '../services/library'
 
 export function useStarredMutation(sessionId: () => string): {
-  errorMessage: ReturnType<typeof ref<string>>
   pendingKey: ReturnType<typeof ref<string>>
   toggleStarred: (targetType: StarTargetType, targetId: string, starred: boolean) => Promise<void>
 } {
   const queryClient = useQueryClient()
-  const errorMessage = ref('')
   const pendingKey = ref('')
 
   async function toggleStarred(
@@ -19,7 +18,6 @@ export function useStarredMutation(sessionId: () => string): {
   ): Promise<void> {
     const key = `${targetType}:${targetId}`
     pendingKey.value = key
-    errorMessage.value = ''
     try {
       await setStarred({ sessionId: sessionId(), targetType, targetId, starred })
       await Promise.all([
@@ -31,11 +29,14 @@ export function useStarredMutation(sessionId: () => string): {
         queryClient.invalidateQueries({ queryKey: ['search', sessionId()] })
       ])
     } catch (error) {
-      errorMessage.value = error instanceof Error ? error.message : '收藏操作失败。'
+      showErrorToast(error instanceof Error ? error.message : '收藏操作失败。', {
+        title: '收藏操作失败',
+        id: 'starred-mutation-error'
+      })
     } finally {
       if (pendingKey.value === key) pendingKey.value = ''
     }
   }
 
-  return { errorMessage, pendingKey, toggleStarred }
+  return { pendingKey, toggleStarred }
 }

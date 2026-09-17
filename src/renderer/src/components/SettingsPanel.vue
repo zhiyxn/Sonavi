@@ -4,6 +4,7 @@ import type { ApplicationInfo } from '../../../shared/application'
 import type { ConnectionSuccessResult } from '../../../shared/connection'
 import type { NetworkDiagnosticEntry, NetworkSettings } from '../../../shared/network'
 import type { CoverCacheInfo, DesktopPreferences } from '../../../shared/desktop'
+import { showErrorToast } from '../lib/notifications'
 import {
   exportNetworkDiagnostics,
   loadNetworkDiagnostics,
@@ -24,7 +25,6 @@ const emit = defineEmits<{ disconnect: []; forget: []; networkChanged: [] }>()
 const settings = ref<NetworkSettings | null>(null)
 const diagnostics = ref<NetworkDiagnosticEntry[]>([])
 const statusMessage = ref('')
-const errorMessage = ref('')
 const saving = ref(false)
 const savingDesktop = ref(false)
 const clearingCache = ref(false)
@@ -73,7 +73,10 @@ onMounted(async () => {
     ])
     await refreshDiagnostics()
   } catch {
-    errorMessage.value = '无法读取网络与播放设置。'
+    showErrorToast('无法读取网络与播放设置。', {
+      title: '设置加载失败',
+      id: 'settings-load-error'
+    })
   }
 })
 
@@ -81,13 +84,15 @@ async function saveDesktopSettings(): Promise<void> {
   if (!desktopSettings.value || savingDesktop.value) return
   savingDesktop.value = true
   statusMessage.value = ''
-  errorMessage.value = ''
   try {
     const saved = await desktop.update(desktopSettings.value)
     desktopSettings.value = { ...saved }
     statusMessage.value = '桌面设置已保存。关闭窗口时将按新规则执行。'
   } catch {
-    errorMessage.value = '桌面设置保存失败。'
+    showErrorToast('桌面设置保存失败。', {
+      title: '设置保存失败',
+      id: 'desktop-settings-error'
+    })
   } finally {
     savingDesktop.value = false
   }
@@ -96,12 +101,14 @@ async function saveDesktopSettings(): Promise<void> {
 async function clearCache(): Promise<void> {
   if (clearingCache.value) return
   clearingCache.value = true
-  errorMessage.value = ''
   try {
     cacheInfo.value = await clearCoverCache(props.connection.sessionId)
     statusMessage.value = '当前账号的封面缓存已清空；音频从未写入离线缓存。'
   } catch {
-    errorMessage.value = '封面缓存清理失败。'
+    showErrorToast('封面缓存清理失败。', {
+      title: '缓存清理失败',
+      id: 'cover-cache-error'
+    })
   } finally {
     clearingCache.value = false
   }
@@ -116,7 +123,6 @@ function formatBytes(bytes: number): string {
 async function saveSettings(): Promise<void> {
   if (!settings.value || saving.value) return
   saving.value = true
-  errorMessage.value = ''
   statusMessage.value = ''
   try {
     const request: NetworkSettings = {
@@ -133,7 +139,10 @@ async function saveSettings(): Promise<void> {
       ? '设置已保存；代理已切换，旧连接和当前播放已安全停止。'
       : '播放设置已保存；当前播放已停止，请重新选择歌曲。'
   } catch {
-    errorMessage.value = '设置保存失败，请检查代理地址、端口和网络状态。'
+    showErrorToast('请检查代理地址、端口和网络状态。', {
+      title: '网络设置保存失败',
+      id: 'network-settings-error'
+    })
   } finally {
     saving.value = false
   }
@@ -144,19 +153,21 @@ async function refreshDiagnostics(): Promise<void> {
 }
 
 async function exportDiagnostics(): Promise<void> {
-  errorMessage.value = ''
   try {
     const result = await exportNetworkDiagnostics()
     if (result.exported) statusMessage.value = '已导出脱敏且限量的诊断日志。'
   } catch {
-    errorMessage.value = '诊断日志导出失败。'
+    showErrorToast('诊断日志导出失败。', {
+      title: '导出失败',
+      id: 'diagnostics-export-error'
+    })
   }
 }
 </script>
 
 <template>
   <section class="min-h-full" aria-labelledby="settings-title">
-    <p class="eyebrow">05 / SETTINGS</p>
+    <p class="eyebrow">SETTINGS</p>
     <h1 id="settings-title" class="mt-4 text-4xl font-medium tracking-[-0.04em]">设置</h1>
     <dl class="settings-list">
       <div><dt>平台</dt><dd>{{ applicationInfo.platformLabel }}</dd></div>
@@ -280,7 +291,6 @@ async function exportDiagnostics(): Promise<void> {
     </section>
 
     <p v-if="statusMessage" class="settings-status" role="status">{{ statusMessage }}</p>
-    <p v-if="errorMessage" class="startup-error" role="alert">{{ errorMessage }}</p>
     <div class="mt-6 flex flex-wrap gap-3">
       <Button variant="outline" @click="emit('disconnect')">断开连接</Button>
       <Button variant="ghost" @click="emit('forget')">退出并忘记账号</Button>

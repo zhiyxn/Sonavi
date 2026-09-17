@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import type { ApplicationInfo } from '../../../shared/application'
 import type { ConnectionSuccessResult } from '../../../shared/connection'
+import { showErrorToast } from '../lib/notifications'
 import { testConnection } from '../services/connection'
 
 defineProps<{
@@ -38,8 +39,12 @@ async function submitConnection(): Promise<void> {
     })
 
     if (!result.ok) {
-      statusKind.value = 'error'
-      statusMessage.value = result.error.message
+      showErrorToast(result.error.message, {
+        title: '连接失败',
+        id: 'connection-error'
+      })
+      statusKind.value = 'idle'
+      statusMessage.value = '请检查连接信息后重试。'
       return
     }
 
@@ -55,8 +60,12 @@ async function submitConnection(): Promise<void> {
     statusMessage.value = `已连接 ${serverName}，发现 ${result.server.musicFolders.length} 个音乐文件夹。${persistenceMessage}`
     emit('connected', result)
   } catch {
-    statusKind.value = 'error'
-    statusMessage.value = '无法验证应用返回的连接结果，请重新启动 Sonavi。'
+    showErrorToast('无法验证应用返回的连接结果，请重新启动 Sonavi。', {
+      title: '连接失败',
+      id: 'connection-error'
+    })
+    statusKind.value = 'idle'
+    statusMessage.value = '请检查连接信息后重试。'
   } finally {
     password.value = ''
     isSubmitting.value = false
@@ -66,7 +75,7 @@ async function submitConnection(): Promise<void> {
 
 <template>
   <section class="connect-panel" aria-labelledby="connect-title">
-    <p class="eyebrow">01 / CONNECT</p>
+    <p class="eyebrow">CONNECT</p>
     <h1 id="connect-title">连接你的音乐空间</h1>
     <p class="intro">添加 Navidrome、Subsonic 或 OpenSubsonic 服务器。Windows 与 macOS 共用此连接流程。</p>
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import {
   ChevronDown,
   ChevronUp,
@@ -19,10 +19,9 @@ import { usePlayerStore } from '../stores/player'
 import { Button } from './ui/button'
 import LyricsPanel from './LyricsPanel.vue'
 
-defineProps<{ reportingError?: string }>()
-
 const player = usePlayerStore()
 const queueOpen = ref(false)
+const queueList = ref<HTMLOListElement | null>(null)
 const lyricsOpen = ref(false)
 
 const stateLabels = {
@@ -61,19 +60,31 @@ const repeatLabel = computed(() => {
   return '不循环'
 })
 
-function toggleQueue(): void {
+async function toggleQueue(): Promise<void> {
   queueOpen.value = !queueOpen.value
-  if (queueOpen.value) lyricsOpen.value = false
+  if (!queueOpen.value) return
+
+  lyricsOpen.value = false
+  await nextTick()
+  queueList.value
+    ?.querySelector<HTMLElement>('[aria-current="true"]')
+    ?.scrollIntoView({ block: 'center' })
 }
 
 function toggleLyrics(): void {
   lyricsOpen.value = !lyricsOpen.value
   if (lyricsOpen.value) queueOpen.value = false
 }
+
+function closeQueueFromPlayer(event: MouseEvent): void {
+  if (!queueOpen.value || !(event.target instanceof Element)) return
+  if (event.target.closest('.queue-panel, [aria-controls="player-queue"]')) return
+  queueOpen.value = false
+}
 </script>
 
 <template>
-  <footer class="player-bar" aria-label="播放器">
+  <footer class="player-bar" aria-label="播放器" @click="closeQueueFromPlayer">
     <section
       v-if="queueOpen"
       id="player-queue"
@@ -95,11 +106,12 @@ function toggleLyrics(): void {
         </Button>
       </header>
       <p v-if="player.queue.length === 0" class="queue-empty">队列为空。</p>
-      <ol v-else>
+      <ol v-else ref="queueList">
         <li
           v-for="(entry, index) in player.queue"
           :key="entry.queueEntryId"
           :class="{ current: entry.queueEntryId === player.currentEntryId }"
+          :aria-current="entry.queueEntryId === player.currentEntryId ? 'true' : undefined"
         >
           <button
             type="button"
@@ -142,7 +154,15 @@ function toggleLyrics(): void {
       </ol>
     </section>
     <LyricsPanel v-if="lyricsOpen" @close="lyricsOpen = false" />
-    <div class="album-placeholder" aria-hidden="true">{{ player.track ? '♪' : 'S' }}</div>
+    <div class="album-placeholder">
+      <img
+        v-if="player.track?.coverUrl"
+        :src="player.track.coverUrl"
+        alt=""
+        aria-hidden="true"
+      />
+      <span v-else aria-hidden="true">{{ player.track ? '♪' : 'S' }}</span>
+    </div>
     <div class="min-w-0">
       <strong class="block truncate">{{ player.track?.title ?? '选择歌曲开始播放' }}</strong>
       <span class="block truncate">{{ player.track?.artist ?? 'Sonavi AudioEngine' }}</span>
@@ -150,9 +170,6 @@ function toggleLyrics(): void {
         <span class="player-error">{{ player.errorMessage }}</span>
         <Button variant="ghost" size="sm" @click="player.retry">重试播放</Button>
       </div>
-      <span v-else-if="reportingError" class="player-report-warning" role="status">
-        {{ reportingError }}
-      </span>
       <span v-else-if="player.track" class="player-stream-note" :title="player.track.playback.reason">
         {{ player.track.playback.streamMode === 'transcode' ? '兼容转码' : '原始音频' }}
       </span>
@@ -178,6 +195,7 @@ function toggleLyrics(): void {
         <SkipBack :size="18" aria-hidden="true" />
       </Button>
       <Button
+        class="transport-primary"
         size="icon"
         :disabled="!player.track"
         :aria-label="player.isPlaying ? '暂停' : '继续播放'"

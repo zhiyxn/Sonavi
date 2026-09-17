@@ -1,62 +1,131 @@
 <script setup lang="ts">
-import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useQuery } from '@tanstack/vue-query'
+import { computed, nextTick, ref } from 'vue'
 import type { AlbumListType, AlbumSummary, TrackSummary } from '../../../shared/library'
 import { useStarredMutation } from '../composables/use-starred-mutation'
+import { useErrorToast } from '../lib/notifications'
 import { getAlbum, listAlbums } from '../services/library'
 import { usePlayerStore } from '../stores/player'
 import { Button } from './ui/button'
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious
+} from './ui/pagination'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   sessionId: string
   serverName: string
   serverId: string
   listType: AlbumListType
   title: string
   selectedAlbumId: string | null
-}>()
+  page?: number
+  backLabel?: string
+  albumListEnabled?: boolean
+}>(), {
+  page: 1,
+  backLabel: '返回专辑',
+  albumListEnabled: true
+})
 const emit = defineEmits<{
   'update:selectedAlbumId': [albumId: string | null]
+  'update:page': [page: number]
 }>()
 const player = usePlayerStore()
-const { errorMessage: starredError, pendingKey, toggleStarred } = useStarredMutation(
-  () => props.sessionId
-)
+const { pendingKey, toggleStarred } = useStarredMutation(() => props.sessionId)
 const ALBUM_PAGE_SIZE = 30
-const loadMoreSentinel = ref<HTMLElement | null>(null)
-let loadMoreObserver: IntersectionObserver | null = null
+const libraryRoot = ref<HTMLElement | null>(null)
+const albumListScrollTop = ref(0)
+const restoreAlbumListScroll = ref(false)
+const currentPage = computed(() => Math.max(1, Math.floor(props.page)))
 
-const albumsQuery = useInfiniteQuery({
-  queryKey: computed(() => ['albums', props.sessionId, props.listType]),
-  queryFn: ({ pageParam }) =>
+const albumsQuery = useQuery({
+  queryKey: computed(() => ['albums', props.sessionId, props.listType, currentPage.value]),
+  queryFn: () =>
     listAlbums({
       sessionId: props.sessionId,
       type: props.listType,
-      offset: pageParam,
+      offset: (currentPage.value - 1) * ALBUM_PAGE_SIZE,
       size: ALBUM_PAGE_SIZE
     }),
-  initialPageParam: 0,
-  getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.nextOffset : undefined),
-  staleTime: 30_000
+  enabled: computed(() => props.albumListEnabled !== false),
+  staleTime: Number.POSITIVE_INFINITY,
+  gcTime: Number.POSITIVE_INFINITY,
+  refetchOnMount: false,
+  refetchOnWindowFocus: false
 })
 
-const albums = computed(() => {
-  const uniqueAlbums = new Map<string, AlbumSummary>()
-  for (const page of albumsQuery.data.value?.pages ?? []) {
-    for (const album of page.items) uniqueAlbums.set(album.id, album)
-  }
-  return [...uniqueAlbums.values()]
+const albums = computed<AlbumSummary[]>(() => albumsQuery.data.value?.items ?? [])
+const paginationTotal = computed(() => {
+  if (albumsQuery.data.value?.hasMore) return currentPage.value * ALBUM_PAGE_SIZE + 1
+  return (currentPage.value - 1) * ALBUM_PAGE_SIZE + albums.value.length
 })
 
 const albumQuery = useQuery({
   queryKey: computed(() => ['album', props.sessionId, props.selectedAlbumId]),
   queryFn: () => getAlbum(props.sessionId, props.selectedAlbumId ?? ''),
   enabled: computed(() => props.selectedAlbumId !== null),
-  staleTime: 30_000
+  staleTime: Number.POSITIVE_INFINITY,
+  gcTime: Number.POSITIVE_INFINITY,
+  refetchOnMount: false,
+  refetchOnWindowFocus: false
 })
 
-function openAlbum(album: AlbumSummary): void {
+useErrorToast(
+  () => albumsQuery.isError.value
+    ? (albumsQuery.error.value?.message ?? '音乐库加载失败。')
+    : null,
+  { title: '音乐库加载失败', id: 'albums-query-error' }
+)
+useErrorToast(
+  () => albumQuery.isError.value
+    ? (albumQuery.error.value?.message ?? '专辑详情加载失败。')
+    : null,
+  { title: '专辑详情加载失败', id: 'album-query-error' }
+)
+
+function workspaceScroller(): HTMLElement | null {
+  return libraryRoot.value?.closest<HTMLElement>('.workspace') ?? null
+}
+
+async function openAlbum(album: AlbumSummary): Promise<void> {
+  const scroller = workspaceScroller()
+  albumListScrollTop.value = scroller?.scrollTop ?? 0
+  restoreAlbumListScroll.value = true
   emit('update:selectedAlbumId', album.id)
+  await nextTick()
+  if (scroller) scroller.scrollTop = 0
+}
+
+async function returnToAlbumList(): Promise<void> {
+  const scroller = workspaceScroller()
+  emit('update:selectedAlbumId', null)
+  await nextTick()
+  if (scroller && restoreAlbumListScroll.value) {
+    scroller.scrollTop = albumListScrollTop.value
+  }
+  restoreAlbumListScroll.value = false
+}
+
+async function updatePage(page: number): Promise<void> {
+  const nextPage = Math.max(1, Math.floor(page))
+  if (nextPage === currentPage.value) return
+  emit('update:page', nextPage)
+  await nextTick()
+  const scroller = workspaceScroller()
+  if (scroller) scroller.scrollTop = 0
+}
+
+function refreshCurrentView(): void {
+  if (props.selectedAlbumId) {
+    void albumQuery.refetch()
+    return
+  }
+  void albumsQuery.refetch()
 }
 
 function playTrack(track: TrackSummary): void {
@@ -79,40 +148,34 @@ function appendTrack(track: TrackSummary): void {
     { sessionId: props.sessionId, serverId: props.serverId, accountId: props.sessionId }
   )
 }
-
-onMounted(() => {
-  if (!('IntersectionObserver' in globalThis)) return
-  loadMoreObserver = new IntersectionObserver((entries) => {
-    if (
-      entries.some((entry) => entry.isIntersecting) &&
-      albumsQuery.hasNextPage.value &&
-      !albumsQuery.isFetchingNextPage.value
-    ) {
-      void albumsQuery.fetchNextPage()
-    }
-  }, { rootMargin: '240px 0px' })
-  if (loadMoreSentinel.value) loadMoreObserver.observe(loadMoreSentinel.value)
-})
-
-watch(loadMoreSentinel, (sentinel, previous) => {
-  if (previous) loadMoreObserver?.unobserve(previous)
-  if (sentinel) loadMoreObserver?.observe(sentinel)
-})
-
-onBeforeUnmount(() => loadMoreObserver?.disconnect())
 </script>
 
 <template>
-  <section class="min-h-full" aria-labelledby="library-title">
-    <div class="mb-8 flex items-end justify-between gap-4">
+  <section
+    ref="libraryRoot"
+    :class="selectedAlbumId ? 'album-detail-page' : 'min-h-full'"
+    aria-labelledby="library-title"
+  >
+    <div class="library-page-header mb-8 flex items-end justify-between gap-4">
       <div>
-        <p class="eyebrow">03 / LIBRARY</p>
+        <p class="eyebrow">LIBRARY</p>
         <h1 id="library-title" class="mt-4 text-4xl font-medium tracking-[-0.04em]">
           {{ selectedAlbumId ? '专辑详情' : title }}
         </h1>
         <p class="mt-2 text-sm text-sonavi-muted">{{ serverName }} · 真实 OpenSubsonic 数据</p>
       </div>
       <div class="flex gap-2">
+        <Button
+          variant="outline"
+          :disabled="selectedAlbumId ? albumQuery.isFetching.value : albumsQuery.isFetching.value"
+          @click="refreshCurrentView"
+        >
+          {{
+            (selectedAlbumId ? albumQuery.isFetching.value : albumsQuery.isFetching.value)
+              ? '正在刷新…'
+              : '刷新'
+          }}
+        </Button>
         <Button
           v-if="selectedAlbumId && albumQuery.data.value"
           variant="outline"
@@ -124,24 +187,14 @@ onBeforeUnmount(() => loadMoreObserver?.disconnect())
         <Button
           v-if="selectedAlbumId"
           variant="outline"
-          @click="emit('update:selectedAlbumId', null)"
+          @click="returnToAlbumList"
         >
-          返回专辑
+          {{ backLabel }}
         </Button>
       </div>
     </div>
 
-    <p v-if="albumsQuery.isPending.value" role="status">正在读取音乐库…</p>
-    <div
-      v-else-if="albumsQuery.isError.value && albums.length === 0"
-      class="rounded-2xl border border-sonavi-border bg-sonavi-raised p-6"
-      role="alert"
-    >
-      <p>{{ albumsQuery.error.value?.message ?? '音乐库加载失败。' }}</p>
-      <Button class="mt-4" size="sm" @click="albumsQuery.refetch()">重试</Button>
-    </div>
-
-    <template v-else-if="selectedAlbumId">
+    <template v-if="selectedAlbumId">
       <p v-if="albumQuery.isPending.value" role="status">正在读取专辑…</p>
       <div
         v-else-if="albumQuery.isError.value"
@@ -151,8 +204,8 @@ onBeforeUnmount(() => loadMoreObserver?.disconnect())
         <p>{{ albumQuery.error.value?.message ?? '专辑详情加载失败。' }}</p>
         <Button class="mt-4" size="sm" @click="albumQuery.refetch()">重试</Button>
       </div>
-      <div v-else-if="albumQuery.data.value" class="grid gap-8 lg:grid-cols-[220px_1fr]">
-        <div>
+      <div v-else-if="albumQuery.data.value" class="album-detail-layout">
+        <div class="album-detail-summary">
           <img
             v-if="albumQuery.data.value.coverUrl"
             :src="albumQuery.data.value.coverUrl"
@@ -164,7 +217,11 @@ onBeforeUnmount(() => loadMoreObserver?.disconnect())
           <p class="text-sm text-sonavi-muted">{{ albumQuery.data.value.artist }}</p>
         </div>
 
-        <ol class="overflow-hidden rounded-2xl border border-sonavi-border bg-sonavi-raised">
+        <ol
+          class="album-track-list rounded-2xl border border-sonavi-border bg-sonavi-raised"
+          aria-label="歌曲列表"
+          tabindex="0"
+        >
           <li
             v-for="(track, index) in albumQuery.data.value.tracks"
             :key="track.id"
@@ -201,6 +258,16 @@ onBeforeUnmount(() => loadMoreObserver?.disconnect())
       </div>
     </template>
 
+    <p v-else-if="albumsQuery.isPending.value" role="status">正在读取音乐库…</p>
+    <div
+      v-else-if="albumsQuery.isError.value && albums.length === 0"
+      class="rounded-2xl border border-sonavi-border bg-sonavi-raised p-6"
+      role="alert"
+    >
+      <p>{{ albumsQuery.error.value?.message ?? '音乐库加载失败。' }}</p>
+      <Button class="mt-4" size="sm" @click="albumsQuery.refetch()">重试</Button>
+    </div>
+
     <template v-else>
       <p v-if="albums.length === 0" class="text-sm text-sonavi-muted">音乐库中暂无专辑。</p>
       <div v-else class="grid grid-cols-2 gap-5 md:grid-cols-3 xl:grid-cols-4">
@@ -222,28 +289,34 @@ onBeforeUnmount(() => loadMoreObserver?.disconnect())
           <span class="block truncate text-xs text-sonavi-muted">{{ album.artist }}</span>
         </button>
       </div>
-      <div
-        v-if="albumsQuery.isError.value"
-        class="mt-8 rounded-2xl border border-sonavi-border bg-sonavi-raised p-4 text-center"
-        role="alert"
-      >
-        <p>下一页加载失败，已加载的 {{ albums.length }} 张专辑仍可使用。</p>
-        <Button class="mt-3" size="sm" variant="outline" @click="albumsQuery.fetchNextPage()">
-          重试加载
-        </Button>
+      <div v-if="albums.length > 0" class="mt-8 space-y-3">
+        <Pagination
+          :page="currentPage"
+          :items-per-page="ALBUM_PAGE_SIZE"
+          :total="paginationTotal"
+          :sibling-count="1"
+          show-edges
+          @update:page="updatePage"
+        >
+          <PaginationContent v-slot="{ items }">
+            <PaginationPrevious aria-label="上一页" />
+            <template v-for="(item, index) in items" :key="index">
+              <PaginationItem
+                v-if="item.type === 'page'"
+                :value="item.value"
+                :is-active="item.value === currentPage"
+              >
+                {{ item.value }}
+              </PaginationItem>
+              <PaginationEllipsis v-else :index="index" />
+            </template>
+            <PaginationNext aria-label="下一页" />
+          </PaginationContent>
+        </Pagination>
+        <p class="text-center text-xs text-sonavi-muted">
+          第 {{ currentPage }} 页 · 本页 {{ albums.length }} 张专辑
+        </p>
       </div>
-      <div
-        v-else-if="albumsQuery.hasNextPage.value"
-        ref="loadMoreSentinel"
-        class="mt-8 flex justify-center text-xs text-sonavi-muted"
-        role="status"
-      >
-        {{ albumsQuery.isFetchingNextPage.value ? '正在加载更多专辑…' : '继续向下滚动加载更多专辑' }}
-      </div>
-      <p v-else-if="albums.length > 0" class="mt-8 text-center text-xs text-sonavi-muted">
-        已加载全部 {{ albums.length }} 张专辑
-      </p>
     </template>
-    <p v-if="starredError" class="mutation-error" role="alert">{{ starredError }}</p>
   </section>
 </template>

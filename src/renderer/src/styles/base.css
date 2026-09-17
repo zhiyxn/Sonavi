@@ -27,6 +27,14 @@ textarea {
   font: inherit;
 }
 
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
 button,
 a,
 input {
@@ -144,11 +152,73 @@ button.nav-item {
     var(--sonavi-canvas);
 }
 
+.workspace-album-detail {
+  overflow: hidden;
+}
+
+.workspace-artists-list {
+  overflow: hidden;
+}
+
 .content-frame {
   width: min(100%, 940px);
   min-height: 100%;
   margin: 0 auto;
   padding: clamp(40px, 7vh, 72px) clamp(32px, 7vw, 92px) 48px;
+}
+
+.workspace-album-detail .content-frame {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workspace-artists-list .content-frame {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.artists-list-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.artists-list-page .artists-page-header {
+  flex: 0 0 auto;
+}
+
+.album-detail-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.album-detail-page .library-page-header {
+  flex: 0 0 auto;
+}
+
+.album-detail-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  flex: 1 1 auto;
+  gap: 32px;
+  min-height: 0;
+}
+
+.album-detail-summary {
+  min-width: 0;
+  align-self: start;
+}
+
+.album-track-list {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .connect-panel {
@@ -311,6 +381,13 @@ button.nav-item {
   font-size: 20px;
 }
 
+.album-placeholder img {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
 .player-placeholder strong,
 .player-placeholder span,
 .player-bar strong,
@@ -379,6 +456,16 @@ button.nav-item {
 .player-controls .control-active {
   color: var(--sonavi-chrome-text);
   background: var(--sonavi-chrome-hover);
+}
+
+.player-controls button.transport-primary {
+  color: #fff;
+  background: var(--sonavi-accent);
+}
+
+.player-controls button.transport-primary:hover {
+  color: #fff;
+  background: var(--sonavi-accent-hover);
 }
 
 .player-utilities {
@@ -535,6 +622,7 @@ button.nav-item {
 
 .queue-panel li.current {
   background: var(--sonavi-chrome-hover);
+  box-shadow: inset 3px 0 0 var(--sonavi-accent);
 }
 
 .queue-track {
@@ -554,7 +642,7 @@ button.nav-item {
 }
 
 .queue-panel li.current .queue-track strong {
-  color: var(--sonavi-accent-subtle);
+  color: var(--sonavi-chrome-text);
 }
 
 .queue-actions {
@@ -577,21 +665,24 @@ button.nav-item {
 
 .workspace,
 .queue-panel ol,
-.lyrics-lines {
+.lyrics-lines,
+.album-track-list {
   scrollbar-width: thin;
   scrollbar-color: var(--sonavi-accent) transparent;
 }
 
 .workspace::-webkit-scrollbar,
 .queue-panel ol::-webkit-scrollbar,
-.lyrics-lines::-webkit-scrollbar {
+.lyrics-lines::-webkit-scrollbar,
+.album-track-list::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 .workspace::-webkit-scrollbar-thumb,
 .queue-panel ol::-webkit-scrollbar-thumb,
-.lyrics-lines::-webkit-scrollbar-thumb {
+.lyrics-lines::-webkit-scrollbar-thumb,
+.album-track-list::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
   background: color-mix(in srgb, var(--sonavi-accent) 72%, transparent);
@@ -609,10 +700,6 @@ button.nav-item {
   padding: 0 8px;
   color: inherit;
   font-size: 11px;
-}
-
-.player-report-warning {
-  color: #e6c787 !important;
 }
 
 .phase-pill {
@@ -677,9 +764,20 @@ button.nav-item {
   color: var(--sonavi-text-secondary);
 }
 
+.search-form {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  margin-top: 28px;
+}
+
 .search-field {
   display: block;
-  margin-top: 28px;
+  flex: 1;
+}
+
+.search-form [data-slot='button'] {
+  min-width: 88px;
 }
 
 .search-field input {
@@ -1102,18 +1200,26 @@ button.nav-item {
   color: var(--sonavi-text-secondary);
 }
 
-.mutation-status,
-.mutation-error {
+.mutation-status {
   margin: 16px 0 0;
+  color: #386541;
   font-size: 12px;
 }
 
-.mutation-status {
-  color: #386541;
+[data-sonner-toast].sonavi-toast {
+  font-family: var(--sonavi-font);
+  box-shadow: 0 12px 36px rgb(31 33 30 / 18%);
 }
 
-.mutation-error {
-  color: var(--sonavi-danger);
+[data-sonner-toast][data-styled='true'] .sonavi-toast-action {
+  color: #fff;
+  background: var(--sonavi-accent);
+}
+
+[data-sonner-toast][data-styled='true'] .sonavi-toast-cancel {
+  border: 1px solid var(--sonavi-border);
+  color: var(--sonavi-ink);
+  background: var(--sonavi-subtle);
 }
 
 @media (max-width: 1040px) {

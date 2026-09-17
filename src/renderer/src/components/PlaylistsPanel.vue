@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref, watch } from 'vue'
+import { requestConfirmation, showErrorToast, useErrorToast } from '../lib/notifications'
 import {
   createPlaylist,
   deletePlaylist,
@@ -19,21 +20,40 @@ const newName = ref('')
 const includeQueue = ref(false)
 const editName = ref('')
 const editPublic = ref(false)
-const mutationError = ref('')
 const mutationStatus = ref('')
 const busy = ref(false)
+const deleteConfirmationPending = ref(false)
 
 const playlistsQuery = useQuery({
   queryKey: computed(() => ['playlists', props.sessionId]),
   queryFn: () => listPlaylists(props.sessionId),
-  staleTime: 15_000
+  staleTime: Number.POSITIVE_INFINITY,
+  gcTime: Number.POSITIVE_INFINITY,
+  refetchOnMount: false,
+  refetchOnWindowFocus: false
 })
 const playlistQuery = useQuery({
   queryKey: computed(() => ['playlist', props.sessionId, selectedPlaylistId.value]),
   queryFn: () => getPlaylist(props.sessionId, selectedPlaylistId.value ?? ''),
   enabled: computed(() => selectedPlaylistId.value !== null),
-  staleTime: 10_000
+  staleTime: Number.POSITIVE_INFINITY,
+  gcTime: Number.POSITIVE_INFINITY,
+  refetchOnMount: false,
+  refetchOnWindowFocus: false
 })
+
+useErrorToast(
+  () => playlistsQuery.isError.value
+    ? (playlistsQuery.error.value?.message ?? '歌单加载失败。')
+    : null,
+  { title: '歌单加载失败', id: 'playlists-query-error' }
+)
+useErrorToast(
+  () => playlistQuery.isError.value
+    ? (playlistQuery.error.value?.message ?? '歌单详情加载失败。')
+    : null,
+  { title: '歌单详情加载失败', id: 'playlist-query-error' }
+)
 
 watch(
   () => playlistQuery.data.value,
@@ -56,14 +76,16 @@ async function refreshPlaylists(includeDetail = true): Promise<void> {
 
 async function runMutation(action: () => Promise<unknown>, successMessage: string): Promise<boolean> {
   busy.value = true
-  mutationError.value = ''
   mutationStatus.value = ''
   try {
     await action()
     mutationStatus.value = successMessage
     return true
   } catch (error) {
-    mutationError.value = error instanceof Error ? error.message : '歌单操作失败。'
+    showErrorToast(error instanceof Error ? error.message : '歌单操作失败。', {
+      title: '歌单操作失败',
+      id: 'playlist-mutation-error'
+    })
     return false
   } finally {
     busy.value = false
@@ -134,8 +156,19 @@ async function handleRemove(index: number): Promise<void> {
 
 async function handleDelete(): Promise<void> {
   const playlist = playlistQuery.data.value
-  if (!selectedPlaylistId.value || !playlist) return
-  if (!window.confirm(`确定删除歌单“${playlist.name}”？此操作会同步到服务器。`)) return
+  if (!selectedPlaylistId.value || !playlist || deleteConfirmationPending.value) return
+  deleteConfirmationPending.value = true
+  let confirmed: boolean
+  try {
+    confirmed = await requestConfirmation({
+      title: `删除歌单“${playlist.name}”？`,
+      description: '此操作会同步到服务器，删除后无法在 Sonavi 中撤销。',
+      confirmLabel: '删除歌单'
+    })
+  } finally {
+    deleteConfirmationPending.value = false
+  }
+  if (!confirmed) return
   if (
     await runMutation(
       () => deletePlaylist({ sessionId: props.sessionId, playlistId: selectedPlaylistId.value! }),
@@ -156,17 +189,38 @@ function playPlaylist(): void {
     true
   )
 }
+
+function refreshCurrentView(): void {
+  if (selectedPlaylistId.value) {
+    void playlistQuery.refetch()
+    return
+  }
+  void playlistsQuery.refetch()
+}
 </script>
 
 <template>
   <section class="min-h-full" aria-labelledby="playlists-title">
     <div class="section-heading">
       <div>
-        <p class="eyebrow">06 / PLAYLISTS</p>
+        <p class="eyebrow">PLAYLISTS</p>
         <h1 id="playlists-title">{{ selectedPlaylistId ? '歌单详情' : '歌单' }}</h1>
         <p>所有写操作直接同步服务器；权限不足时不会修改本地显示。</p>
       </div>
-      <Button v-if="selectedPlaylistId" variant="outline" @click="selectedPlaylistId = null">返回歌单</Button>
+      <div class="flex gap-2">
+        <Button
+          variant="outline"
+          :disabled="selectedPlaylistId ? playlistQuery.isFetching.value : playlistsQuery.isFetching.value"
+          @click="refreshCurrentView"
+        >
+          {{
+            (selectedPlaylistId ? playlistQuery.isFetching.value : playlistsQuery.isFetching.value)
+              ? '正在刷新…'
+              : '刷新'
+          }}
+        </Button>
+        <Button v-if="selectedPlaylistId" variant="outline" @click="selectedPlaylistId = null">返回歌单</Button>
+      </div>
     </div>
 
     <template v-if="!selectedPlaylistId">
@@ -222,7 +276,14 @@ function playPlaylist(): void {
             <Button type="submit" :disabled="busy || !editName.trim()">保存信息</Button>
             <Button type="button" variant="outline" :disabled="playlistQuery.data.value.tracks.length === 0" @click="playPlaylist">播放全部</Button>
             <Button type="button" variant="outline" :disabled="busy || player.queue.length === 0" @click="handleAppendQueue">追加当前队列</Button>
-            <Button type="button" variant="ghost" :disabled="busy" @click="handleDelete">删除歌单</Button>
+            <Button
+              type="button"
+              variant="ghost"
+              :disabled="busy || deleteConfirmationPending"
+              @click="handleDelete"
+            >
+              删除歌单
+            </Button>
           </div>
         </form>
 
@@ -240,6 +301,5 @@ function playPlaylist(): void {
     </template>
 
     <p v-if="mutationStatus" class="mutation-status" role="status">{{ mutationStatus }}</p>
-    <p v-if="mutationError" class="mutation-error" role="alert">{{ mutationError }}</p>
   </section>
 </template>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useQuery } from '@tanstack/vue-query'
 import { computed, ref, watch } from 'vue'
+import { useErrorToast } from '../lib/notifications'
 import { getLyrics } from '../services/playback'
 import { usePlayerStore } from '../stores/player'
 import { Button } from './ui/button'
@@ -29,6 +30,13 @@ const lyricsQuery = useQuery({
   staleTime: 5 * 60_000,
   retry: false
 })
+
+useErrorToast(
+  () => lyricsQuery.isError.value
+    ? (lyricsQuery.error.value?.message ?? '歌词加载失败。')
+    : null,
+  { title: '歌词加载失败', id: 'lyrics-query-error' }
+)
 
 watch(
   () => player.currentEntry?.queueEntryId,

@@ -111,3 +111,147 @@
 
 - Windows：修复后的源码与未签名 x64 打包应用自动化可进入人工真机矩阵；NSIS 安装、真实服务器复验、真实格式、托盘/媒体键/睡眠/长时性能仍未验证。
 - macOS：当前工作区没有本轮构建或运行证据；Intel x64 与 arm64 均须在对应机器重新构建并执行同一矩阵。
+
+---
+
+# P12 Windows + macOS 真机回归测试矩阵
+
+日期：2026-09-16
+
+基线：`main` / `fe5b07a`（`0.1.0-rc.4` 源码之后的诊断修正；不是新的发布标签）。上方 P11 自动化与 CI 只作为历史背景，不计入 P12 真机结果。
+
+## P12 状态定义
+
+- `PASS`：本轮已在指定真实平台、真实 Sonavi 应用和要求的真实环境中执行，观察结果符合预期。
+- `FAIL`：本轮已执行并稳定观察到结果不符合预期；必须在 `docs/KNOWN-ISSUES.md` 记录复现步骤、脱敏日志、影响范围和平台。
+- `BLOCKED`：本轮因明确的外部前置条件无法执行，例如缺少对应实机、需要用户手动输入凭据、需要用户断网/锁屏/睡眠，或真实服务器没有所需样本。阻断原因必须写明。
+- `NOT TESTED`：属于 P12 范围，但尚未开始或尚未取得足够证据。
+
+禁止使用“应该可以”“代码看起来支持”或 fixture/CI 结果代替以上真机状态。真实账号和密码只允许用户在 Sonavi UI 中输入，不写入日志、fixture、截图说明或文档。
+
+## P12 当前环境
+
+- Windows：Windows NT 10.0.26200 x64（Windows 11 25H2 内核版本）；当前本地桌面可用于 Windows 真机测试。
+- macOS Intel x64：`BLOCKED`——当前没有可控制的 macOS Intel 实机。
+- macOS Apple Silicon arm64：`BLOCKED`——当前没有可控制的 Apple Silicon 实机。
+- 真实 Navidrome：等待用户在 Sonavi UI 内输入凭据；文档不记录地址、账号或密码。
+- 安装包：P12 将区分源码应用与未签名 Windows 测试包；未经用户授权不发布、上传或修改 Release。
+
+## A. 登录
+
+| ID | 用例 | Windows 11 | macOS x64 | macOS arm64 | 证据/阻断原因 |
+| --- | --- | --- | --- | --- | --- |
+| A-01 | 正确账号登录 | PASS | BLOCKED | BLOCKED | Windows 未签名包启动后，已保存的正确凭据成功认证真实服务器；用户人工确认 |
+| A-02 | 错误密码 | BLOCKED | BLOCKED | BLOCKED | 密码只由用户在 UI 输入 |
+| A-03 | 服务端不可达 | NOT TESTED | BLOCKED | BLOCKED | 需在 UI 使用不包含真实凭据的不可达地址 |
+| A-04 | HTTP 403 | BLOCKED | BLOCKED | BLOCKED | 需真实 403 入口或用户可控反向代理规则 |
+| A-05 | 子路径 | BLOCKED | BLOCKED | BLOCKED | 需真实服务子路径地址 |
+| A-06 | 重启后凭据恢复 | PASS | BLOCKED | BLOCKED | Windows 未签名包跨进程启动后自动恢复凭据并成功连接；用户人工确认；文档未记录凭据 |
+| A-07 | 退出登录再登录 | BLOCKED | BLOCKED | BLOCKED | 退出后仍由用户重新输入凭据 |
+
+## B. 音乐库
+
+| ID | 用例 | Windows 11 | macOS x64 | macOS arm64 | 证据/阻断原因 |
+| --- | --- | --- | --- | --- | --- |
+| B-01 | 首页真实数据 | BLOCKED | BLOCKED | BLOCKED | 需 A-01；源码已改为 shadcn-vue Pagination 显式翻页并独立保留首页页码，当前运行包不含该改动 |
+| B-02 | 专辑列表与详情 | BLOCKED | BLOCKED | BLOCKED | 需 A-01；源码已改为每页 30 张、页码/上一页/下一页控制，当前运行包不含该改动 |
+| B-03 | 艺术家列表与详情 | FAIL | BLOCKED | BLOCKED | Windows 真实服务器的完整 getArtists 响应较慢，且原 30 秒缓存可能重复请求；已改为当前连接会话内复用成功结果。艺术家列表双滚动条也已在源码中改为仅列表内部滚动；当前运行包不含该布局修复，首次全量请求和滚动仍需真机复验 |
+| B-04 | 搜索 | BLOCKED | BLOCKED | BLOCKED | 需 A-01；源码已改为 Enter 或搜索按钮显式提交，当前运行包不含该改动，等待下一统一包复验 |
+| B-05 | 收藏读取与写入 | BLOCKED | BLOCKED | BLOCKED | 会修改真实服务收藏状态，执行前记录并恢复原状态 |
+| B-06 | 歌单 CRUD 与播放 | BLOCKED | BLOCKED | BLOCKED | 只创建明确标注为 P12 的临时歌单；删除前使用 Sonner 确认/取消，当前运行包不含该改动 |
+| B-07 | 中文元数据 | BLOCKED | BLOCKED | BLOCKED | 需真实样本 |
+| B-08 | 英文元数据 | BLOCKED | BLOCKED | BLOCKED | 需真实样本 |
+| B-09 | 长标题布局 | BLOCKED | BLOCKED | BLOCKED | 需真实样本 |
+| B-10 | 无封面回退 | BLOCKED | BLOCKED | BLOCKED | 需真实样本 |
+| B-11 | 专辑详情仅滚动歌曲列表 | FAIL | BLOCKED | BLOCKED | Windows 专辑详情原为整个 workspace 滚动；已固定详情页外层并将滚动限制到可聚焦的歌曲列表，等待下一统一包真机复验 |
+
+## C. 播放
+
+| ID | 用例 | Windows 11 | macOS x64 | macOS arm64 | 证据/阻断原因 |
+| --- | --- | --- | --- | --- | --- |
+| C-01 | 直接播放 | BLOCKED | BLOCKED | BLOCKED | 需真实曲目与物理听音 |
+| C-02 | 暂停/继续 | BLOCKED | BLOCKED | BLOCKED | 需 C-01 |
+| C-03 | seek | BLOCKED | BLOCKED | BLOCKED | 需可 seek 的真实曲目 |
+| C-04 | 上一首 | BLOCKED | BLOCKED | BLOCKED | 需多曲队列 |
+| C-05 | 下一首 | BLOCKED | BLOCKED | BLOCKED | 需多曲队列 |
+| C-06 | 快速连续切歌 | BLOCKED | BLOCKED | BLOCKED | 需多曲队列 |
+| C-07 | 播放结束自动下一首 | BLOCKED | BLOCKED | BLOCKED | 需短曲或等待自然结束 |
+| C-08 | 单曲循环 | BLOCKED | BLOCKED | BLOCKED | 需等待自然结束 |
+| C-09 | 列表循环 | BLOCKED | BLOCKED | BLOCKED | 需等待队列末尾自然结束 |
+| C-10 | 随机播放 | BLOCKED | BLOCKED | BLOCKED | 需至少三首曲目 |
+| C-11 | 队列重排 | BLOCKED | BLOCKED | BLOCKED | 需多曲队列 |
+| C-12 | 同一歌曲加入两次 | BLOCKED | BLOCKED | BLOCKED | 需队列操作 |
+| C-13 | 删除当前歌曲 | BLOCKED | BLOCKED | BLOCKED | 需多曲队列 |
+| C-14 | 打开队列定位当前歌曲 | FAIL | BLOCKED | BLOCKED | 原包每次打开队列都显示第一项；小范围修复和新 Windows 包已完成，等待真机复验后才能改为 PASS |
+| C-15 | 队列当前歌曲样式可读性 | FAIL | BLOCKED | BLOCKED | Windows 浅色与深色截图均确认当前歌曲标题对比不足；标题已改用主题正文色，强调色仅保留为左侧标记，等待本批问题统一完成后真机复验 |
+| C-16 | 主播放/暂停图标可读性 | FAIL | BLOCKED | BLOCKED | Windows 截图确认通用播放器按钮规则覆盖白色图标；已隔离主控制正常与悬停样式，等待本批问题统一完成后真机复验 |
+| C-17 | 点击播放器其他区域关闭队列 | FAIL | BLOCKED | BLOCKED | Windows 当前队列打开后点击播放器其余区域仍保持展开；已补充播放器内点击关闭规则，等待本批问题统一完成后真机复验 |
+| C-18 | 播放记录 scrobble 同步 | FAIL | BLOCKED | BLOCKED | Windows 真实服务器播放时出现“播放记录暂时未同步”；说明至少一次 now-playing 或 submission 请求失败，待读取脱敏 scrobble 诊断定位 |
+| C-19 | 播放栏显示当前歌曲封面 | FAIL | BLOCKED | BLOCKED | Windows 当前播放栏只显示音乐符号；已复用当前歌曲受限封面 URL，无封面时保留占位符，等待本批问题统一完成后真机复验 |
+| C-20 | 专辑详情返回恢复列表位置 | FAIL | BLOCKED | BLOCKED | Windows 从专辑详情返回后列表回到顶部；已保存进入详情前的 workspace 滚动位置并在返回后恢复，等待下一统一包真机复验 |
+
+## D. 网络
+
+| ID | 用例 | Windows 11 | macOS x64 | macOS arm64 | 证据/阻断原因 |
+| --- | --- | --- | --- | --- | --- |
+| D-01 | 播放中断网 | BLOCKED | BLOCKED | BLOCKED | 需用户在播放中手动断开网络，避免自动化修改系统网络设置 |
+| D-02 | 恢复网络 | BLOCKED | BLOCKED | BLOCKED | 依赖 D-01，由用户手动恢复网络 |
+| D-03 | 慢网络 | BLOCKED | BLOCKED | BLOCKED | 当前无受控、不会泄露凭据的限速环境 |
+| D-04 | 请求取消 | BLOCKED | BLOCKED | BLOCKED | 需 A-01；可通过真实搜索快速变更/页面切换观察脱敏诊断 |
+| D-05 | 服务端返回异常 | BLOCKED | BLOCKED | BLOCKED | 需真实服务器或反向代理提供受控异常响应 |
+| D-06 | 原始音频 | BLOCKED | BLOCKED | BLOCKED | 需真实样本并在诊断确认实际模式 |
+| D-07 | 服务端转码 | BLOCKED | BLOCKED | BLOCKED | 需服务器允许转码并在诊断确认实际模式 |
+
+## E. 歌词
+
+| ID | 用例 | Windows 11 | macOS x64 | macOS arm64 | 证据/阻断原因 |
+| --- | --- | --- | --- | --- | --- |
+| E-01 | 同步歌词 | BLOCKED | BLOCKED | BLOCKED | 需真实同步歌词样本 |
+| E-02 | 普通歌词 | BLOCKED | BLOCKED | BLOCKED | 需真实普通歌词样本 |
+| E-03 | 无歌词 | BLOCKED | BLOCKED | BLOCKED | 需真实无歌词样本 |
+| E-04 | 损坏歌词 | BLOCKED | BLOCKED | BLOCKED | 需真实服务器提供损坏歌词样本，不能修改真实服务数据制造 |
+| E-05 | seek 后歌词同步 | BLOCKED | BLOCKED | BLOCKED | 依赖 E-01 与 C-03 |
+
+## F. 生命周期
+
+| ID | 用例 | Windows 11 | macOS x64 | macOS arm64 | 证据/阻断原因 |
+| --- | --- | --- | --- | --- | --- |
+| F-01 | 页面切换不中断播放 | BLOCKED | BLOCKED | BLOCKED | 需 C-01 |
+| F-02 | 最小化 | BLOCKED | BLOCKED | BLOCKED | 需 C-01 |
+| F-03 | 隐藏窗口 | BLOCKED | BLOCKED | BLOCKED | 需 C-01 |
+| F-04 | 关闭窗口 | NOT TESTED | BLOCKED | BLOCKED | 可先验证未连接状态的窗口策略；播放中仍依赖 C-01 |
+| F-05 | 重新打开同一宿主 | NOT TESTED | BLOCKED | BLOCKED | 可先验证未连接状态；播放中依赖 F-03/F-04 |
+| F-06 | 应用退出 | NOT TESTED | BLOCKED | BLOCKED | 可检查未连接退出与残留进程；播放停止依赖 C-01 |
+| F-07 | 重启 | NOT TESTED | BLOCKED | BLOCKED | 凭据与暂停队列恢复依赖 A-01/C-01 |
+| F-08 | 系统锁屏 | BLOCKED | BLOCKED | BLOCKED | 需用户手动锁屏并重新解锁；不自动操作认证界面 |
+| F-09 | 睡眠/唤醒 | BLOCKED | BLOCKED | BLOCKED | 需用户手动执行并恢复会话 |
+| F-10 | 页面切换恢复各自滚动位置 | FAIL | BLOCKED | BLOCKED | Windows 切到其他栏目再返回专辑等长页面后位置丢失；源码已让设置以外的页面与详情分别恢复位置，艺术家内部列表单独保持，设置每次回顶部；当前运行包不含修复，等待下一统一包真机复验 |
+| F-11 | 艺术家详情进入专辑后保留导航上下文 | FAIL | BLOCKED | BLOCKED | Windows 搜索进入艺术家详情再打开专辑时错误激活“专辑”，返回也进入专辑列表；已保留艺术家上下文并返回原艺术家详情，等待下一统一包真机复验 |
+| F-12 | 页面切换不自动重取并支持当前视图刷新 | FAIL | BLOCKED | BLOCKED | 源码已保留首页/专辑/艺术家/搜索/收藏/歌单实例和当前会话查询缓存；切换栏目不自动重取，刷新按钮只重取当前列表、分页或详情。当前运行包不含修复，等待真实服务器观察请求增量 |
+
+## G. 平台
+
+| ID | 用例 | Windows 11 | macOS x64 | macOS arm64 | 证据/阻断原因 |
+| --- | --- | --- | --- | --- | --- |
+| G-W01 | Ctrl 快捷键 | NOT TESTED | — | — | Ctrl+, 与播放器空格键 |
+| G-W02 | 托盘 | NOT TESTED | — | — | 显示、播放/暂停、前后切歌、退出 |
+| G-W03 | 任务栏 | NOT TESTED | — | — | 图标、最小化、恢复与窗口聚焦 |
+| G-W04 | 物理媒体键 | BLOCKED | — | — | 需用户按物理媒体键或提供等价硬件输入 |
+| G-W05 | 窗口状态恢复 | NOT TESTED | — | — | normal/maximized 与重新启动 |
+| G-W06 | 未签名测试包 | BLOCKED | — | — | `fe5b07a` 本机构建/包验证通过并启动进程；等待人工确认窗口、图标和真实 UI，不绕过 SmartScreen |
+| G-M01 | Cmd 快捷键 | — | BLOCKED | BLOCKED | 当前无 macOS 实机 |
+| G-M02 | Dock | — | BLOCKED | BLOCKED | 当前无 macOS 实机 |
+| G-M03 | 系统菜单 | — | BLOCKED | BLOCKED | 当前无 macOS 实机 |
+| G-M04 | 媒体控制 | — | BLOCKED | BLOCKED | 当前无 macOS 实机 |
+| G-M05 | 窗口隐藏/恢复 | — | BLOCKED | BLOCKED | 当前无 macOS 实机 |
+| G-M06 | x64 原生运行 | — | BLOCKED | — | 当前无 Intel Mac |
+| G-M07 | arm64 原生运行（可用时） | — | — | BLOCKED | 当前无 Apple Silicon Mac |
+| G-C01 | 页面栏目标题无重复伪序号 | FAIL | BLOCKED | BLOCKED | Windows 确认多个页面重复显示 03/05/06 且无功能含义；已统一移除所有页面编号，等待本批问题统一完成后真机复验 |
+| G-C02 | 可用按钮显示点击光标 | FAIL | BLOCKED | BLOCKED | Windows 可点击按钮未统一显示小手；已增加全局可用/禁用按钮光标规则，等待本批问题统一完成后真机复验 |
+
+## P12 结果计算
+
+- 通过率：`PASS / (PASS + FAIL)`；只计算实际执行完成的用例。
+- 执行覆盖率：`(PASS + FAIL) / 全部适用用例`；`BLOCKED` 与 `NOT TESTED` 不冒充已执行。
+- 平台分别计算，不用一个平台的结果替代另一个平台。
+- 当前阶段：Windows 已执行 15 项，`PASS` 2、`FAIL` 13；阶段通过率 13.3%（2/15），执行覆盖率 21.7%（15/69）。macOS 两架构因缺少实机处于 `BLOCKED`。
