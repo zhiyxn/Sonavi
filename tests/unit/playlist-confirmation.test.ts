@@ -5,7 +5,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SonaviApi } from '../../src/shared/application'
 
 const notificationMocks = vi.hoisted(() => ({
-  requestConfirmation: vi.fn(),
   showErrorToast: vi.fn(),
   useErrorToast: vi.fn()
 }))
@@ -19,6 +18,7 @@ const SESSION_ID = '36e659a7-f0e6-4cb0-9a52-124f45d4befa'
 afterEach(() => {
   vi.clearAllMocks()
   Reflect.deleteProperty(window, 'sonavi')
+  document.body.innerHTML = ''
 })
 
 describe('歌单二次确认', () => {
@@ -54,10 +54,6 @@ describe('歌单二次确认', () => {
       configurable: true,
       value: { library: { listPlaylists, getPlaylist, deletePlaylist } } as unknown as SonaviApi
     })
-    notificationMocks.requestConfirmation
-      .mockResolvedValueOnce(false)
-      .mockResolvedValueOnce(true)
-
     const wrapper = mount(PlaylistsPanel, {
       props: { sessionId: SESSION_ID, serverId: 'https://music.example.com' },
       global: {
@@ -80,14 +76,21 @@ describe('歌单二次确认', () => {
     await deleteButton()?.trigger('click')
     await flushPromises()
     expect(deletePlaylist).not.toHaveBeenCalled()
+    const cancelButton = [...document.body.querySelectorAll('button')]
+      .find((button) => button.textContent === '取消')
+    expect(cancelButton).toBeDefined()
+    cancelButton?.click()
+    await flushPromises()
+    expect(deletePlaylist).not.toHaveBeenCalled()
 
     await deleteButton()?.trigger('click')
     await flushPromises()
-    expect(notificationMocks.requestConfirmation).toHaveBeenLastCalledWith({
-      title: '删除歌单“待确认歌单”？',
-      description: '此操作会同步到服务器，删除后无法在 Sonavi 中撤销。',
-      confirmLabel: '删除歌单'
-    })
+    expect(document.body.textContent).toContain('删除歌单“待确认歌单”？')
+    const confirmButton = [...document.body.querySelectorAll('button')]
+      .find((button) => button.textContent === '删除歌单')
+    expect(confirmButton).toBeDefined()
+    confirmButton?.click()
+    await flushPromises()
     expect(deletePlaylist).toHaveBeenCalledWith({
       sessionId: SESSION_ID,
       playlistId: 'playlist-1'

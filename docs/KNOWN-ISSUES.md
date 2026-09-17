@@ -276,10 +276,10 @@ P12 起点：`fe5b07a`。本节只记录本轮在真实 Windows/macOS、真实 N
 - 状态：`RETEST`。
 - 平台：Windows 11 x64；代码层面同时影响 Windows 与 macOS 共享 renderer。
 - 现象：错误提示分散为页面内文字，删除歌单和退出并忘记账号使用系统原生 `window.confirm`，样式及跨平台体验不一致。
-- 预期结果：错误提醒使用 shadcn-vue Sonner；危险操作的二次确认使用带确认/取消动作的 Sonner，取消、关闭或滑走均不得执行操作。
-- 修复：根节点挂载唯一 Toaster；连接、设置、收藏/歌单、音乐库/艺术家/搜索/歌词查询、播放和 scrobble 错误走统一 `toast.error`。阻断当前页面的加载错误仍保留重试卡。删除歌单和忘记账号使用无限时长 warning toast，只有 action 回调继续服务调用，并用 pending 状态防重复触发。
+- 预期结果：错误提醒使用 shadcn-vue Sonner；危险操作必须使用具有明确确认/取消语义、焦点管理和模态边界的统一组件。
+- 修复：根节点挂载唯一 Toaster；连接、设置、收藏/歌单、音乐库/艺术家/搜索/歌词查询、播放和 scrobble 错误走统一 `toast.error`。阻断当前页面的加载错误仍保留重试卡。P12-MI-019 后，删除歌单和忘记账号由 shadcn-vue AlertDialog 承担确认，Sonner 只保留通知职责。
 - 自动验证：Node.js 22.21.1 下通知工具、确认/取消解析、歌单删除门控和忘记账号实际 Sonner 交互均有回归；`npm run lint`、`npm run typecheck` 与 28 文件/144 项全量测试通过。
-- 当前状态：未重新构建或启动应用，当前运行包不包含该改动。
+- 当前状态：Sonner 错误通知已由 P12-MI-019 的 Windows 源码 Electron 冒烟覆盖；危险确认实现已改为 AlertDialog。安装包仍等待统一生成与真机复验。
 
 ### P12-MI-018：切换栏目会自动重取整页数据
 
@@ -290,3 +290,12 @@ P12 起点：`fe5b07a`。本节只记录本轮在真实 Windows/macOS、真实 N
 - 修复：首页、专辑、艺术家、搜索、收藏和歌单使用 `KeepAlive` 保留实例；对应 TanStack Query 在当前会话保持新鲜并禁用挂载/窗口聚焦重取。各页刷新按钮直接重取当前列表、当前分页或当前详情，不执行全局刷新。设置页不进入该页面缓存；网络设置变化会清查询并轮换页面缓存，断开与忘记账号仍销毁全部会话状态。
 - 自动验证：Node.js 22.21.1 下定向 4 文件/21 项及全量 28 文件/146 项通过，`npm run lint` 与 `npm run typecheck` 通过；覆盖卸载重开查询复用、手动刷新、切页后搜索条件/结果保留和请求计数。
 - 当前状态：按用户要求未重新构建、未重启或打开新包，真实服务器请求增量待当前测试结束后的统一包复验。
+
+### P12-MI-019：基础交互控件未统一使用 shadcn-vue
+
+- 状态：`RETEST`。
+- 平台：Windows 11 x64；代码层面同时影响 Windows 与 macOS 共享 renderer。
+- 现象：项目虽已接入 Button、Pagination 和 Sonner，但连接、搜索、歌单、设置、歌词和播放器仍混用原生输入、复选、选择、滑块及手写确认交互。
+- 修复：通过官方 CLI 引入并适配 Input、Checkbox、Label、Select、Slider 与 AlertDialog；Sonner 只处理通知。业务导航、实体卡片、队列曲目和虚拟列表行保留语义化按钮，不机械替换业务组合。
+- 自动验证：Node.js 22.21.1 下 lint、typecheck、28 文件/147 项测试、生产构建和 Windows 源码 Electron 完整冒烟通过；覆盖设置 Select、表单 Checkbox、AlertDialog、原始与转码 Slider seek。
+- 当前状态：未重新生成 Windows 安装包；macOS Intel x64 与 Apple Silicon arm64 未验证。

@@ -12,7 +12,15 @@ import {
   saveNetworkSettings
 } from '../services/network'
 import { Button } from './ui/button'
-import { Select, type SelectOption } from './ui/select'
+import { Input } from './ui/input'
+import { Label } from './ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from './ui/select'
 import { clearCoverCache, loadCoverCacheInfo } from '../services/desktop'
 import { useDesktopStore } from '../stores/desktop'
 
@@ -38,23 +46,23 @@ const supportsTranscodeOffset = computed(() =>
 const closeActionOptions = [
   { value: 'hide', label: '隐藏窗口并继续播放（默认）' },
   { value: 'quit', label: '退出 Sonavi' }
-] as const satisfies readonly SelectOption[]
+] as const
 const themeOptions = [
   { value: 'system', label: '跟随系统' },
   { value: 'light', label: '浅色' },
   { value: 'dark', label: '深色' }
-] as const satisfies readonly SelectOption[]
+] as const
 const playbackModeOptions = [
   { value: 'automatic', label: '自动（已知格式优先原始，否则兼容转码）' },
   { value: 'original', label: '仅原始音频' },
   { value: 'compatible', label: 'MP3 兼容转码' }
-] as const satisfies readonly SelectOption[]
+] as const
 const bitRateOptions = [128, 192, 256, 320].map((value) => ({ value, label: `${value} kbps` }))
 const proxyModeOptions = [
   { value: 'system', label: '跟随系统代理' },
   { value: 'direct', label: '直接连接' },
   { value: 'manual', label: '手动代理' }
-] as const satisfies readonly SelectOption[]
+] as const
 
 const stageLabels = {
   api: 'API',
@@ -183,18 +191,32 @@ async function exportDiagnostics(): Promise<void> {
     <form v-if="desktopSettings" class="settings-form" @submit.prevent="saveDesktopSettings">
       <fieldset>
         <legend>桌面行为</legend>
-        <label>
-          关闭窗口时
-          <Select
-            v-model="desktopSettings.closeAction"
-            label="关闭窗口时"
-            :options="closeActionOptions"
-          />
-        </label>
-        <label>
-          外观
-          <Select v-model="desktopSettings.theme" label="外观" :options="themeOptions" />
-        </label>
+        <div class="settings-control-row">
+          <Label for="close-action">关闭窗口时</Label>
+          <Select v-model="desktopSettings.closeAction">
+            <SelectTrigger id="close-action" class="w-full" aria-label="关闭窗口时">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="option in closeActionOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div class="settings-control-row">
+          <Label for="appearance-theme">外观</Label>
+          <Select v-model="desktopSettings.theme">
+            <SelectTrigger id="appearance-theme" class="w-full" aria-label="外观">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="option in themeOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <p class="settings-help">
           最小化始终保留播放。隐藏后可从 Windows 托盘或 macOS 菜单栏重新显示；托盘菜单中的“退出 Sonavi”会停止播放并退出进程。
         </p>
@@ -207,22 +229,32 @@ async function exportDiagnostics(): Promise<void> {
     <form v-if="settings" class="settings-form" @submit.prevent="saveSettings">
       <fieldset>
         <legend>播放策略</legend>
-        <label>
-          模式
-          <Select
-            v-model="settings.playback.mode"
-            label="播放模式"
-            :options="playbackModeOptions"
-          />
-        </label>
-        <label>
-          转码最高码率
-          <Select
-            v-model="settings.playback.maxBitRate"
-            label="转码最高码率"
-            :options="bitRateOptions"
-          />
-        </label>
+        <div class="settings-control-row">
+          <Label for="playback-mode">模式</Label>
+          <Select v-model="settings.playback.mode">
+            <SelectTrigger id="playback-mode" class="w-full" aria-label="播放模式">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="option in playbackModeOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div class="settings-control-row">
+          <Label for="max-bitrate">转码最高码率</Label>
+          <Select v-model="settings.playback.maxBitRate">
+            <SelectTrigger id="max-bitrate" class="w-full" aria-label="转码最高码率">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="option in bitRateOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <p class="settings-help">
           自动模式的原始音频若发生浏览器解码错误，只尝试一次兼容转码；不会无限重试。
         </p>
@@ -230,21 +262,32 @@ async function exportDiagnostics(): Promise<void> {
 
       <fieldset>
         <legend>网络代理</legend>
-        <label>
-          模式
-          <Select v-model="settings.proxy.mode" label="代理模式" :options="proxyModeOptions" />
-        </label>
-        <label v-if="settings.proxy.mode === 'manual'">
-          代理地址
-          <input
-            v-model.trim="settings.proxy.manualUrl"
+        <div class="settings-control-row">
+          <Label for="proxy-mode">模式</Label>
+          <Select v-model="settings.proxy.mode">
+            <SelectTrigger id="proxy-mode" class="w-full" aria-label="代理模式">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="option in proxyModeOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div v-if="settings.proxy.mode === 'manual'" class="settings-control-row">
+          <Label for="manual-proxy-url">代理地址</Label>
+          <Input
+            id="manual-proxy-url"
+            :model-value="settings.proxy.manualUrl ?? ''"
             type="text"
             required
             placeholder="http://127.0.0.1:7890"
             autocomplete="off"
             spellcheck="false"
+            @update:model-value="settings.proxy.manualUrl = String($event).trim()"
           />
-        </label>
+        </div>
         <p class="settings-help">
           API、封面和音频共用此策略。切换代理会关闭旧连接；失败时不会静默改为直连。
         </p>

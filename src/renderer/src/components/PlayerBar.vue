@@ -17,6 +17,7 @@ import {
 } from '@lucide/vue'
 import { usePlayerStore } from '../stores/player'
 import { Button } from './ui/button'
+import { Slider } from './ui/slider'
 import LyricsPanel from './LyricsPanel.vue'
 
 const player = usePlayerStore()
@@ -41,17 +42,14 @@ function formatTime(seconds: number): string {
   return `${minutes}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`
 }
 
-const progress = computed(() => {
-  if (player.duration <= 0) return 0
-  return Math.min(100, (player.currentTime / player.duration) * 100)
-})
-
-function onSeek(event: Event): void {
-  void player.seek(Number((event.target as HTMLInputElement).value))
+function onSeek(values: number[] | undefined): void {
+  const value = values?.[0]
+  if (value !== undefined) void player.seek(Math.round(value * 1000) / 1000)
 }
 
-function onVolume(event: Event): void {
-  player.setVolume(Number((event.target as HTMLInputElement).value))
+function onVolume(values: number[] | undefined): void {
+  const value = values?.[0]
+  if (value !== undefined) player.setVolume(Math.round(value * 100) / 100)
 }
 
 const repeatLabel = computed(() => {
@@ -224,30 +222,29 @@ function closeQueueFromPlayer(event: MouseEvent): void {
         <Repeat v-else :size="17" aria-hidden="true" />
       </Button>
       <span>{{ formatTime(player.currentTime) }}</span>
-      <input
+      <Slider
+        class="player-progress-slider"
         aria-label="播放进度"
-        type="range"
-        min="0"
-        :max="Math.max(player.duration, 0)"
-        step="0.1"
-        :value="player.currentTime"
+        :min="0"
+        :max="Math.max(player.duration, 1)"
+        :step="0.1"
+        :model-value="[player.currentTime]"
         :disabled="!player.track || !player.canSeek"
         :title="player.track && !player.canSeek ? '当前播放策略无法安全跳转；可在设置中选择原始模式，或使用支持 transcodeOffset 的服务器。' : undefined"
-        :style="{ '--player-progress': `${progress}%` }"
-        @change="onSeek"
+        @value-commit="onSeek"
       />
       <span>{{ formatTime(player.duration) }}</span>
     </div>
     <div class="player-utilities">
       <Volume2 :size="17" aria-hidden="true" />
-      <input
+      <Slider
+        class="player-volume-slider"
         aria-label="音量"
-        type="range"
-        min="0"
-        max="1"
-        step="0.01"
-        :value="player.volume"
-        @input="onVolume"
+        :min="0"
+        :max="1"
+        :step="0.01"
+        :model-value="[player.volume]"
+        @update:model-value="onVolume"
       />
       <span class="phase-pill" role="status">{{ stateLabels[player.state] }}</span>
       <Button

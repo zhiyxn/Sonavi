@@ -116,6 +116,7 @@ function installPlatformApi(platform: 'windows' | 'macos'): SonaviApi {
 afterEach(() => {
   Reflect.deleteProperty(window, 'sonavi')
   Reflect.deleteProperty(window, 'confirm')
+  document.body.innerHTML = ''
 })
 
 describe('共享应用外壳', () => {
@@ -454,7 +455,7 @@ describe('共享应用外壳', () => {
     expect(session.connection).toBeNull()
   })
 
-  it('退出并忘记账号使用 Sonner 二次确认，不调用原生 confirm', async () => {
+  it('退出并忘记账号使用 AlertDialog 二次确认，不调用原生 confirm', async () => {
     const api = installPlatformApi('windows')
     api.connection.forget = vi.fn(async () => true)
     const nativeConfirm = vi.fn()
@@ -487,9 +488,11 @@ describe('共享应用外壳', () => {
 
     expect(nativeConfirm).not.toHaveBeenCalled()
     expect(api.connection.forget).not.toHaveBeenCalled()
-    const confirmButton = wrapper.findAll('button').find((button) => button.text() === '退出并删除')
+    expect(document.body.textContent).toContain('退出并忘记账号？')
+    const confirmButton = [...document.body.querySelectorAll('button')]
+      .find((button) => button.textContent === '退出并删除')
     expect(confirmButton).toBeDefined()
-    await confirmButton?.trigger('click')
+    confirmButton?.click()
     await flushPromises()
 
     expect(api.connection.forget).toHaveBeenCalledOnce()

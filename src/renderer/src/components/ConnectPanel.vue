@@ -4,6 +4,10 @@ import type { ApplicationInfo } from '../../../shared/application'
 import type { ConnectionSuccessResult } from '../../../shared/connection'
 import { showErrorToast } from '../lib/notifications'
 import { testConnection } from '../services/connection'
+import { Button } from './ui/button'
+import { Checkbox } from './ui/checkbox'
+import { Input } from './ui/input'
+import { Label } from './ui/label'
 
 defineProps<{
   applicationInfo: ApplicationInfo
@@ -80,8 +84,8 @@ async function submitConnection(): Promise<void> {
     <p class="intro">添加 Navidrome、Subsonic 或 OpenSubsonic 服务器。Windows 与 macOS 共用此连接流程。</p>
 
     <form class="connection-form" novalidate @submit.prevent="submitConnection">
-      <label for="server-url">服务器地址</label>
-      <input
+      <Label for="server-url">服务器地址</Label>
+      <Input
         id="server-url"
         v-model="serverUrl"
         name="serverUrl"
@@ -92,11 +96,11 @@ async function submitConnection(): Promise<void> {
       />
       <p class="field-note">支持 HTTPS、自定义端口与子路径；不会绕过 TLS 证书验证。</p>
 
-      <label for="username">用户名</label>
-      <input id="username" v-model="username" name="username" type="text" autocomplete="username" />
+      <Label for="username">用户名</Label>
+      <Input id="username" v-model="username" name="username" type="text" autocomplete="username" />
 
-      <label for="password">密码</label>
-      <input
+      <Label for="password">密码</Label>
+      <Input
         id="password"
         v-model="password"
         name="password"
@@ -104,24 +108,23 @@ async function submitConnection(): Promise<void> {
         autocomplete="current-password"
       />
 
-      <label class="remember-row" for="remember-me">
-        <input id="remember-me" v-model="rememberMe" name="rememberMe" type="checkbox" />
-        <span>在这台 {{ applicationInfo.platformLabel }} 设备上记住我</span>
-      </label>
+      <div class="remember-row">
+        <Checkbox id="remember-me" v-model="rememberMe" name="rememberMe" />
+        <Label for="remember-me">在这台 {{ applicationInfo.platformLabel }} 设备上记住我</Label>
+      </div>
 
-      <label class="remember-row" for="allow-insecure-http">
-        <input
+      <div class="remember-row">
+        <Checkbox
           id="allow-insecure-http"
           v-model="allowInsecureHttp"
           name="allowInsecureHttp"
-          type="checkbox"
         />
-        <span>允许不加密的 HTTP（仅限我了解风险的局域网测试）</span>
-      </label>
+        <Label for="allow-insecure-http">允许不加密的 HTTP（仅限我了解风险的局域网测试）</Label>
+      </div>
 
-      <button type="submit" :disabled="isSubmitting">
+      <Button type="submit" :disabled="isSubmitting">
         {{ isSubmitting ? '正在测试…' : '测试连接' }}
-      </button>
+      </Button>
       <p class="form-status" :class="`is-${statusKind}`" role="status">{{ statusMessage }}</p>
     </form>
 

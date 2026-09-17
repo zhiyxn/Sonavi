@@ -117,6 +117,26 @@ async function chooseSelectOption(page, label, option) {
   )
 }
 
+async function setSliderValue(page, label, value, step) {
+  const slider = page.getByRole('slider', { name: label, exact: true })
+  const maximum = Number(await slider.getAttribute('aria-valuemax'))
+  if (!Number.isFinite(maximum) || maximum <= 0) {
+    throw new Error(`${label} 无法取得有效轨道范围`)
+  }
+  const pageStep = step * 10
+  const pageIncrements = Math.floor(value / pageStep)
+  const remainingIncrements = Math.round((value - pageIncrements * pageStep) / step)
+  await slider.focus()
+  await slider.press('Home')
+  for (let index = 0; index < pageIncrements; index += 1) await slider.press('PageUp')
+  for (let index = 0; index < remainingIncrements; index += 1) await slider.press('ArrowRight')
+  await page.waitForTimeout(100)
+  const actual = Number(await slider.getAttribute('aria-valuenow'))
+  if (actual < value - step / 2 || actual > value + 0.5) {
+    throw new Error(`${label} 未更新到 ${value}，实际为 ${actual}`)
+  }
+}
+
 function playlistPayload(playlist) {
   const entries = playlist.songIds
     .map((songId) => fixtureTracks.find((track) => track.id === songId))
@@ -620,8 +640,8 @@ try {
   await window.locator('#server-url').fill(`http://127.0.0.1:${fixtureAddress.port}/sonavi-fixture`)
   await window.locator('#username').fill('fixture-user')
   await window.locator('#password').fill('fixture-password')
-  await window.locator('#remember-me').check()
-  await window.locator('#allow-insecure-http').check()
+  await window.locator('#remember-me').click()
+  await window.locator('#allow-insecure-http').click()
   await window.getByRole('button', { name: '测试连接' }).click()
   await window.getByRole('heading', { name: '最近添加' }).waitFor()
   await window.keyboard.press(platformText.includes('macOS') ? 'Meta+Comma' : 'Control+Comma')
@@ -678,10 +698,7 @@ try {
     .waitFor()
   await window.getByRole('button', { name: '暂停' }).click()
   await window.getByRole('button', { name: '继续播放' }).waitFor()
-  await window.locator('input[aria-label="播放进度"]').evaluate((element) => {
-    element.value = '2'
-    element.dispatchEvent(new Event('change', { bubbles: true }))
-  })
+  await setSliderValue(window, '播放进度', 2, 0.1)
   await window.waitForFunction(() =>
     globalThis.document
       .querySelector('footer[aria-label="播放器"]')
@@ -722,6 +739,7 @@ try {
   await window.getByRole('heading', { name: '专辑详情' }).waitFor()
   await window.getByRole('button', { name: '搜索', exact: true }).click()
   await window.getByPlaceholder('搜索艺术家、专辑或歌曲').fill('跨平台')
+  await window.locator('.search-form').getByRole('button', { name: '搜索', exact: true }).click()
   const songResults = window.getByRole('region', { name: '歌曲' })
   await songResults.getByText('跨平台试音', { exact: true }).waitFor()
   await electronApplication.evaluate(({ BrowserWindow }) => {
@@ -735,7 +753,7 @@ try {
   )
   if (hasHorizontalOverflow) throw new Error('P05 最小窗口出现应用级横向溢出')
   await window.screenshot({ path: screenshotPath, fullPage: true })
-  console.log('P05 navigation passed: artists + artist detail + album detail + debounced search')
+  console.log('P05 navigation passed: artists + artist detail + album detail + submitted search')
 
   await window.getByRole('button', { name: '收藏', exact: true }).click()
   await window.getByRole('heading', { name: '收藏', exact: true }).waitFor()
@@ -762,12 +780,12 @@ try {
   )
   await window.getByRole('button', { name: '返回歌单', exact: true }).click()
   await window.getByPlaceholder('例如：夜间聆听').fill('P06 自动化')
-  await window.getByLabel(/包含当前队列/).check()
+  await window.getByLabel(/包含当前队列/).click()
   await window.getByRole('button', { name: '创建歌单', exact: true }).click()
   await window.getByText('歌单已创建。').waitFor()
   await window.getByRole('button', { name: /P06 自动化/ }).click()
   await window.getByLabel('名称').fill('P06 已更新')
-  await window.getByLabel('对服务器上的其他用户公开').check()
+  await window.getByLabel('对服务器上的其他用户公开').click()
   await window.getByRole('button', { name: '保存信息', exact: true }).click()
   await window.getByText('歌单信息已更新。').waitFor()
   await window.getByRole('button', { name: '删除歌单', exact: true }).click()
@@ -797,10 +815,7 @@ try {
   await window.getByRole('button', { name: '播放 跨平台试音' }).click()
   await window.getByRole('button', { name: '暂停' }).waitFor()
   await window.locator('footer[aria-label="播放器"]').getByText('兼容转码', { exact: true }).waitFor()
-  await window.locator('input[aria-label="播放进度"]').evaluate((element) => {
-    element.value = '2'
-    element.dispatchEvent(new Event('change', { bubbles: true }))
-  })
+  await setSliderValue(window, '播放进度', 2, 0.1)
   await window.waitForFunction(() =>
     globalThis.document
       .querySelector('footer[aria-label="播放器"]')

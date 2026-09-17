@@ -11,6 +11,7 @@ import PlayerBar from './components/PlayerBar.vue'
 import PlaylistsPanel from './components/PlaylistsPanel.vue'
 import SearchPanel from './components/SearchPanel.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
+import ConfirmationDialog from './components/ConfirmationDialog.vue'
 import { loadApplicationInfo } from './services/application-info'
 import { disconnectConnection, forgetConnection, restoreConnection } from './services/connection'
 import type { ApplicationInfo } from '../../shared/application'
@@ -19,7 +20,7 @@ import { useSessionStore } from './stores/session'
 import { usePlayerStore } from './stores/player'
 import { usePlaybackReporting } from './composables/use-playback-reporting'
 import { useDesktopIntegration } from './composables/use-desktop-integration'
-import { requestConfirmation, useErrorToast } from './lib/notifications'
+import { useErrorToast } from './lib/notifications'
 import { Toaster } from './components/ui/sonner'
 
 const applicationInfo = ref<ApplicationInfo | null>(null)
@@ -40,7 +41,8 @@ const artistListScrollTop = ref(0)
 const homeAlbumPage = ref(1)
 const albumsAlbumPage = ref(1)
 const viewCacheRevision = ref(0)
-const forgetConfirmationPending = ref(false)
+const forgetConfirmationOpen = ref(false)
+const forgetActionPending = ref(false)
 const { flushPausedQueue } = useDesktopIntegration({
   getShortcutModifier: () => applicationInfo.value?.shortcutModifier,
   openSettings: () => {
@@ -194,21 +196,17 @@ async function handleDisconnect(): Promise<void> {
   }
 }
 
-async function handleForget(): Promise<void> {
+function handleForget(): void {
   const current = session.connection
-  if (!current || forgetConfirmationPending.value) return
-  forgetConfirmationPending.value = true
-  let confirmed: boolean
-  try {
-    confirmed = await requestConfirmation({
-      title: '退出并忘记账号？',
-      description: '将删除这台设备上保存的加密凭据、暂停队列和当前账号封面缓存。',
-      confirmLabel: '退出并删除'
-    })
-  } finally {
-    forgetConfirmationPending.value = false
-  }
-  if (!confirmed) return
+  if (!current || forgetActionPending.value) return
+  forgetConfirmationOpen.value = true
+}
+
+async function confirmForget(): Promise<void> {
+  const current = session.connection
+  if (!current || forgetActionPending.value) return
+  forgetConfirmationOpen.value = false
+  forgetActionPending.value = true
 
   sessionActionError.value = ''
   player.stop()
@@ -222,6 +220,8 @@ async function handleForget(): Promise<void> {
     resetWorkspaceScrollPositions()
   } catch {
     sessionActionError.value = '无法删除保存的凭据；当前界面未退出，请重试。'
+  } finally {
+    forgetActionPending.value = false
   }
 }
 </script>
@@ -356,6 +356,14 @@ async function handleForget(): Promise<void> {
     </section>
 
     <PlayerBar />
+    <ConfirmationDialog
+      v-model:open="forgetConfirmationOpen"
+      title="退出并忘记账号？"
+      description="将删除这台设备上保存的加密凭据、暂停队列和当前账号封面缓存。"
+      confirm-label="退出并删除"
+      :busy="forgetActionPending"
+      @confirm="confirmForget"
+    />
     <Toaster
       position="top-center"
       rich-colors
@@ -364,9 +372,7 @@ async function handleForget(): Promise<void> {
       container-aria-label="Sonavi 通知"
       :toast-options="{
         classes: {
-          toast: 'sonavi-toast',
-          actionButton: 'sonavi-toast-action',
-          cancelButton: 'sonavi-toast-cancel'
+          toast: 'sonavi-toast'
         }
       }"
     />

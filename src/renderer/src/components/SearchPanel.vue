@@ -7,6 +7,7 @@ import { useErrorToast } from '../lib/notifications'
 import { searchLibrary } from '../services/library'
 import { usePlayerStore } from '../stores/player'
 import { Button } from './ui/button'
+import { Input } from './ui/input'
 
 const props = defineProps<{ sessionId: string; serverId: string }>()
 const emit = defineEmits<{
@@ -125,7 +126,7 @@ function appendTrack(track: TrackSummary): void {
     <form class="search-form" role="search" @submit.prevent="submitSearch">
       <label class="search-field">
         <span class="sr-only">搜索艺术家、专辑或歌曲</span>
-        <input
+        <Input
           v-model="input"
           type="search"
           maxlength="200"

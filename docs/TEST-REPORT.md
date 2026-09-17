@@ -362,3 +362,11 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - 一致性边界：收藏和歌单写操作继续失效相关服务器事实；网络设置变化清查询并轮换页面缓存；恢复/解锁、断开和忘记账号继续走既有清理流程，因此不会跨账号或旧网络上下文复用。
 - 自动验证：Node.js 22.21.1 下定向测试 4 文件/21 项、全量 Vitest 28 文件/146 项、`npm run typecheck` 通过；ESLint 首轮只发现并修正 1 处模板换行格式，修正后通过。覆盖查询缓存复用、手动刷新只增加一次当前请求，以及切页后搜索条件和结果不丢失。
 - 当前状态：`RETEST`。按用户要求未构建、未重启或打开新包，当前运行测试包不包含该改动。
+
+### P12-MI-019 shadcn-vue 基础交互组件统一
+
+- 用户要求：通用 UI 功能优先直接使用项目持有的 shadcn-vue 组件，减少原生标签与手写基础控件并存。
+- 实现：通过官方 shadcn-vue CLI 引入 Input、Checkbox、Label、Slider 与 AlertDialog，并以官方完整 Select 组件族替换原简化封装；组件按 Sonavi tokens、`@lucide/vue` 和 `exactOptionalPropertyTypes` 适配，CLI 自动放宽的依赖版本范围已恢复为精确锁定。连接、搜索、歌单、设置、歌词和播放器完成迁移；Sonner 只处理通知，删除歌单与退出并忘记账号使用 AlertDialog。
+- 保留边界：左侧导航、专辑/艺术家/歌单实体入口、队列曲目和虚拟列表行属于业务组件，继续使用语义化原生按钮，不为形式统一套用通用 Button。Slider 提交到 AudioEngine 前将 seek 归一化到毫秒精度、音量归一化到百分之一，避免转码 `timeOffset` 浮点尾差。
+- 自动验证：Node.js 22.21.1 下 `npm run lint`、`npm run typecheck`、`npm test`（28 文件/147 项）、`npm run build` 全部通过。Windows 源码 Electron 完整冒烟通过，覆盖连接 Checkbox、显式搜索、歌单 Checkbox、设置 Select 持久化、原始与 MP3 转码 Slider seek、诊断、生命周期、队列恢复和凭据恢复/删除；构建仅有既有 Zod PURE 注释位置警告。
+- 当前状态：`RETEST`。未重新生成 Windows 安装包；macOS Intel x64 与 Apple Silicon arm64 实机均未验证。

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, ref, watch } from 'vue'
-import { requestConfirmation, showErrorToast, useErrorToast } from '../lib/notifications'
+import { showErrorToast, useErrorToast } from '../lib/notifications'
 import {
   createPlaylist,
   deletePlaylist,
@@ -10,7 +10,11 @@ import {
   updatePlaylist
 } from '../services/library'
 import { usePlayerStore } from '../stores/player'
+import ConfirmationDialog from './ConfirmationDialog.vue'
 import { Button } from './ui/button'
+import { Checkbox } from './ui/checkbox'
+import { Input } from './ui/input'
+import { Label } from './ui/label'
 
 const props = defineProps<{ sessionId: string; serverId: string }>()
 const queryClient = useQueryClient()
@@ -22,7 +26,7 @@ const editName = ref('')
 const editPublic = ref(false)
 const mutationStatus = ref('')
 const busy = ref(false)
-const deleteConfirmationPending = ref(false)
+const deleteConfirmationOpen = ref(false)
 
 const playlistsQuery = useQuery({
   queryKey: computed(() => ['playlists', props.sessionId]),
@@ -154,21 +158,15 @@ async function handleRemove(index: number): Promise<void> {
   ) await refreshPlaylists()
 }
 
-async function handleDelete(): Promise<void> {
+function handleDelete(): void {
   const playlist = playlistQuery.data.value
-  if (!selectedPlaylistId.value || !playlist || deleteConfirmationPending.value) return
-  deleteConfirmationPending.value = true
-  let confirmed: boolean
-  try {
-    confirmed = await requestConfirmation({
-      title: `删除歌单“${playlist.name}”？`,
-      description: '此操作会同步到服务器，删除后无法在 Sonavi 中撤销。',
-      confirmLabel: '删除歌单'
-    })
-  } finally {
-    deleteConfirmationPending.value = false
-  }
-  if (!confirmed) return
+  if (!selectedPlaylistId.value || !playlist || busy.value) return
+  deleteConfirmationOpen.value = true
+}
+
+async function confirmDelete(): Promise<void> {
+  if (!selectedPlaylistId.value || !playlistQuery.data.value || busy.value) return
+  deleteConfirmationOpen.value = false
   if (
     await runMutation(
       () => deletePlaylist({ sessionId: props.sessionId, playlistId: selectedPlaylistId.value! }),
@@ -225,14 +223,20 @@ function refreshCurrentView(): void {
 
     <template v-if="!selectedPlaylistId">
       <form class="playlist-create" @submit.prevent="handleCreate">
-        <label>
-          <span>新歌单名称</span>
-          <input v-model="newName" maxlength="200" placeholder="例如：夜间聆听" />
-        </label>
-        <label class="remember-row">
-          <input v-model="includeQueue" type="checkbox" :disabled="player.queue.length === 0" />
-          包含当前队列（{{ player.queue.length }} 首，重复歌曲会保留）
-        </label>
+        <div class="playlist-field">
+          <Label for="new-playlist-name">新歌单名称</Label>
+          <Input id="new-playlist-name" v-model="newName" maxlength="200" placeholder="例如：夜间聆听" />
+        </div>
+        <div class="remember-row">
+          <Checkbox
+            id="include-current-queue"
+            v-model="includeQueue"
+            :disabled="player.queue.length === 0"
+          />
+          <Label for="include-current-queue">
+            包含当前队列（{{ player.queue.length }} 首，重复歌曲会保留）
+          </Label>
+        </div>
         <Button type="submit" :disabled="busy || !newName.trim()">创建歌单</Button>
       </form>
 
@@ -264,14 +268,14 @@ function refreshCurrentView(): void {
       </div>
       <template v-else-if="playlistQuery.data.value">
         <form class="playlist-editor" @submit.prevent="handleSaveMetadata">
-          <label>
-            <span>名称</span>
-            <input v-model="editName" maxlength="200" />
-          </label>
-          <label class="remember-row">
-            <input v-model="editPublic" type="checkbox" />
-            对服务器上的其他用户公开
-          </label>
+          <div class="playlist-field">
+            <Label for="playlist-name">名称</Label>
+            <Input id="playlist-name" v-model="editName" maxlength="200" />
+          </div>
+          <div class="remember-row">
+            <Checkbox id="playlist-public" v-model="editPublic" />
+            <Label for="playlist-public">对服务器上的其他用户公开</Label>
+          </div>
           <div class="flex flex-wrap gap-2">
             <Button type="submit" :disabled="busy || !editName.trim()">保存信息</Button>
             <Button type="button" variant="outline" :disabled="playlistQuery.data.value.tracks.length === 0" @click="playPlaylist">播放全部</Button>
@@ -279,7 +283,7 @@ function refreshCurrentView(): void {
             <Button
               type="button"
               variant="ghost"
-              :disabled="busy || deleteConfirmationPending"
+              :disabled="busy"
               @click="handleDelete"
             >
               删除歌单
@@ -301,5 +305,13 @@ function refreshCurrentView(): void {
     </template>
 
     <p v-if="mutationStatus" class="mutation-status" role="status">{{ mutationStatus }}</p>
+    <ConfirmationDialog
+      v-model:open="deleteConfirmationOpen"
+      :title="`删除歌单“${playlistQuery.data.value?.name ?? ''}”？`"
+      description="此操作会同步到服务器，删除后无法在 Sonavi 中撤销。"
+      confirm-label="删除歌单"
+      :busy="busy"
+      @confirm="confirmDelete"
+    />
   </section>
 </template>

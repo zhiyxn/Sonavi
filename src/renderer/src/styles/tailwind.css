@@ -1,6 +1,25 @@
 @import "tailwindcss";
 
 @theme inline {
+  --color-background: var(--sonavi-canvas);
+  --color-foreground: var(--sonavi-ink);
+  --color-card: var(--sonavi-raised);
+  --color-card-foreground: var(--sonavi-ink);
+  --color-popover: var(--sonavi-raised);
+  --color-popover-foreground: var(--sonavi-ink);
+  --color-primary: var(--sonavi-accent);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--sonavi-subtle);
+  --color-secondary-foreground: var(--sonavi-ink);
+  --color-muted: var(--sonavi-subtle);
+  --color-muted-foreground: var(--sonavi-text-secondary);
+  --color-accent: var(--sonavi-accent-subtle);
+  --color-accent-foreground: var(--sonavi-ink);
+  --color-destructive: var(--sonavi-danger);
+  --color-destructive-foreground: #ffffff;
+  --color-border: var(--sonavi-border);
+  --color-input: var(--sonavi-border);
+  --color-ring: var(--sonavi-accent);
   --color-sonavi-canvas: var(--sonavi-canvas);
   --color-sonavi-raised: var(--sonavi-raised);
   --color-sonavi-ink: var(--sonavi-ink);

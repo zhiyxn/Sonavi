@@ -271,14 +271,14 @@ renderer 继续只接收 `sonavi-media://media/<opaque-token>`，但 token 不�
 
 OpenSubsonic JSON 默认响应上限仍为 1 MiB；只有必须一次返回完整索引的 `getArtists` 使用独立 16 MiB 上限。该调整保持明确的内存边界，不把真实大型资料库问题扩散为所有端点的无限响应读取。
 
-## D023：renderer 错误提醒与危险操作确认统一使用 Sonner
+## D023：renderer 错误提醒使用 Sonner（危险确认部分已取代）
 
 - 日期：2026-09-17
-- 状态：已接受；取代分散的临时错误文字和原生 `window.confirm`
+- 状态：错误通知部分保留；危险操作确认部分由 D025 取代
 
 应用根节点只挂载一个项目持有的 shadcn-vue Sonner `Toaster`，并加载 `vue-sonner` 官方样式。瞬时错误由统一工具调用 `toast.error`，使用稳定 ID 合并同一错误；会阻断当前页面的查询失败仍保留带重试按钮的状态卡，toast 不作为唯一恢复路径。
 
-删除歌单和退出并忘记账号使用无限时长的 Sonner warning toast，通过 action/cancel 表达确认与取消。取消、关闭或滑走均按拒绝处理，只有确认回调才能继续原有受限服务调用；调用方使用 pending 状态阻止重复确认。该层只改变 renderer 交互，不放宽 main IPC、凭据或删除边界。
+最初以无限时长的 Sonner warning toast 承担删除歌单和退出并忘记账号的二次确认；P12-MI-019 复核基础组件职责后，确认流程改由 D025 的 AlertDialog 承担。Sonner 继续只负责非阻断通知。
 
 来源：
 
@@ -293,3 +293,12 @@ OpenSubsonic JSON 默认响应上限仍为 1 MiB；只有必须一次返回完�
 首页、专辑、艺术家、搜索、收藏和歌单在应用外壳中保留已访问组件实例；设置页不进入该缓存。对应 TanStack Query 成功数据在当前连接会话内保持新鲜，禁用组件挂载和窗口聚焦自动重取，避免栏目切换造成重复的 OpenSubsonic 请求。搜索输入与结果、歌单当前详情等局部页面状态随实例保留。
 
 每个数据页提供明确刷新按钮，但只调用当前列表、当前分页或当前详情的 `refetch`，不清除其他页面缓存。服务器写操作成功后仍按资源键失效并读取服务器事实；网络设置变化清除查询并轮换页面缓存，恢复/解锁、断开和忘记账号继续使用既有全局清理边界。该策略降低无意义请求，但不将服务端数据持久化到磁盘，也不跨连接会话共享。
+
+## D025：基础交互组件优先使用项目持有的 shadcn-vue 源码
+
+- 日期：2026-09-18
+- 状态：已接受；取代 D023 中由 Sonner 承担危险确认的部分
+
+renderer 的通用输入、复选、标签、选择、滑块和危险确认分别使用项目持有的 shadcn-vue Input、Checkbox、Label、Select、Slider 与 AlertDialog 源码。组件通过官方 CLI 引入，再按 Sonavi tokens、`@lucide/vue`、中文界面和 `exactOptionalPropertyTypes` 规则适配；依赖继续精确锁定，不因 CLI 自动改写而放宽版本范围。Sonner 只用于错误等非阻断通知，危险操作必须使用具有模态焦点管理和明确确认/取消语义的 AlertDialog。
+
+业务导航、专辑/艺术家/歌单实体卡片、队列曲目和虚拟列表行仍可保留语义化原生按钮，因为这些是业务组合而不是通用控件重复实现。Slider 向 AudioEngine 提交前统一归一化浮点步进值，避免转码 `timeOffset` 因二进制小数尾差变成不稳定参数。该决定只统一 renderer 交互层，不改变 main IPC、安全边界或服务器写入条件。

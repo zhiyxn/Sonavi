@@ -85,10 +85,13 @@ describe('ConnectPanel', () => {
     })
 
     const wrapper = mount(ConnectPanel, { props: { applicationInfo } })
+    expect(wrapper.findAll('[data-slot="input"]')).toHaveLength(3)
+    expect(wrapper.findAll('[data-slot="checkbox"]')).toHaveLength(2)
+    expect(wrapper.get('button[type="submit"]').attributes('data-slot')).toBe('button')
     await wrapper.get('#server-url').setValue('https://music.example.com')
     await wrapper.get('#username').setValue('listener')
     await wrapper.get('#password').setValue('secret')
-    await wrapper.get('#remember-me').setValue(true)
+    await wrapper.get('#remember-me').trigger('click')
     await wrapper.get('form').trigger('submit')
     await flushPromises()
 

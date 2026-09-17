@@ -3,6 +3,7 @@ import { mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TrackSummary } from '../../src/shared/library'
 import PlayerBar from '../../src/renderer/src/components/PlayerBar.vue'
+import { Slider } from '../../src/renderer/src/components/ui/slider'
 import { usePlayerStore, type PlaybackScope } from '../../src/renderer/src/stores/player'
 
 class FakeAudio extends EventTarget {
@@ -266,6 +267,32 @@ describe('P04 播放队列', () => {
     const primaryControl = wrapper.get('button[aria-label="暂停"]')
     expect(primaryControl.classes()).toContain('transport-primary')
     expect(primaryControl.find('svg').exists()).toBe(true)
+  })
+
+  it('播放进度和音量使用带无障碍名称的 shadcn Slider', () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const wrapper = mount(PlayerBar, { global: { plugins: [pinia] } })
+
+    expect(wrapper.get('[data-slot="slider-thumb"][aria-label="播放进度"]').attributes('role')).toBe('slider')
+    expect(wrapper.get('[data-slot="slider-thumb"][aria-label="音量"]').attributes('role')).toBe('slider')
+  })
+
+  it('Slider 步进浮点值在进入播放边界前归一化', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const player = usePlayerStore()
+    const seek = vi.spyOn(player, 'seek').mockResolvedValue()
+    const setVolume = vi.spyOn(player, 'setVolume')
+    const wrapper = mount(PlayerBar, { global: { plugins: [pinia] } })
+    const sliders = wrapper.findAllComponents(Slider)
+
+    sliders[0]?.vm.$emit('valueCommit', [2.0000000000000004])
+    sliders[1]?.vm.$emit('update:modelValue', [0.42000000000000004])
+    await wrapper.vm.$nextTick()
+
+    expect(seek).toHaveBeenCalledWith(2)
+    expect(setVolume).toHaveBeenCalledWith(0.42)
   })
 
   it('播放区域优先显示当前歌曲封面，没有封面时保留占位符', async () => {

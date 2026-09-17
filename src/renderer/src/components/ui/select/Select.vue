@@ -1,66 +1,35 @@
 <script setup lang="ts">
-import { Check, ChevronDown } from '@lucide/vue'
-import {
-  SelectContent,
-  SelectIcon,
-  SelectItem,
-  SelectItemIndicator,
-  SelectItemText,
-  SelectPortal,
-  SelectRoot,
-  SelectTrigger,
-  SelectValue,
-  SelectViewport
-} from 'reka-ui'
 import { computed } from 'vue'
-
-export interface SelectOption {
-  value: string | number
-  label: string
-}
+import { SelectRoot } from "reka-ui"
 
 const props = defineProps<{
-  modelValue: string | number
-  options: readonly SelectOption[]
-  label: string
+  modelValue?: string | number
+  disabled?: boolean
+  name?: string
 }>()
-
 const emit = defineEmits<{
   'update:modelValue': [value: string | number]
+  'update:open': [open: boolean]
 }>()
-
-const stringValue = computed(() => String(props.modelValue))
+const forwarded = computed(() => ({
+  ...(props.modelValue === undefined ? {} : { modelValue: props.modelValue }),
+  ...(props.disabled === undefined ? {} : { disabled: props.disabled }),
+  ...(props.name === undefined ? {} : { name: props.name })
+}))
 
 function updateValue(value: unknown): void {
-  const option = props.options.find((candidate) => String(candidate.value) === String(value))
-  if (option) emit('update:modelValue', option.value)
+  if (typeof value === 'string' || typeof value === 'number') emit('update:modelValue', value)
 }
 </script>
 
 <template>
-  <SelectRoot :model-value="stringValue" @update:model-value="updateValue">
-    <SelectTrigger class="sonavi-select-trigger" :aria-label="label">
-      <SelectValue />
-      <SelectIcon class="sonavi-select-icon">
-        <ChevronDown :size="16" aria-hidden="true" />
-      </SelectIcon>
-    </SelectTrigger>
-    <SelectPortal>
-      <SelectContent class="sonavi-select-content" position="popper" :side-offset="5">
-        <SelectViewport class="sonavi-select-viewport">
-          <SelectItem
-            v-for="option in options"
-            :key="String(option.value)"
-            class="sonavi-select-item"
-            :value="String(option.value)"
-          >
-            <SelectItemText>{{ option.label }}</SelectItemText>
-            <SelectItemIndicator class="sonavi-select-indicator">
-              <Check :size="15" aria-hidden="true" />
-            </SelectItemIndicator>
-          </SelectItem>
-        </SelectViewport>
-      </SelectContent>
-    </SelectPortal>
+  <SelectRoot
+    v-slot="slotProps"
+    data-slot="select"
+    v-bind="forwarded"
+    @update:model-value="updateValue"
+    @update:open="emit('update:open', $event)"
+  >
+    <slot v-bind="slotProps" />
   </SelectRoot>
 </template>

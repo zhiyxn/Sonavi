@@ -158,7 +158,7 @@
 | B-03 | 艺术家列表与详情 | FAIL | BLOCKED | BLOCKED | Windows 真实服务器的完整 getArtists 响应较慢，且原 30 秒缓存可能重复请求；已改为当前连接会话内复用成功结果。艺术家列表双滚动条也已在源码中改为仅列表内部滚动；当前运行包不含该布局修复，首次全量请求和滚动仍需真机复验 |
 | B-04 | 搜索 | BLOCKED | BLOCKED | BLOCKED | 需 A-01；源码已改为 Enter 或搜索按钮显式提交，当前运行包不含该改动，等待下一统一包复验 |
 | B-05 | 收藏读取与写入 | BLOCKED | BLOCKED | BLOCKED | 会修改真实服务收藏状态，执行前记录并恢复原状态 |
-| B-06 | 歌单 CRUD 与播放 | BLOCKED | BLOCKED | BLOCKED | 只创建明确标注为 P12 的临时歌单；删除前使用 Sonner 确认/取消，当前运行包不含该改动 |
+| B-06 | 歌单 CRUD 与播放 | BLOCKED | BLOCKED | BLOCKED | 只创建明确标注为 P12 的临时歌单；删除前使用 shadcn-vue AlertDialog 确认/取消，当前运行包不含该改动 |
 | B-07 | 中文元数据 | BLOCKED | BLOCKED | BLOCKED | 需真实样本 |
 | B-08 | 英文元数据 | BLOCKED | BLOCKED | BLOCKED | 需真实样本 |
 | B-09 | 长标题布局 | BLOCKED | BLOCKED | BLOCKED | 需真实样本 |

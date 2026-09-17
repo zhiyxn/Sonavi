@@ -71,7 +71,7 @@ P09 将非敏感队列元数据保存到 main 的 `desktop-state.v1.json`，不�
 
 设置页在同一共享组件中呈现平台、服务器、协议、播放/网络策略、关闭动作、主题、当前账号封面缓存与安全退出；平台行为由 preload/main 适配，不在 Vue 组件读取 `process`。
 
-renderer 根节点只挂载一个项目持有的 shadcn-vue Sonner `Toaster`。连接、设置、收藏/歌单 mutation、查询、播放和上报错误通过统一通知工具调用 `toast.error`，稳定 ID 避免同一错误重复堆叠；阻断当前页面的加载错误仍保留带重试按钮的状态卡。删除歌单与退出并忘记账号不再调用原生 `window.confirm`，而使用持续显示、可关闭且带确认/取消 action 的 Sonner；关闭或取消解析为拒绝，确认后才进入既有受限 IPC/服务调用，组件同时阻止重复确认。
+renderer 根节点只挂载一个项目持有的 shadcn-vue Sonner `Toaster`。连接、设置、收藏/歌单 mutation、查询、播放和上报错误通过统一通知工具调用 `toast.error`，稳定 ID 避免同一错误重复堆叠；阻断当前页面的加载错误仍保留带重试按钮的状态卡。删除歌单与退出并忘记账号不再调用原生 `window.confirm`，而使用项目持有的 shadcn-vue AlertDialog；取消或关闭不执行操作，确认后才进入既有受限 IPC/服务调用，组件同时阻止重复确认。Input、Checkbox、Label、Select 与 Slider 同样由官方 shadcn-vue 源码引入并按 Sonavi tokens 和严格 TypeScript 规则适配；业务导航、实体卡片和虚拟列表继续保留语义化按钮。
 
 ## P06 收藏与歌单
 

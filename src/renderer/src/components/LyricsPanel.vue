@@ -5,6 +5,13 @@ import { useErrorToast } from '../lib/notifications'
 import { getLyrics } from '../services/playback'
 import { usePlayerStore } from '../stores/player'
 import { Button } from './ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from './ui/select'
 
 const emit = defineEmits<{ close: [] }>()
 const player = usePlayerStore()
@@ -91,14 +98,19 @@ function variantLabel(index: number): string {
       服务器没有返回这首歌的歌词。
     </div>
     <template v-else>
-      <label v-if="variants.length > 1" class="lyrics-variant">
+      <div v-if="variants.length > 1" class="lyrics-variant">
         <span>歌词版本</span>
-        <select v-model.number="selectedVariantIndex">
-          <option v-for="(_, index) in variants" :key="index" :value="index">
-            {{ variantLabel(index) }}
-          </option>
-        </select>
-      </label>
+        <Select v-model="selectedVariantIndex">
+          <SelectTrigger class="max-w-[220px]" aria-label="歌词版本">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem v-for="(_, index) in variants" :key="index" :value="index">
+              {{ variantLabel(index) }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       <p v-if="selectedVariant?.displayTitle || selectedVariant?.displayArtist" class="lyrics-credit">
         {{ selectedVariant.displayTitle ?? player.track?.title }} ·
         {{ selectedVariant.displayArtist ?? player.track?.artist }}
