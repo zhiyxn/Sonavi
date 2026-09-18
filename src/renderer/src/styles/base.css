@@ -73,6 +73,9 @@ input {
   font-weight: 650;
   letter-spacing: -0.03em;
   text-decoration: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .brand-logo {

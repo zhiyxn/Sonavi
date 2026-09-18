@@ -3,6 +3,7 @@ import type {
   DiagnosticErrorCategory,
   DiagnosticStage,
   NetworkDiagnosticEntry,
+  PlaybackBufferEvent,
   ProxyMode
 } from '../../shared/network'
 
@@ -110,10 +111,12 @@ export interface DiagnosticRecordInput {
   operation?: string | undefined
   requestContext?: string | undefined
   attempt?: number | undefined
+  event?: PlaybackBufferEvent | undefined
   status?: number | undefined
   contentType?: string | undefined
   errorCategory: DiagnosticErrorCategory
   error?: unknown
+  durationMs?: number | undefined
 }
 
 export class NetworkDiagnosticRecorder {
@@ -131,12 +134,21 @@ export class NetworkDiagnosticRecorder {
       ...(input.operation ? { operation: input.operation.slice(0, MAX_OPERATION_LENGTH) } : {}),
       ...(requestContext ? { requestContext } : {}),
       ...(input.attempt ? { attempt: Math.min(20, Math.max(1, Math.floor(input.attempt))) } : {}),
+      ...(input.event ? { event: input.event } : {}),
       ...(input.status ? { status: input.status } : {}),
       ...(input.contentType ? { contentType: input.contentType.slice(0, 200) } : {}),
       errorCategory: input.errorCategory,
       ...describeError(input.error),
-      durationMs: Math.max(0, Math.round(performance.now() - input.startedAt)),
-      recommendation: recommendationFor(input.errorCategory)
+      durationMs:
+        input.durationMs === undefined
+          ? Math.max(0, Math.round(performance.now() - input.startedAt))
+          : Math.min(3_600_000, Math.max(0, Math.round(input.durationMs))),
+      recommendation:
+        input.event === 'buffer-start'
+          ? '播放器进入缓冲；等待对应的 buffer-end 记录持续时间。'
+          : input.event === 'buffer-end'
+            ? '播放器已退出缓冲；请结合持续时间与相邻音频流记录判断链路稳定性。'
+            : recommendationFor(input.errorCategory)
     }
     this.entries.unshift(entry)
     if (this.entries.length > MAX_ENTRIES) this.entries.length = MAX_ENTRIES
@@ -149,10 +161,10 @@ export class NetworkDiagnosticRecorder {
   exportText(): string {
     const payload = JSON.stringify(
       {
-        schemaVersion: 2,
+        schemaVersion: 3,
         generatedAt: new Date().toISOString(),
         redaction:
-          'URL、账号、凭据、token、资源 ID 与响应正文未被记录；端点名、白名单查询上下文与错误文本在写入前已脱敏。',
+          'URL、账号、凭据、token、资源 ID 与响应正文未被记录；缓冲日志只包含事件、持续时间，端点名、白名单查询上下文与错误文本在写入前已脱敏。',
         entries: this.entries
       },
       null,
@@ -162,10 +174,10 @@ export class NetworkDiagnosticRecorder {
       ? payload
       : JSON.stringify(
           {
-            schemaVersion: 2,
+            schemaVersion: 3,
             generatedAt: new Date().toISOString(),
             redaction:
-              'URL、账号、凭据、token、资源 ID 与响应正文未被记录；端点名、白名单查询上下文与错误文本在写入前已脱敏。',
+              'URL、账号、凭据、token、资源 ID 与响应正文未被记录；缓冲日志只包含事件、持续时间，端点名、白名单查询上下文与错误文本在写入前已脱敏。',
             entries: this.entries.slice(0, 100)
           },
           null,

@@ -19,7 +19,8 @@ function installPlatformApi(platform: 'windows' | 'macos'): SonaviApi {
         shortcutModifier: isMac ? 'Cmd' : 'Ctrl',
         closeBehavior: 'hide-window',
         canHideToBackground: true
-      })
+      }),
+      openProjectHomepage: vi.fn(async () => true)
     },
     connection: {
       test: async () => ({
@@ -93,6 +94,7 @@ function installPlatformApi(platform: 'windows' | 'macos'): SonaviApi {
       updateSettings: async (settings) => ({ settings, connectionsReset: false }),
       listDiagnostics: async () => [],
       exportDiagnostics: async () => ({ exported: false, cancelled: true }),
+      reportPlaybackBuffer: async () => undefined,
       createTranscodeSeek: async () => ({ ok: false, message: 'not used' })
     },
     desktop: {
@@ -121,13 +123,15 @@ afterEach(() => {
 
 describe('共享应用外壳', () => {
   it('按 preload 契约显示 Windows 快捷键，不渲染伪窗口按钮', async () => {
-    installPlatformApi('windows')
+    const api = installPlatformApi('windows')
     const wrapper = mount(App, { global: { plugins: [createPinia(), VueQueryPlugin] } })
     await flushPromises()
 
     expect(wrapper.text()).toContain('Windows · v0.1.0')
     expect(wrapper.text()).toContain('设置快捷键 Ctrl+,')
     expect(wrapper.get('img.brand-logo').attributes('src')).toContain('sonavi-logo.png')
+    await wrapper.get('button.brand').trigger('click')
+    expect(api.application.openProjectHomepage).toHaveBeenCalledOnce()
     expect(wrapper.find('[data-testid="fake-macos-controls"]').exists()).toBe(false)
     expect(wrapper.find('[data-sonner-toaster]').exists()).toBe(true)
   })

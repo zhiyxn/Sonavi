@@ -71,7 +71,8 @@ const stageLabels = {
   api: 'API',
   cover: '封面',
   'audio-original': '原始音频',
-  'audio-transcode': '转码音频'
+  'audio-transcode': '转码音频',
+  'playback-buffer': '播放缓冲'
 } as const
 
 onMounted(async () => {
@@ -324,7 +325,7 @@ async function exportDiagnostics(): Promise<void> {
       <ol v-else class="diagnostics-list">
         <li v-for="entry in diagnostics.slice(0, 20)" :key="entry.id">
           <strong>{{ stageLabels[entry.stage] }}</strong>
-          <span>{{ entry.operation || '—' }}<template v-if="entry.requestContext"> · {{ entry.requestContext }}</template><template v-if="entry.attempt"> · 第 {{ entry.attempt }} 次</template> · {{ entry.status ?? '—' }} · {{ entry.contentType || '无类型' }} · {{ entry.durationMs }} ms</span>
+          <span>{{ entry.event || entry.operation || '—' }}<template v-if="entry.requestContext"> · {{ entry.requestContext }}</template><template v-if="entry.attempt"> · 第 {{ entry.attempt }} 次</template> · {{ entry.status ?? '—' }} · {{ entry.contentType || '无类型' }} · {{ entry.durationMs }} ms</span>
           <span>{{ entry.errorCategory }} · {{ entry.recommendation }}</span>
           <span v-if="entry.errorDetail">{{ entry.errorName || 'Error' }}: {{ entry.errorDetail }}</span>
         </li>

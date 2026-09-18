@@ -1,6 +1,7 @@
 import type {
   NetworkSettings,
   NetworkSettingsUpdateResult,
+  PlaybackBufferDiagnosticRequest,
   TranscodeSeekRequest,
   TranscodeSeekResult
 } from '../../../shared/network'
@@ -30,6 +31,12 @@ export async function loadNetworkDiagnostics() {
 
 export async function exportNetworkDiagnostics() {
   return ExportDiagnosticsResultSchema.parse(await window.sonavi.network.exportDiagnostics())
+}
+
+export async function reportPlaybackBuffer(
+  request: PlaybackBufferDiagnosticRequest
+): Promise<void> {
+  await window.sonavi.network.reportPlaybackBuffer(request)
 }
 
 export async function createTranscodeSeek(

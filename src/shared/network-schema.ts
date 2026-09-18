@@ -4,6 +4,7 @@ import type {
   NetworkDiagnosticEntry,
   NetworkSettings,
   NetworkSettingsUpdateResult,
+  PlaybackBufferDiagnosticRequest,
   TranscodeSeekRequest,
   TranscodeSeekResult
 } from './network'
@@ -38,11 +39,12 @@ export const NetworkSettingsUpdateResultSchema = z.object({
 export const NetworkDiagnosticEntrySchema = z.object({
   id: z.string().uuid(),
   timestamp: z.string().datetime(),
-  stage: z.enum(['api', 'cover', 'audio-original', 'audio-transcode']),
+  stage: z.enum(['api', 'cover', 'audio-original', 'audio-transcode', 'playback-buffer']),
   proxyMode: z.enum(['system', 'direct', 'manual']),
   operation: z.string().min(1).max(64).optional(),
   requestContext: z.string().min(1).max(120).optional(),
   attempt: z.number().int().min(1).max(20).optional(),
+  event: z.enum(['buffer-start', 'buffer-end']).optional(),
   status: z.number().int().min(100).max(599).optional(),
   contentType: z.string().max(200).optional(),
   errorCategory: z.enum([
@@ -70,6 +72,22 @@ export const ExportDiagnosticsResultSchema = z.object({
   exported: z.boolean(),
   cancelled: z.boolean()
 }) satisfies z.ZodType<ExportDiagnosticsResult>
+
+export const PlaybackBufferDiagnosticRequestSchema = z
+  .object({
+    event: z.enum(['buffer-start', 'buffer-end']),
+    durationMs: z.number().finite().int().min(0).max(3_600_000)
+  })
+  .strict()
+  .superRefine(({ event, durationMs }, context) => {
+    if (event === 'buffer-start' && durationMs !== 0) {
+      context.addIssue({
+        code: 'custom',
+        path: ['durationMs'],
+        message: '缓冲开始事件的持续时间必须为 0。'
+      })
+    }
+  }) satisfies z.ZodType<PlaybackBufferDiagnosticRequest>
 
 export const TranscodeSeekRequestSchema = z.object({
   sessionId: SessionIdSchema,

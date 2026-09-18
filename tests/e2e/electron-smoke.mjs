@@ -550,6 +550,9 @@ try {
     (image) => 'complete' in image && 'naturalWidth' in image && image.complete && image.naturalWidth > 0
   )
   if (!logoLoaded) throw new Error('Sonavi logo asset did not load')
+  await window
+    .getByRole('button', { name: '在浏览器中打开 Sonavi GitHub 仓库', exact: true })
+    .waitFor()
 
   try {
     await window.getByRole('heading', { name: '连接你的音乐空间' }).waitFor()
@@ -890,8 +893,27 @@ try {
     throw new Error('兼容转码或 transcodeOffset 参数未按 P08 设置发送')
   }
   await window.getByRole('button', { name: '设置', exact: true }).click()
+  const bufferPayloadRejected = await window.evaluate(async () => {
+    try {
+      await window.sonavi.network.reportPlaybackBuffer({
+        event: 'buffer-start',
+        durationMs: 0,
+        trackId: 'must-not-cross-ipc'
+      })
+      return false
+    } catch {
+      return true
+    }
+  })
+  if (!bufferPayloadRejected) throw new Error('缓冲诊断 IPC 接受了曲目身份字段')
+  await window.evaluate(async () => {
+    await window.sonavi.network.reportPlaybackBuffer({ event: 'buffer-start', durationMs: 0 })
+    await window.sonavi.network.reportPlaybackBuffer({ event: 'buffer-end', durationMs: 1_234 })
+  })
   await window.getByRole('button', { name: '刷新', exact: true }).click()
   await window.getByText('转码音频', { exact: true }).first().waitFor()
+  await window.getByText('播放缓冲', { exact: true }).first().waitFor()
+  await window.getByText(/buffer-end · — · 无类型 · 1234 ms/).first().waitFor()
   await window
     .getByText(/getAlbumList2 · listType=newest,page=1,size=30 · 第 1 次/)
     .first()

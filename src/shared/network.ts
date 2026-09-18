@@ -3,6 +3,7 @@ export const UPDATE_NETWORK_SETTINGS_CHANNEL = 'sonavi:network:update-settings' 
 export const LIST_NETWORK_DIAGNOSTICS_CHANNEL = 'sonavi:network:list-diagnostics' as const
 export const EXPORT_NETWORK_DIAGNOSTICS_CHANNEL = 'sonavi:network:export-diagnostics' as const
 export const CREATE_TRANSCODE_SEEK_CHANNEL = 'sonavi:network:create-transcode-seek' as const
+export const REPORT_PLAYBACK_BUFFER_CHANNEL = 'sonavi:network:report-playback-buffer' as const
 
 export type PlaybackPolicyMode = 'original' | 'compatible' | 'automatic'
 export type ProxyMode = 'system' | 'direct' | 'manual'
@@ -29,7 +30,13 @@ export interface NetworkSettingsUpdateResult {
   connectionsReset: boolean
 }
 
-export type DiagnosticStage = 'api' | 'cover' | 'audio-original' | 'audio-transcode'
+export type DiagnosticStage =
+  | 'api'
+  | 'cover'
+  | 'audio-original'
+  | 'audio-transcode'
+  | 'playback-buffer'
+export type PlaybackBufferEvent = 'buffer-start' | 'buffer-end'
 export type DiagnosticErrorCategory =
   | 'none'
   | 'network'
@@ -54,6 +61,8 @@ export interface NetworkDiagnosticEntry {
   requestContext?: string | undefined
   /** 当前查询的尝试序号。 */
   attempt?: number | undefined
+  /** 不含曲目身份信息的播放器缓冲状态事件。 */
+  event?: PlaybackBufferEvent | undefined
   status?: number | undefined
   contentType?: string | undefined
   errorCategory: DiagnosticErrorCategory
@@ -74,6 +83,11 @@ export interface TranscodeSeekRequest {
   timeOffset: number
 }
 
+export interface PlaybackBufferDiagnosticRequest {
+  event: PlaybackBufferEvent
+  durationMs: number
+}
+
 export type TranscodeSeekResult =
   | { ok: true; streamUrl: string; timelineOffset: number }
   | { ok: false; message: string }
@@ -83,5 +97,6 @@ export interface NetworkApi {
   updateSettings: (settings: NetworkSettings) => Promise<NetworkSettingsUpdateResult>
   listDiagnostics: () => Promise<NetworkDiagnosticEntry[]>
   exportDiagnostics: () => Promise<ExportDiagnosticsResult>
+  reportPlaybackBuffer: (request: PlaybackBufferDiagnosticRequest) => Promise<void>
   createTranscodeSeek: (request: TranscodeSeekRequest) => Promise<TranscodeSeekResult>
 }

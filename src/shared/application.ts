@@ -5,6 +5,7 @@ import type { NetworkApi } from './network'
 import type { DesktopApi } from './desktop'
 
 export const APPLICATION_INFO_CHANNEL = 'sonavi:application:get-info' as const
+export const OPEN_PROJECT_HOMEPAGE_CHANNEL = 'sonavi:application:open-project-homepage' as const
 
 export type SupportedPlatform = 'windows' | 'macos' | 'unsupported'
 
@@ -21,6 +22,7 @@ export interface ApplicationInfo {
 export interface SonaviApi {
   application: {
     getInfo: () => Promise<ApplicationInfo>
+    openProjectHomepage: () => Promise<boolean>
   }
   connection: ConnectionApi
   library: LibraryApi

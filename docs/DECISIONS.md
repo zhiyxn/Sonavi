@@ -312,4 +312,15 @@ renderer 的列表图片使用浏览器原生懒加载，只在可视区域附�
 
 `getAlbumList2` 每个查询运行最多自动重试一次；未知写操作（特别是 scrobble）继续不自动重试，避免服务端已经执行但响应丢失时重复计数。手动重试由用户明确触发并重置尝试序号。
 
-网络诊断导出升级为 schema v2。列表请求只允许记录由 main 构造并再次过滤的 `listType`、页码、页大小和尝试序号；不得接受或写入 URL、账号、资源 ID、查询文本、凭据、token、Cookie、Authorization 或响应正文。该上下文用于区分 `newest` 与 `alphabeticalByName` 及自动重试，不扩大 renderer 权限。
+网络诊断导出最初升级为 schema v2，后由 D027 的缓冲事件扩展为 v3。列表请求只允许记录由 main 构造并再次过滤的 `listType`、页码、页大小和尝试序号；不得接受或写入 URL、账号、资源 ID、查询文本、凭据、token、Cookie、Authorization 或响应正文。该上下文用于区分 `newest` 与 `alphabeticalByName` 及自动重试，不扩大 renderer 权限。
+
+## D027：播放缓冲只通过严格、无身份字段的诊断通道记录
+
+- 日期：2026-09-18
+- 状态：已接受
+
+HTMLAudioElement 的 `waiting` 与 `stalled` 仍由 AudioEngine 统一转换为 `buffering`。独立 renderer 控制器对状态边沿去重：首次进入记录 `buffer-start`，离开缓冲、切换队列项或作用域销毁时记录 `buffer-end` 与单调时钟持续时间。诊断导出 schema 升级为 v3，并增加 `playback-buffer` 阶段；缓冲事件不伪装成音频 HTTP 请求，也不改变播放状态。
+
+renderer→main 只允许严格的 `{ event, durationMs }`，事件限于 `buffer-start` / `buffer-end`，开始持续时间固定为 0，结束持续时间限制在一小时内。schema 拒绝所有未知字段，因此 queueEntryId、trackId、sessionId、URL、账号、凭据和任意文本不能进入该通道。上报失败被吞并为非阻断诊断缺失，不得影响 AudioEngine。
+
+Logo 外链采用同一最小权限原则：preload 只暴露无参数 `openProjectHomepage()`；main 内固定目标为 `https://github.com/zhiyxn/Sonavi` 并调用系统 `shell.openExternal`。不得让 renderer 传入 URL，也不放宽现有新窗口与导航拒绝策略。

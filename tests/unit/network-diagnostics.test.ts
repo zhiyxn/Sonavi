@@ -5,6 +5,7 @@ import {
   redactDiagnosticText
 } from '../../src/main/services/network-diagnostics'
 import { hasProtocolFailureBody } from '../../src/main/services/opensubsonic/transport'
+import { PlaybackBufferDiagnosticRequestSchema } from '../../src/shared/network-schema'
 
 describe('P08 连接诊断', () => {
   it('只导出脱敏结构字段并限制记录数量', () => {
@@ -94,7 +95,7 @@ describe('P08 连接诊断', () => {
     expect(redactDiagnosticText('plain message')).toBe('plain message')
   })
 
-  it('白名单化查询上下文并导出第二版结构', () => {
+  it('白名单化查询上下文并导出第三版结构', () => {
     const recorder = new NetworkDiagnosticRecorder()
     recorder.record({
       stage: 'api',
@@ -117,6 +118,42 @@ describe('P08 连接诊断', () => {
     expect(recorder.list()[0]?.requestContext).toBeUndefined()
     expect(recorder.list()[1]?.requestContext).toBe('listType=newest,page=1,size=30')
     expect(recorder.exportText()).not.toContain('do-not-record')
-    expect(JSON.parse(recorder.exportText())).toMatchObject({ schemaVersion: 2 })
+    expect(JSON.parse(recorder.exportText())).toMatchObject({ schemaVersion: 3 })
+  })
+
+  it('缓冲事件只记录事件类型与持续时间，并拒绝身份字段', () => {
+    const recorder = new NetworkDiagnosticRecorder()
+    recorder.record({
+      stage: 'playback-buffer',
+      proxyMode: 'system',
+      startedAt: performance.now(),
+      event: 'buffer-start',
+      durationMs: 0,
+      errorCategory: 'none'
+    })
+    recorder.record({
+      stage: 'playback-buffer',
+      proxyMode: 'system',
+      startedAt: performance.now(),
+      event: 'buffer-end',
+      durationMs: 1_234,
+      errorCategory: 'none'
+    })
+
+    expect(recorder.list()[0]).toMatchObject({
+      stage: 'playback-buffer',
+      event: 'buffer-end',
+      durationMs: 1_234
+    })
+    expect(recorder.exportText()).not.toMatch(/trackId|resourceId|https?:\/\//)
+    expect(PlaybackBufferDiagnosticRequestSchema.safeParse({
+      event: 'buffer-start',
+      durationMs: 0,
+      trackId: 'must-not-cross-ipc'
+    }).success).toBe(false)
+    expect(PlaybackBufferDiagnosticRequestSchema.safeParse({
+      event: 'buffer-start',
+      durationMs: 1
+    }).success).toBe(false)
   })
 })

@@ -1,5 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { APPLICATION_INFO_CHANNEL, type SonaviApi } from '../shared/application'
+import {
+  APPLICATION_INFO_CHANNEL,
+  OPEN_PROJECT_HOMEPAGE_CHANNEL,
+  type SonaviApi
+} from '../shared/application'
 import {
   DISCONNECT_CONNECTION_CHANNEL,
   FORGET_CONNECTION_CHANNEL,
@@ -40,8 +44,10 @@ import {
   EXPORT_NETWORK_DIAGNOSTICS_CHANNEL,
   GET_NETWORK_SETTINGS_CHANNEL,
   LIST_NETWORK_DIAGNOSTICS_CHANNEL,
+  REPORT_PLAYBACK_BUFFER_CHANNEL,
   UPDATE_NETWORK_SETTINGS_CHANNEL,
   type NetworkSettings,
+  type PlaybackBufferDiagnosticRequest,
   type TranscodeSeekRequest
 } from '../shared/network'
 import {
@@ -72,7 +78,8 @@ const DESKTOP_COMMANDS = new Set<DesktopCommand>([
 
 const sonaviApi: SonaviApi = Object.freeze({
   application: Object.freeze({
-    getInfo: () => ipcRenderer.invoke(APPLICATION_INFO_CHANNEL)
+    getInfo: () => ipcRenderer.invoke(APPLICATION_INFO_CHANNEL),
+    openProjectHomepage: () => ipcRenderer.invoke(OPEN_PROJECT_HOMEPAGE_CHANNEL)
   }),
   connection: Object.freeze({
     test: (input: ConnectionTestInput) => ipcRenderer.invoke(TEST_CONNECTION_CHANNEL, input),
@@ -113,6 +120,8 @@ const sonaviApi: SonaviApi = Object.freeze({
       ipcRenderer.invoke(UPDATE_NETWORK_SETTINGS_CHANNEL, settings),
     listDiagnostics: () => ipcRenderer.invoke(LIST_NETWORK_DIAGNOSTICS_CHANNEL),
     exportDiagnostics: () => ipcRenderer.invoke(EXPORT_NETWORK_DIAGNOSTICS_CHANNEL),
+    reportPlaybackBuffer: (request: PlaybackBufferDiagnosticRequest) =>
+      ipcRenderer.invoke(REPORT_PLAYBACK_BUFFER_CHANNEL, request),
     createTranscodeSeek: (request: TranscodeSeekRequest) =>
       ipcRenderer.invoke(CREATE_TRANSCODE_SEEK_CHANNEL, request)
   }),

@@ -393,3 +393,11 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - 播放上报：修复队列项变化时重置后立即返回的问题；如果新歌曲第一次被观察到时已经是 `playing`，现在立即发送独立 now-playing，即使上一首请求超时也不会被其状态阻断。未知结果仍不自动重试，以免服务器实际已写入时重复计数。
 - 自动验证：Node.js 22.21.1 下 lint、typecheck、全量 Vitest 28 文件/153 项、生产构建和 Windows 源码 Electron 完整冒烟通过；网络诊断、OpenSubsonic 客户端、媒体协议、播放上报和专辑 UI 定向测试 5 文件/59 项通过，专辑 UI 新增重试/尝试序号后单文件 10 项通过。E2E 实际断言诊断页显示 `getAlbumList2 · listType=newest,page=1,size=30 · 第 1 次` 与 `scrobble` 条目；构建只有既有 Zod PURE 注释位置警告。
 - 当前状态：`RETEST`。Windows 真实服务器需确认封面峰值、每页最多两次 `getAlbumList2`、切歌立即出现新的 scrobble 条目，并继续定位服务端 12 秒无响应；macOS Intel/arm64 未验证。
+
+### P12-MI-023 脱敏缓冲事件与固定项目外链
+
+- 用户要求：诊断中增加 `buffer-start` / `buffer-end` 及持续时间，不记录歌曲 ID、URL 或凭据；点击 Logo 区域通过系统浏览器打开 Sonavi GitHub。
+- 实现：播放状态控制器只在有当前队列项且进入 `buffering` 时发送一次开始，退出缓冲、切歌或销毁时发送一次结束并计算单调时钟持续时间。跨 IPC 的数据只有 `{ event, durationMs }`；main 写入独立 `playback-buffer` 阶段，导出 schema 升级为 v3。
+- 安全边界：Zod strict schema 限制事件枚举、开始时长必须为 0、结束时长为 0～3,600,000 ms 整数，任何 `trackId`、URL、会话或任意扩展字段都拒绝。Logo preload 方法无参数，main 使用固定 HTTPS 常量调用系统浏览器；renderer 仍不能发起任意外链或新窗口。
+- 自动验证：Node.js 22.21.1 下定向 3 文件/19 项、lint、typecheck、全量 Vitest 29 文件/157 项、生产构建和 Windows 源码 Electron 完整冒烟通过；覆盖缓冲重复事件去重、切歌结束/重开、持续时间、上报失败不影响播放、身份字段拒绝，以及 Logo 按钮只调用无参数受限方法。E2E 进一步确认带 `trackId` 的 IPC 被拒绝，设置页显示 `buffer-end · 1234 ms`，Logo 控件具有明确可访问名称；构建只有既有 Zod PURE 注释位置警告。
+- 当前状态：`RETEST`。Windows 真实网络缓冲和点击 Logo 后系统默认浏览器打开仍待人工复验；macOS Intel/arm64 未验证。

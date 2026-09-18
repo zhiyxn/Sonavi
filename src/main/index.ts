@@ -1,7 +1,10 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, screen, session } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, screen, session, shell } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { APPLICATION_INFO_CHANNEL } from '../shared/application'
+import {
+  APPLICATION_INFO_CHANNEL,
+  OPEN_PROJECT_HOMEPAGE_CHANNEL
+} from '../shared/application'
 import { ApplicationInfoSchema } from '../shared/application-schema'
 import {
   DISCONNECT_CONNECTION_CHANNEL,
@@ -94,12 +97,14 @@ import {
   EXPORT_NETWORK_DIAGNOSTICS_CHANNEL,
   GET_NETWORK_SETTINGS_CHANNEL,
   LIST_NETWORK_DIAGNOSTICS_CHANNEL,
+  REPORT_PLAYBACK_BUFFER_CHANNEL,
   UPDATE_NETWORK_SETTINGS_CHANNEL,
   type TranscodeSeekResult
 } from '../shared/network'
 import {
   ExportDiagnosticsResultSchema,
   NetworkDiagnosticsSchema,
+  PlaybackBufferDiagnosticRequestSchema,
   NetworkSettingsSchema,
   NetworkSettingsUpdateResultSchema,
   TranscodeSeekRequestSchema,
@@ -153,6 +158,12 @@ function registerApplicationIpc(): void {
       version: app.getVersion(),
       ...platformAdapter.applicationInfo
     })
+  })
+
+  ipcMain.handle(OPEN_PROJECT_HOMEPAGE_CHANNEL, async (event) => {
+    assertTrustedIpcSender(event)
+    await shell.openExternal('https://github.com/zhiyxn/Sonavi')
+    return true
   })
 }
 
@@ -539,6 +550,19 @@ function registerNetworkIpc(
     }
     await writeFile(result.filePath, diagnostics.exportText(), { encoding: 'utf8', mode: 0o600 })
     return ExportDiagnosticsResultSchema.parse({ exported: true, cancelled: false })
+  })
+
+  ipcMain.handle(REPORT_PLAYBACK_BUFFER_CHANNEL, (event, rawRequest: unknown) => {
+    assertTrustedIpcSender(event)
+    const request = PlaybackBufferDiagnosticRequestSchema.parse(rawRequest)
+    diagnostics.record({
+      stage: 'playback-buffer',
+      proxyMode: networkPolicy.getSettings().proxy.mode,
+      startedAt: performance.now(),
+      event: request.event,
+      durationMs: request.durationMs,
+      errorCategory: 'none'
+    })
   })
 
   ipcMain.handle(CREATE_TRANSCODE_SEEK_CHANNEL, (event, rawRequest: unknown) => {

@@ -242,4 +242,5 @@ P01 已达到验收条件，P02～P10 已按序达到当时可用环境的代码
 - [ ] P12-MI-019：renderer 通用输入、复选、标签、选择、滑块和危险确认已统一为项目持有的 shadcn-vue Input、Checkbox、Label、Select、Slider 与 AlertDialog；Sonner 仅保留通知职责，导航、实体卡片和虚拟列表等业务组件继续使用语义化按钮。Node.js 22.21.1 下 lint、typecheck、28 文件/147 项测试、生产构建和 Windows 源码 Electron 完整冒烟通过；当前运行真机测试包不含该改动，等待统一打包复验。
 - [ ] P12-MI-020：播放进度/音量 Slider 错位、播放控制区不在窗口几何中心、艺术家缓存页列表需滚动才重绘均已修复。Node.js 22.21.1 下 lint、typecheck、28 文件/148 项测试、生产构建和 Windows 源码 Electron 冒烟通过；等待当前源码预览人工复验。
 - [ ] P12-MI-021：清空当前账号封面缓存与断开连接已增加 shadcn-vue AlertDialog 二次确认，Sonner 关闭按钮已移到右上。lint、typecheck、28 文件/148 项测试、生产构建与 Windows 源码 Electron 冒烟通过；待当前预览人工复验及下一统一包。
-- [ ] P12-MI-022：专辑网格封面改为视口附近懒加载，main 对缓存未命中的封面上游请求设置全局 6 并发；`getAlbumList2` 每页最多自动重试一次，诊断 schema v2 增加脱敏 listType/page/size 与尝试序号。lint、typecheck、28 文件/153 项测试、生产构建和 Windows 源码 Electron 冒烟通过；等待真实服务器复验。
+- [ ] P12-MI-022：专辑网格封面改为视口附近懒加载，main 对缓存未命中的封面上游请求设置全局 6 并发；`getAlbumList2` 每页最多自动重试一次，诊断增加脱敏 listType/page/size 与尝试序号（当前整体 schema v3）。lint、typecheck、28 文件/153 项测试、生产构建和 Windows 源码 Electron 冒烟通过；等待真实服务器复验。
+- [ ] P12-MI-023：AudioEngine 缓冲状态增加脱敏 `buffer-start` / `buffer-end` 诊断和持续时间，严格 IPC 拒绝歌曲 ID、URL、会话及任意多余字段；Logo 区域通过 main 固定白名单在系统浏览器打开 Sonavi GitHub。lint、typecheck、29 文件/157 项测试、生产构建和 Windows 源码 Electron 完整冒烟通过；等待真实网络缓冲与浏览器打开真机复验。

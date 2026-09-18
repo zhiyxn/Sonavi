@@ -19,17 +19,20 @@ import type { ConnectionSuccessResult } from '../../shared/connection'
 import { useSessionStore } from './stores/session'
 import { usePlayerStore } from './stores/player'
 import { usePlaybackReporting } from './composables/use-playback-reporting'
+import { usePlaybackBufferDiagnostics } from './composables/use-playback-buffer-diagnostics'
 import { useDesktopIntegration } from './composables/use-desktop-integration'
 import { useErrorToast } from './lib/notifications'
 import { Toaster } from './components/ui/sonner'
 
 const applicationInfo = ref<ApplicationInfo | null>(null)
 const loadingError = ref('')
+const projectHomepageError = ref('')
 const startupPending = ref(true)
 const sessionActionError = ref('')
 const session = useSessionStore()
 const player = usePlayerStore()
 const { errorMessage: playbackReportError } = usePlaybackReporting()
+usePlaybackBufferDiagnostics()
 const queryClient = useQueryClient()
 type ApplicationView = 'home' | 'albums' | 'artists' | 'search' | 'favorites' | 'playlists' | 'settings'
 const activeView = ref<ApplicationView>('home')
@@ -60,6 +63,7 @@ const activeAlbumPage = computed(() => {
 })
 
 useErrorToast(loadingError, { title: '应用启动失败', id: 'application-startup-error' })
+useErrorToast(projectHomepageError, { title: '无法打开项目主页', id: 'project-homepage-error' })
 useErrorToast(sessionActionError, { title: '账号操作失败', id: 'session-action-error' })
 useErrorToast(playbackReportError, { title: '播放记录同步失败', id: 'playback-report-error' })
 useErrorToast(() => player.errorMessage, { title: '播放失败', id: 'player-error' })
@@ -75,6 +79,15 @@ onMounted(async () => {
     startupPending.value = false
   }
 })
+
+async function openProjectHomepage(): Promise<void> {
+  projectHomepageError.value = ''
+  try {
+    await window.sonavi.application.openProjectHomepage()
+  } catch {
+    projectHomepageError.value = '无法调用系统默认浏览器，请稍后重试。'
+  }
+}
 
 function handleConnected(result: ConnectionSuccessResult): void {
   resetWorkspaceScrollPositions()
@@ -230,10 +243,15 @@ async function confirmForget(): Promise<void> {
   <main class="application-shell">
     <aside class="sidebar" aria-label="主导航">
       <div>
-        <a class="brand" href="#main-content" aria-label="Sonavi 首页">
+        <button
+          type="button"
+          class="brand"
+          aria-label="在浏览器中打开 Sonavi GitHub 仓库"
+          @click="openProjectHomepage"
+        >
           <img class="brand-logo" :src="sonaviLogoUrl" alt="" aria-hidden="true" />
           <span>Sonavi</span>
-        </a>
+        </button>
         <p class="brand-caption">YOUR MUSIC. YOUR SPACE.</p>
       </div>
 
