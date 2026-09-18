@@ -38,6 +38,17 @@ describe('可点击控件样式', () => {
     expect(currentTitleRule?.style.color).toBe('var(--sonavi-chrome-text)')
   })
 
+  it('连接输入框使用主题背景而不是固定白色', () => {
+    const style = document.createElement('style')
+    style.textContent = baseCss
+    document.head.append(style)
+    const rules = [...(style.sheet?.cssRules ?? [])] as CSSStyleRule[]
+    const inputRule = rules.find((rule) => rule.selectorText === '.connection-form > input')
+
+    expect(inputRule?.style.color).toBe('var(--sonavi-ink)')
+    expect(inputRule?.style.background).toBe('var(--sonavi-canvas)')
+  })
+
   it('专辑详情固定页面并只允许歌曲列表纵向滚动', () => {
     const style = document.createElement('style')
     style.textContent = baseCss

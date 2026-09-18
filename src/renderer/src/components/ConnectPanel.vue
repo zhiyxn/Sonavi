@@ -3,15 +3,18 @@ import { ref } from 'vue'
 import type { ApplicationInfo } from '../../../shared/application'
 import type { ConnectionSuccessResult } from '../../../shared/connection'
 import { showErrorToast } from '../lib/notifications'
-import { testConnection } from '../services/connection'
+import { restoreConnection, testConnection } from '../services/connection'
 import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 
-defineProps<{
+const props = withDefaults(defineProps<{
   applicationInfo: ApplicationInfo
-}>()
+  savedConnectionAvailable?: boolean
+}>(), {
+  savedConnectionAvailable: false
+})
 
 const emit = defineEmits<{
   connected: [result: ConnectionSuccessResult]
@@ -25,6 +28,36 @@ const allowInsecureHttp = ref(false)
 const statusMessage = ref('请输入服务器连接信息。')
 const statusKind = ref<'idle' | 'success' | 'error'>('idle')
 const isSubmitting = ref(false)
+const isRestoring = ref(false)
+
+async function restoreSavedConnection(): Promise<void> {
+  if (isSubmitting.value || isRestoring.value) return
+  isRestoring.value = true
+  statusKind.value = 'idle'
+  statusMessage.value = '正在使用系统加密保存的账号重新连接…'
+  try {
+    const result = await restoreConnection()
+    if (!result) {
+      showErrorToast('已保存账号暂时无法连接；可检查网络后重试或填写其他账号。', {
+        title: '重新连接失败',
+        id: 'connection-restore-error'
+      })
+      statusMessage.value = '已保存账号连接失败。'
+      return
+    }
+    statusKind.value = 'success'
+    statusMessage.value = '已使用系统加密保存的账号重新连接。'
+    emit('connected', result)
+  } catch {
+    showErrorToast('无法验证重新连接结果，请重新启动 Sonavi。', {
+      title: '重新连接失败',
+      id: 'connection-restore-error'
+    })
+    statusMessage.value = '已保存账号连接失败。'
+  } finally {
+    isRestoring.value = false
+  }
+}
 
 async function submitConnection(): Promise<void> {
   if (isSubmitting.value) return
@@ -84,6 +117,18 @@ async function submitConnection(): Promise<void> {
     <p class="intro">添加 Navidrome、Subsonic 或 OpenSubsonic 服务器。Windows 与 macOS 共用此连接流程。</p>
 
     <form class="connection-form" novalidate @submit.prevent="submitConnection">
+      <template v-if="props.savedConnectionAvailable">
+        <Button
+          type="button"
+          variant="outline"
+          :disabled="isSubmitting || isRestoring"
+          @click="restoreSavedConnection"
+        >
+          {{ isRestoring ? '正在重新连接…' : '使用已保存账号重新连接' }}
+        </Button>
+        <p class="field-note">服务器、账号和密码由 main 使用系统加密存储读取，不会回填到 renderer。</p>
+      </template>
+
       <Label for="server-url">服务器地址</Label>
       <Input
         id="server-url"
@@ -122,7 +167,7 @@ async function submitConnection(): Promise<void> {
         <Label for="allow-insecure-http">允许不加密的 HTTP（仅限我了解风险的局域网测试）</Label>
       </div>
 
-      <Button type="submit" :disabled="isSubmitting">
+      <Button type="submit" :disabled="isSubmitting || isRestoring">
         {{ isSubmitting ? '正在测试…' : '测试连接' }}
       </Button>
       <p class="form-status" :class="`is-${statusKind}`" role="status">{{ statusMessage }}</p>

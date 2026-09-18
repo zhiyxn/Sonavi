@@ -414,4 +414,95 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - 修复后定向测试：`tests/unit/player-store.test.ts` 19/19，`tests/unit/media-protocol.test.ts` 17/17。
 - 完整闸门：Node.js 22.21.1；`npm run lint` 通过；`npm run typecheck` 通过；`npm test` 为 29 文件/159 项全通过；`npm run build` 通过，只有既有 Zod PURE 注释位置警告。
 - 预览：旧进程已停止，修复后的 Windows 源码预览已重新启动。
-- 未验证：同一真实 FLAC 样本的 seek/快速切歌；macOS Intel x64 与 Apple Silicon arm64 实机。在 Windows 复验通过前状态保持 `RETEST`。
+- Windows 复验：`PLAY-02` 已由用户在同一轮真实服务器测试中标记 `PASS`，问题关闭；macOS Intel x64 与 Apple Silicon arm64 实机仍未验证。
+
+### P13-CR-002 深色连接表单输入对比度
+
+- 人工复现：Windows 11 x64 深色主题，未连接页的服务器地址、用户名和密码为浅色文字叠在白色输入背景上。
+- 根因：连接输入 CSS 背景硬编码为 `#fff`，前景和 placeholder 则跟随深色主题 token。
+- 修复前回归证据：样式测试期望 `var(--sonavi-canvas)`，实际为 `#fff`。
+- 最小修复：连接输入框背景使用 `var(--sonavi-canvas)`，不改组件、布局、凭据处理或其他页面。
+- 修复后定向测试：`tests/unit/interaction-style.test.ts` 5/5 通过。
+- 完整闸门：Node.js 22.21.1；lint、typecheck、29 文件/160 项 Vitest 和生产构建通过；构建仅有既有 Zod PURE 注释位置警告。
+- Windows 复验：深色模式下服务器地址、用户名与密码输入内容清晰可读，`P13-CR-002` 关闭；macOS Intel/arm64 未验证。
+
+### P13-CR-003 保存播放设置误清空队列
+
+- 人工复现：Windows 11 x64 当前源码预览，队列有当前歌曲时点击“保存播放与网络设置”，即使只切换播放策略，当前歌曲和队列也会被清空，导致 `PLAY-03` 无法继续验证转码 seek。
+- 根因：`NetworkSettingsUpdateResult.connectionsReset` 已正确区分代理变化，但 `SettingsPanel` 丢弃该值并无条件通知应用外壳；外壳无条件执行 `player.stop()`、清查询和轮换页面缓存。
+- 修复前回归证据：模拟保存结果为 `connectionsReset=false`，测试观察到 `player.stop()` 仍被调用一次。
+- 最小修复：`networkChanged` 事件携带 `connectionsReset`；只有值为 `true` 时执行既有停止与清理，普通播放设置保存保留队列和当前播放。
+- 修复后定向测试：`tests/unit/app-shell.test.ts` 9/9；同时覆盖 `connectionsReset=true` 时仍调用一次停止。
+- 完整闸门：Node.js 22.21.1；`npm run lint`、`npm run typecheck`、`npm test` 与 `npm run build` 全通过，Vitest 为 29 文件/161 项；构建只有既有 Zod PURE 注释位置警告。
+- 预览：旧进程已停止，包含该修复的新 Windows 源码预览已启动。
+- 第一轮 Windows 复验：保存后队列和当前歌曲均保留，但随后导出的 schema v3 日志显示 16:42:24.289 FLAC 流与两个封面请求在同一毫秒取消，433 ms 后开始缓冲，并出现 20762 ms、18320 ms 两段长缓冲。所有 API 与 scrobble 均为 HTTP 200。
+- 补充根因：main 的设置 IPC 无视 `connectionsReset=false`，仍无条件取消搜索并撤销全部媒体请求和媒体句柄；队列 UI 因此保留了已失效的媒体 URL。修复前新增测试观察到 false 分支仍返回 true；修复后 false 分支零撤销，true 分支仍执行全部撤销。
+- 补充修复闸门：相关 `network-policy`、`app-shell`、`media-protocol` 3 文件/31 项通过；Node.js 22.21.1 下 lint、typecheck、29 文件/162 项全量测试与生产构建通过，只有既有 Zod PURE 注释位置警告。包含补充修复的 Windows 源码预览已重启并由用户再次复验通过；macOS Intel/arm64 未验证。
+
+### P13 结束时人工测试汇总
+
+- `docs/CURRENT-MANUAL-TEST-CASES.md` 当前为 27 PASS、7 FAIL、0 BLOCKED、1 NOT TESTED。
+- `PLAY-02` 通过并关闭 `P13-CR-001`；`PLAY-03` 的界面清空与底层媒体失效均经补充修复复验通过，`P13-CR-003` 关闭。
+- 其余失败已登记为 `P13-MA-001`～`P13-MA-005` 与 `P13-MI-001`，未越过 Critical 优先级实施。
+- P13 退出结论：Blocker 0、Critical 0；按阶段约束停止，不继续处理 Major/Minor，等待进入 P14。
+
+## P14 剩余稳定性问题（2026-09-18）
+
+### P13-MA-001 seek 后歌词自动滚动
+
+- 复现：同步歌词 seek 后 `active` 行正确变化，但列表滚动位置不变。
+- 根因：组件没有监听 `activeLineIndex` 并同步滚动 DOM。
+- 修复：高亮索引变化且 DOM 更新后，将唯一 `aria-current=true` 的歌词行以 `block=center`、`inline=nearest` 滚入可视区。
+- 回归：修复前第三行高亮而 `scrollIntoView` 调用为 0；修复后 `tests/unit/lyrics-panel.test.ts` 4/4，lint、typecheck、29 文件/163 项全量测试通过。
+- 状态：Windows 11 x64 真机 `PASS`；macOS Intel/arm64 未验证。2026-09-18 在真实同步歌词中 seek 到 170.6 秒，高亮索引 0→27 且新行位于可视区。
+
+### P13-MA-002 全页面点击外部关闭队列
+
+- 复现：队列展开后，播放器底栏内的外部点击可以关闭，但主内容或侧栏点击无效。
+- 根因：外部点击判断只绑定到播放器 footer，应用其余区域不在事件冒泡路径中。
+- 修复：在 PlayerBar 生命周期内向 document 注册/移除同一点击判断；队列面板内部和队列按钮继续排除，播放器内部行为不变。
+- 回归：修复前主页面模拟按钮点击后队列仍存在；修复后播放器 20/20、lint、typecheck、29 文件/164 项全量测试通过。
+- 状态：Windows 11 x64 真机 `PASS`；macOS Intel/arm64 未验证。19 项真实队列展开后点击主内容标题，面板立即收起。
+
+### P13-MA-003 栏目详情状态隔离
+
+- 复现：艺术家详情切走再返回会回到列表；艺术家来源专辑切到“专辑”栏仍显示该详情。
+- 根因：多个栏目共用一个专辑 ID，且导航离开艺术家时清空唯一艺术家 ID。
+- 修复：首页、专辑、艺术家分别保存专辑选择，艺术家选择仅由栏内返回或会话结束清理；未引入路由或重构页面。
+- 回归：修复前艺术家栏返回时 ID 为 null；修复后应用外壳 10/10、lint、typecheck、29 文件/165 项全量测试通过。
+- 状态：Windows 11 x64 真机 `BLOCKED`；macOS Intel/arm64 未验证。艺术家全量索引等待 90 秒仍不可用，收藏无艺术家，通配搜索前 12 个艺术家均无可见专辑，无法重建原跨栏目路径；未观察到修复反例。
+
+### P13-MA-004 删除队列项后保持面板展开
+
+- 人工证据：Windows 真机删除队列歌曲后面板同时关闭；当前 happy-dom 自动环境中删除当前项和非当前项均未重现关闭。
+- 边界修复：队列面板显式停止点击冒泡，避免 Chromium 删除目标节点后的事件继续进入 footer/document 外部点击判断。
+- 回归：删除非当前项后队列为 two 项、删除当前项后安全保留替代项，两个步骤中面板均存在；播放器 21/21、lint、typecheck、29 文件/166 项全量测试通过。
+- 状态：Windows 11 x64 真机 `PASS`；macOS Intel/arm64 未验证。真实队列删除非当前项和当前项后面板均保持展开，数量 19→18→17。
+
+### P13-MA-005 断开后使用系统加密账号重新连接
+
+- 复现：断开连接保留了 main 中的加密凭据，但连接页只有空白手工表单，必须重新输入。
+- 安全修复：仅当应用已知当前账号为 encrypted 持久化时显示重新连接按钮；点击调用现有无参数 restore IPC，任何服务器凭据都不回填表单、Pinia 或 renderer。忘记账号后标记清除。
+- 回归：修复前断开后的应用文本没有该入口；修复后连接组件实际调用 restore、发出 connected，密码框仍为空。相关 2 文件/11 项、lint、typecheck、29 文件/166 项全量测试通过。
+- 状态：Windows 11 x64 真机 `PASS`；macOS Intel/arm64 未验证。断开后表单三项均为空，安全重连入口成功恢复真实会话。
+
+### P13-MI-001 侧栏按钮聚焦后的设置快捷键
+
+- 复现：点击侧栏导航后焦点留在 button，`Ctrl+,` / `Cmd+,` 被通用交互控件忽略规则过滤。
+- 修复：设置快捷键只忽略文字输入、选择与可编辑区域；空格播放仍使用原有更宽的按钮/链接忽略规则。
+- 回归：修复前按钮目标返回 false；修复后按钮目标匹配当前平台设置快捷键，input 仍不匹配。定向 4/4、lint、typecheck、29 文件/166 项全量测试通过。
+- 状态：Windows 11 x64 真机 `PASS`；macOS Intel/arm64 未验证。侧栏“艺术家”按钮保持焦点时，`Ctrl+,` 一次打开设置。
+
+### P14 本轮结论
+
+- 用户要求处理的 6 个逻辑问题均已完成最小修复和逐项完整 lint/typecheck/test；Windows 集中复验中 5 项通过、1 项因真实艺术家数据入口不可用而阻塞。
+- 最终合并闸门：Node.js 22.21.1；`npm run lint`、`npm run typecheck`、`npm test`（29 文件/166 项）与 `npm run build` 全部通过；构建仅有既有 Zod PURE 注释位置警告。
+- 预览：集中复验使用包含全部 6 项修复的 Windows 当前源码预览；复验结束后重新启动同一预览供后续继续测试。
+- 没有实现格式展示、搜索布局、分页等功能增强，没有换库或引入 vue-router。
+
+### P14 Windows 集中复验（2026-09-18）
+
+- 环境：Windows 11 x64、当前源码 Electron 预览、Node.js 22.21.1、真实加密账号与真实 OpenSubsonic 服务器；未记录服务器地址、账号、凭据或媒体身份字段。
+- `P13-MA-001`、`P13-MA-002`、`P13-MA-004`、`P13-MA-005` 与 `P13-MI-001` 均通过；对应 `PLAY-11`、`PLAY-05`、`PLAY-08`、`SET-02`、`LIFE-03` 已改为 `PASS`。
+- `P13-MA-003` 未出现修复反例，但真实数据入口阻塞：艺术家全量索引 90 秒未显示，收藏无艺术家，`*` 搜索前 12 个艺术家均无可见专辑；`LIB-02`、`LIB-07` 改为 `BLOCKED`，不以单元测试代替真机结论。
+- 当前人工汇总为 32 PASS、0 FAIL、2 BLOCKED、1 NOT TESTED；macOS Intel/arm64 全部仍为未验证。

@@ -29,7 +29,11 @@ const props = defineProps<{
   applicationInfo: ApplicationInfo
   connection: ConnectionSuccessResult
 }>()
-const emit = defineEmits<{ disconnect: []; forget: []; networkChanged: [] }>()
+const emit = defineEmits<{
+  disconnect: []
+  forget: []
+  networkChanged: [connectionsReset: boolean]
+}>()
 
 const settings = ref<NetworkSettings | null>(null)
 const diagnostics = ref<NetworkDiagnosticEntry[]>([])
@@ -156,10 +160,10 @@ async function saveSettings(): Promise<void> {
     }
     const result = await saveNetworkSettings(request)
     settings.value = result.settings
-    emit('networkChanged')
+    emit('networkChanged', result.connectionsReset)
     statusMessage.value = result.connectionsReset
       ? '设置已保存；代理已切换，旧连接和当前播放已安全停止。'
-      : '播放设置已保存；当前播放已停止，请重新选择歌曲。'
+      : '播放设置已保存；当前队列与播放保持不变。'
   } catch {
     showErrorToast('请检查代理地址、端口和网络状态。', {
       title: '网络设置保存失败',

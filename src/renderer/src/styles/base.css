@@ -286,7 +286,7 @@ button.nav-item {
   border: 1px solid var(--sonavi-border);
   border-radius: var(--sonavi-control-radius);
   color: var(--sonavi-ink);
-  background: #fff;
+  background: var(--sonavi-canvas);
 }
 
 .connection-form > input:focus {

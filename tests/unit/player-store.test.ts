@@ -392,4 +392,51 @@ describe('P04 播放队列', () => {
     await wrapper.get('.album-placeholder').trigger('click')
     expect(wrapper.find('#player-queue').exists()).toBe(false)
   })
+
+  it('点击播放器之外的应用页面也会关闭播放队列', async () => {
+    vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(() => undefined)
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const player = usePlayerStore()
+    await player.replaceQueue([track('one'), track('two')], 0, scope, false)
+    const outside = document.createElement('button')
+    document.body.append(outside)
+    const wrapper = mount(PlayerBar, {
+      attachTo: document.body,
+      global: { plugins: [pinia] }
+    })
+
+    await wrapper.get('button[aria-label="播放队列"]').trigger('click')
+    expect(wrapper.find('#player-queue').exists()).toBe(true)
+
+    outside.click()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('#player-queue').exists()).toBe(false)
+
+    wrapper.unmount()
+    outside.remove()
+  })
+
+  it('删除非当前项或当前项后播放队列保持展开', async () => {
+    vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(() => undefined)
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const player = usePlayerStore()
+    await player.replaceQueue([track('one'), track('two'), track('three')], 0, scope, false)
+    const wrapper = mount(PlayerBar, {
+      attachTo: document.body,
+      global: { plugins: [pinia] }
+    })
+
+    await wrapper.get('button[aria-label="播放队列"]').trigger('click')
+    await wrapper.get('button[aria-label="从队列移除 two"]').trigger('click')
+    expect(wrapper.find('#player-queue').exists()).toBe(true)
+    expect(player.queue.map((entry) => entry.track.id)).toEqual(['one', 'three'])
+
+    await wrapper.get('button[aria-label="从队列移除 one"]').trigger('click')
+    expect(wrapper.find('#player-queue').exists()).toBe(true)
+    expect(player.queue.map((entry) => entry.track.id)).toEqual(['three'])
+
+    wrapper.unmount()
+  })
 })

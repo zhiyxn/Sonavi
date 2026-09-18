@@ -48,11 +48,13 @@ describe('P09 桌面集成', () => {
 
   it('设置快捷键只匹配当前平台修饰键且不截获输入控件', () => {
     const plain = document.createElement('div')
+    const button = document.createElement('button')
     const input = document.createElement('input')
     const base = { key: ',', altKey: false, shiftKey: false }
     expect(isSettingsShortcut({ ...base, ctrlKey: true, metaKey: false, target: plain }, 'Ctrl')).toBe(true)
     expect(isSettingsShortcut({ ...base, ctrlKey: false, metaKey: true, target: plain }, 'Cmd')).toBe(true)
     expect(isSettingsShortcut({ ...base, ctrlKey: true, metaKey: false, target: plain }, 'Cmd')).toBe(false)
+    expect(isSettingsShortcut({ ...base, ctrlKey: true, metaKey: false, target: button }, 'Ctrl')).toBe(true)
     expect(isSettingsShortcut({ ...base, ctrlKey: true, metaKey: false, target: input }, 'Ctrl')).toBe(false)
   })
 

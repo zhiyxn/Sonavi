@@ -64,11 +64,17 @@ export function shouldIgnoreDesktopShortcut(target: EventTarget | null): boolean
   )
 }
 
+function shouldIgnoreSettingsShortcut(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(
+    target.closest('input, textarea, select, [contenteditable="true"], [role="textbox"]')
+  )
+}
+
 export function isSettingsShortcut(
   event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'altKey' | 'shiftKey' | 'target'>,
   modifier: 'Ctrl' | 'Cmd' | undefined
 ): boolean {
-  if (event.key !== ',' || event.altKey || event.shiftKey || shouldIgnoreDesktopShortcut(event.target)) {
+  if (event.key !== ',' || event.altKey || event.shiftKey || shouldIgnoreSettingsShortcut(event.target)) {
     return false
   }
   return modifier === 'Cmd'

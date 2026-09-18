@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import {
   ChevronDown,
   ChevronUp,
@@ -102,20 +102,24 @@ function toggleLyrics(): void {
   if (lyricsOpen.value) queueOpen.value = false
 }
 
-function closeQueueFromPlayer(event: MouseEvent): void {
+function closeQueueFromDocument(event: MouseEvent): void {
   if (!queueOpen.value || !(event.target instanceof Element)) return
   if (event.target.closest('.queue-panel, [aria-controls="player-queue"]')) return
   queueOpen.value = false
 }
+
+onMounted(() => document.addEventListener('click', closeQueueFromDocument))
+onBeforeUnmount(() => document.removeEventListener('click', closeQueueFromDocument))
 </script>
 
 <template>
-  <footer class="player-bar" aria-label="播放器" @click="closeQueueFromPlayer">
+  <footer class="player-bar" aria-label="播放器" @click="closeQueueFromDocument">
     <section
       v-if="queueOpen"
       id="player-queue"
       class="queue-panel"
       aria-labelledby="queue-title"
+      @click.stop
     >
       <header>
         <div>

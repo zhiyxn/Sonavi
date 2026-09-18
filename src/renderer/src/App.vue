@@ -29,6 +29,7 @@ const loadingError = ref('')
 const projectHomepageError = ref('')
 const startupPending = ref(true)
 const sessionActionError = ref('')
+const savedConnectionAvailable = ref(false)
 const session = useSessionStore()
 const player = usePlayerStore()
 const { errorMessage: playbackReportError } = usePlaybackReporting()
@@ -36,8 +37,16 @@ usePlaybackBufferDiagnostics()
 const queryClient = useQueryClient()
 type ApplicationView = 'home' | 'albums' | 'artists' | 'search' | 'favorites' | 'playlists' | 'settings'
 const activeView = ref<ApplicationView>('home')
-const selectedAlbumId = ref<string | null>(null)
+const homeSelectedAlbumId = ref<string | null>(null)
+const albumsSelectedAlbumId = ref<string | null>(null)
+const artistSelectedAlbumId = ref<string | null>(null)
 const selectedArtistId = ref<string | null>(null)
+const selectedAlbumId = computed(() => {
+  if (activeView.value === 'home') return homeSelectedAlbumId.value
+  if (activeView.value === 'albums') return albumsSelectedAlbumId.value
+  if (activeView.value === 'artists') return artistSelectedAlbumId.value
+  return null
+})
 const workspace = ref<HTMLElement | null>(null)
 const workspaceScrollPositions = new Map<string, number>()
 const artistListScrollTop = ref(0)
@@ -72,7 +81,10 @@ onMounted(async () => {
   try {
     applicationInfo.value = await loadApplicationInfo()
     const restored = await restoreConnection()
-    if (restored) session.establish(restored)
+    if (restored) {
+      savedConnectionAvailable.value = true
+      session.establish(restored)
+    }
   } catch {
     loadingError.value = '无法读取受信任的应用信息，请重新启动 Sonavi。'
   } finally {
@@ -91,11 +103,13 @@ async function openProjectHomepage(): Promise<void> {
 
 function handleConnected(result: ConnectionSuccessResult): void {
   resetWorkspaceScrollPositions()
+  savedConnectionAvailable.value = result.credentialPersistence === 'encrypted'
   session.establish(result)
   activeView.value = 'home'
 }
 
-function handleNetworkChanged(): void {
+function handleNetworkChanged(connectionsReset: boolean): void {
+  if (!connectionsReset) return
   player.stop()
   queryClient.clear()
   viewCacheRevision.value += 1
@@ -149,41 +163,41 @@ function updateAlbumPage(page: number): void {
 async function navigate(view: ApplicationView): Promise<void> {
   rememberWorkspaceScroll()
   activeView.value = view
-  if (view !== 'albums' && view !== 'home') selectedAlbumId.value = null
-  if (view !== 'artists') selectedArtistId.value = null
   await restoreWorkspaceScroll()
 }
 
 async function updateSelectedAlbumId(albumId: string | null): Promise<void> {
   rememberWorkspaceScroll()
-  selectedAlbumId.value = albumId
+  if (activeView.value === 'home') homeSelectedAlbumId.value = albumId
+  if (activeView.value === 'albums') albumsSelectedAlbumId.value = albumId
+  if (activeView.value === 'artists') artistSelectedAlbumId.value = albumId
   await restoreWorkspaceScroll()
 }
 
 async function updateSelectedArtistId(artistId: string | null): Promise<void> {
   rememberWorkspaceScroll()
   selectedArtistId.value = artistId
+  if (artistId === null) artistSelectedAlbumId.value = null
   await restoreWorkspaceScroll()
 }
 
 async function openAlbum(albumId: string): Promise<void> {
   rememberWorkspaceScroll()
-  selectedAlbumId.value = albumId
-  selectedArtistId.value = null
+  albumsSelectedAlbumId.value = albumId
   activeView.value = 'albums'
   await restoreWorkspaceScroll()
 }
 
 async function openAlbumFromArtist(albumId: string): Promise<void> {
   rememberWorkspaceScroll()
-  selectedAlbumId.value = albumId
+  artistSelectedAlbumId.value = albumId
   await restoreWorkspaceScroll()
 }
 
 async function openArtist(artistId: string): Promise<void> {
   rememberWorkspaceScroll()
   selectedArtistId.value = artistId
-  selectedAlbumId.value = null
+  artistSelectedAlbumId.value = null
   activeView.value = 'artists'
   await restoreWorkspaceScroll()
 }
@@ -198,9 +212,12 @@ async function handleDisconnect(): Promise<void> {
   try {
     if (!(await disconnectConnection(current.sessionId))) throw new Error('session rejected')
     queryClient.clear()
+    savedConnectionAvailable.value = current.credentialPersistence === 'encrypted'
     session.disconnect()
     player.stop()
-    selectedAlbumId.value = null
+    homeSelectedAlbumId.value = null
+    albumsSelectedAlbumId.value = null
+    artistSelectedAlbumId.value = null
     selectedArtistId.value = null
     activeView.value = 'home'
     resetWorkspaceScrollPositions()
@@ -226,8 +243,11 @@ async function confirmForget(): Promise<void> {
   try {
     if (!(await forgetConnection(current.sessionId))) throw new Error('session rejected')
     queryClient.clear()
+    savedConnectionAvailable.value = false
     session.disconnect()
-    selectedAlbumId.value = null
+    homeSelectedAlbumId.value = null
+    albumsSelectedAlbumId.value = null
+    artistSelectedAlbumId.value = null
     selectedArtistId.value = null
     activeView.value = 'home'
     resetWorkspaceScrollPositions()
@@ -366,6 +386,7 @@ async function confirmForget(): Promise<void> {
         <ConnectPanel
           v-else-if="applicationInfo && !startupPending"
           :application-info="applicationInfo"
+          :saved-connection-available="savedConnectionAvailable"
           @connected="handleConnected"
         />
         <p v-else-if="loadingError" class="startup-error" role="alert">{{ loadingError }}</p>

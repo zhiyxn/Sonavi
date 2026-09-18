@@ -87,6 +87,41 @@ describe('歌词浮层', () => {
     expect(wrapper.text()).toContain('第二行')
   })
 
+  it('播放进度跳转后将新的高亮歌词滚动到可视区域中央', async () => {
+    const pinia = installTrack(0.2)
+    const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView')
+    installLyricsApi(
+      vi.fn().mockResolvedValue({
+        ok: true,
+        value: {
+          source: 'structured',
+          variants: [
+            {
+              offsetMs: 0,
+              synced: true,
+              lines: [
+                { startMs: 0, value: '第一行' },
+                { startMs: 1500, value: '第二行' },
+                { startMs: 3000, value: '第三行' }
+              ]
+            }
+          ]
+        }
+      })
+    )
+
+    const wrapper = mount(LyricsPanel, { global: { plugins: [pinia, VueQueryPlugin] } })
+    await flushPromises()
+    scrollIntoView.mockClear()
+
+    usePlayerStore(pinia).currentTime = 3.2
+    await flushPromises()
+
+    expect(wrapper.findAll('.lyrics-lines li')[2]?.classes()).toContain('active')
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center', inline: 'nearest' })
+    expect((scrollIntoView.mock.instances.at(-1) as Element | undefined)?.textContent).toContain('第三行')
+  })
+
   it('明确显示无歌词状态', async () => {
     const pinia = installTrack()
     installLyricsApi(

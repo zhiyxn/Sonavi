@@ -112,6 +112,7 @@ import {
 } from '../shared/network-schema'
 import { NetworkDiagnosticRecorder } from './services/network-diagnostics'
 import { NetworkPolicyService } from './services/network-policy-service'
+import { invalidateNetworkSessionAfterSettingsUpdate } from './services/network-session-invalidation'
 import {
   CLEAR_COVER_CACHE_CHANNEL,
   CLEAR_PAUSED_QUEUE_CHANNEL,
@@ -521,11 +522,11 @@ function registerNetworkIpc(
     const settings = NetworkSettingsSchema.parse(rawSettings)
     const result = NetworkSettingsUpdateResultSchema.parse(await networkPolicy.update(settings))
     const sessionId = connectionService.getCurrentSessionId()
-    if (sessionId) {
-      libraryService.cancelSessionSearches(sessionId)
-      mediaProtocol.revokeSession(sessionId)
-      mediaHandles.revokeSession(sessionId)
-    }
+    invalidateNetworkSessionAfterSettingsUpdate(result.connectionsReset, sessionId, {
+      cancelSearches: (id) => libraryService.cancelSessionSearches(id),
+      revokeMediaRequests: (id) => mediaProtocol.revokeSession(id),
+      revokeMediaHandles: (id) => mediaHandles.revokeSession(id)
+    })
     return result
   })
 

@@ -409,6 +409,74 @@ describe('共享应用外壳', () => {
     expect(workspace.classes()).not.toContain('workspace-album-detail')
   })
 
+  it('首页、专辑与艺术家栏目分别保留自己的详情状态', async () => {
+    const api = installPlatformApi('windows')
+    api.library.listAlbums = vi.fn<SonaviApi['library']['listAlbums']>().mockResolvedValue({
+      ok: true,
+      value: { items: [], nextOffset: 30, hasMore: false }
+    })
+    api.library.getAlbum = vi.fn<SonaviApi['library']['getAlbum']>().mockResolvedValue({
+      ok: true,
+      value: {
+        id: 'artist-album-1',
+        name: '艺术家来源专辑',
+        artist: '测试艺术家',
+        songCount: 0,
+        duration: 0,
+        starred: false,
+        tracks: []
+      }
+    })
+    const pinia = createPinia()
+    const wrapper = mount(App, { global: { plugins: [pinia, VueQueryPlugin] } })
+    await flushPromises()
+    useSessionStore(pinia).establish({
+      ok: true,
+      sessionId: '1e2d7353-9554-46a5-84fe-89b53008f01d',
+      server: {
+        baseUrl: 'https://music.example.com',
+        protocolVersion: '1.16.1',
+        serverType: 'navidrome',
+        openSubsonic: true,
+        capabilityStatus: 'available',
+        extensions: [],
+        musicFolders: []
+      },
+      credentialPersistence: 'encrypted'
+    })
+    await flushPromises()
+    const navigation = (label: string) =>
+      wrapper.findAll('button.nav-item').find((button) => button.text() === label)!
+
+    await navigation('艺术家').trigger('click')
+    await flushPromises()
+    let artistsPanel = wrapper.getComponent({ name: 'ArtistsPanel' })
+    artistsPanel.vm.$emit('update:selectedArtistId', 'artist-1')
+    await flushPromises()
+    expect(wrapper.getComponent({ name: 'ArtistsPanel' }).props('selectedArtistId')).toBe('artist-1')
+
+    await navigation('专辑').trigger('click')
+    await flushPromises()
+    expect(wrapper.getComponent({ name: 'LibraryPanel' }).props('selectedAlbumId')).toBeNull()
+
+    await navigation('艺术家').trigger('click')
+    await flushPromises()
+    artistsPanel = wrapper.getComponent({ name: 'ArtistsPanel' })
+    expect(artistsPanel.props('selectedArtistId')).toBe('artist-1')
+    artistsPanel.vm.$emit('openAlbum', 'artist-album-1')
+    await flushPromises()
+    expect(wrapper.getComponent({ name: 'LibraryPanel' }).props('selectedAlbumId')).toBe('artist-album-1')
+
+    await navigation('专辑').trigger('click')
+    await flushPromises()
+    expect(wrapper.getComponent({ name: 'LibraryPanel' }).props('selectedAlbumId')).toBeNull()
+
+    await navigation('艺术家').trigger('click')
+    await flushPromises()
+    expect(wrapper.getComponent({ name: 'LibraryPanel' }).props('selectedAlbumId')).toBe('artist-album-1')
+    expect(wrapper.getComponent({ name: 'LibraryPanel' }).props('backLabel')).toBe('返回艺术家详情')
+  })
+
   it('清空缓存和断开连接均在 AlertDialog 确认后才执行', async () => {
     const api = installPlatformApi('windows')
     api.desktop.clearCoverCache = vi.fn(async () => ({
@@ -492,6 +560,51 @@ describe('共享应用外壳', () => {
     await flushPromises()
     expect(stop).toHaveBeenCalledOnce()
     expect(session.connection).toBeNull()
+    expect(wrapper.text()).toContain('使用已保存账号重新连接')
+  })
+
+  it('保存播放设置保留当前播放，仅代理连接重置时停止播放器', async () => {
+    const api = installPlatformApi('windows')
+    api.network.updateSettings = vi.fn(async (settings) => ({ settings, connectionsReset: false }))
+    const pinia = createPinia()
+    const wrapper = mount(App, { global: { plugins: [pinia, VueQueryPlugin] } })
+    const player = usePlayerStore(pinia)
+    const stop = vi.spyOn(player, 'stop').mockImplementation(() => undefined)
+
+    useSessionStore(pinia).establish({
+      ok: true,
+      sessionId: '1e2d7353-9554-46a5-84fe-89b53008f01d',
+      server: {
+        baseUrl: 'https://music.example.com',
+        protocolVersion: '1.16.1',
+        serverType: 'navidrome',
+        openSubsonic: true,
+        capabilityStatus: 'available',
+        extensions: [],
+        musicFolders: []
+      },
+      credentialPersistence: 'encrypted'
+    })
+    await flushPromises()
+
+    const settingsButton = wrapper.findAll('button').find((button) => button.text() === '设置')
+    await settingsButton?.trigger('click')
+    await flushPromises()
+    const settingsPanel = wrapper.getComponent({ name: 'SettingsPanel' })
+    const saveButton = settingsPanel.findAll('button')
+      .find((button) => button.text() === '保存播放与网络设置')
+    expect(saveButton).toBeDefined()
+    const playbackAndNetworkForm = settingsPanel.findAll('form')[1]
+    expect(playbackAndNetworkForm).toBeDefined()
+    await playbackAndNetworkForm!.trigger('submit')
+    await flushPromises()
+
+    expect(api.network.updateSettings).toHaveBeenCalledOnce()
+    expect(stop).not.toHaveBeenCalled()
+
+    settingsPanel.vm.$emit('networkChanged', true)
+    await flushPromises()
+    expect(stop).toHaveBeenCalledOnce()
   })
 
   it('退出并忘记账号使用 AlertDialog 二次确认，不调用原生 confirm', async () => {

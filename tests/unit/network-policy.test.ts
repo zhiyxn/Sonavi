@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import type { Session } from 'electron'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NetworkPolicyService } from '../../src/main/services/network-policy-service'
+import { invalidateNetworkSessionAfterSettingsUpdate } from '../../src/main/services/network-session-invalidation'
 
 const temporaryDirectories: string[] = []
 
@@ -25,6 +26,24 @@ afterEach(async () => {
 })
 
 describe('P08 网络与播放策略', () => {
+  it('仅在代理连接实际重置时撤销当前会话的搜索与媒体资源', () => {
+    const actions = {
+      cancelSearches: vi.fn(),
+      revokeMediaRequests: vi.fn(),
+      revokeMediaHandles: vi.fn()
+    }
+
+    expect(invalidateNetworkSessionAfterSettingsUpdate(false, 'session-1', actions)).toBe(false)
+    expect(actions.cancelSearches).not.toHaveBeenCalled()
+    expect(actions.revokeMediaRequests).not.toHaveBeenCalled()
+    expect(actions.revokeMediaHandles).not.toHaveBeenCalled()
+
+    expect(invalidateNetworkSessionAfterSettingsUpdate(true, 'session-1', actions)).toBe(true)
+    expect(actions.cancelSearches).toHaveBeenCalledOnce()
+    expect(actions.revokeMediaRequests).toHaveBeenCalledOnce()
+    expect(actions.revokeMediaHandles).toHaveBeenCalledOnce()
+  })
+
   it('系统、直连和手动代理互斥，并在切换后关闭旧连接', async () => {
     const { service, setProxy, closeAllConnections } = await createService()
     expect(setProxy).toHaveBeenLastCalledWith({ mode: 'system' })

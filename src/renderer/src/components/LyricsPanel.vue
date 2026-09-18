@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useQuery } from '@tanstack/vue-query'
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useErrorToast } from '../lib/notifications'
 import { getLyrics } from '../services/playback'
 import { usePlayerStore } from '../stores/player'
@@ -16,6 +16,7 @@ import {
 const emit = defineEmits<{ close: [] }>()
 const player = usePlayerStore()
 const selectedVariantIndex = ref(0)
+const lyricsLines = ref<HTMLOListElement | null>(null)
 
 const lyricsQuery = useQuery({
   queryKey: computed(() => [
@@ -69,6 +70,18 @@ const activeLineIndex = computed(() => {
   return active
 })
 
+watch(
+  activeLineIndex,
+  async (index) => {
+    if (index < 0) return
+    await nextTick()
+    lyricsLines.value
+      ?.querySelector<HTMLElement>('[aria-current="true"]')
+      ?.scrollIntoView({ block: 'center', inline: 'nearest' })
+  },
+  { flush: 'post' }
+)
+
 function variantLabel(index: number): string {
   const variant = variants.value[index]
   if (!variant) return `歌词 ${index + 1}`
@@ -115,7 +128,7 @@ function variantLabel(index: number): string {
         {{ selectedVariant.displayTitle ?? player.track?.title }} ·
         {{ selectedVariant.displayArtist ?? player.track?.artist }}
       </p>
-      <ol class="lyrics-lines" :class="{ synced: selectedVariant?.synced }">
+      <ol ref="lyricsLines" class="lyrics-lines" :class="{ synced: selectedVariant?.synced }">
         <li
           v-for="(line, index) in selectedVariant?.lines"
           :key="`${line.startMs ?? 'plain'}-${index}`"
