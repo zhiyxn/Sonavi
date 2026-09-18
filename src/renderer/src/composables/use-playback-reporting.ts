@@ -40,7 +40,6 @@ export class PlaybackReportingController {
 
     if (observation.queueEntryId !== this.activeEntryId) {
       this.reset(observation.queueEntryId, observation)
-      return
     } else if (this.previousState === 'playing') {
       const delta = observation.currentTime - this.previousTime
       if (delta > 0 && delta <= MAX_CONTINUOUS_PROGRESS_SECONDS) {

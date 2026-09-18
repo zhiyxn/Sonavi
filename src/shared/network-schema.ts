@@ -41,6 +41,8 @@ export const NetworkDiagnosticEntrySchema = z.object({
   stage: z.enum(['api', 'cover', 'audio-original', 'audio-transcode']),
   proxyMode: z.enum(['system', 'direct', 'manual']),
   operation: z.string().min(1).max(64).optional(),
+  requestContext: z.string().min(1).max(120).optional(),
+  attempt: z.number().int().min(1).max(20).optional(),
   status: z.number().int().min(100).max(599).optional(),
   contentType: z.string().max(200).optional(),
   errorCategory: z.enum([

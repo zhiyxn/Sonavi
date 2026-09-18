@@ -51,11 +51,18 @@ describe('P08 连接诊断', () => {
       proxyMode: 'system',
       startedAt: performance.now() - 12_010,
       operation: 'getArtists',
+      requestContext: 'listType=newest,page=1,size=30',
+      attempt: 2,
       errorCategory: 'timeout'
     })
 
     const [entry] = recorder.list()
-    expect(entry).toMatchObject({ operation: 'getArtists', errorCategory: 'timeout' })
+    expect(entry).toMatchObject({
+      operation: 'getArtists',
+      requestContext: 'listType=newest,page=1,size=30',
+      attempt: 2,
+      errorCategory: 'timeout'
+    })
     expect(entry?.recommendation).toContain('超时')
   })
 
@@ -85,5 +92,31 @@ describe('P08 连接诊断', () => {
   it('脱敏函数移除 URL 与凭据参数', () => {
     expect(redactDiagnosticText('failed   at https://a.example/x?t=abc  ')).toBe('failed at <url>')
     expect(redactDiagnosticText('plain message')).toBe('plain message')
+  })
+
+  it('白名单化查询上下文并导出第二版结构', () => {
+    const recorder = new NetworkDiagnosticRecorder()
+    recorder.record({
+      stage: 'api',
+      proxyMode: 'system',
+      startedAt: performance.now(),
+      operation: 'getAlbumList2',
+      requestContext: 'listType=newest,page=1,size=30',
+      attempt: 1,
+      errorCategory: 'none'
+    })
+    recorder.record({
+      stage: 'api',
+      proxyMode: 'system',
+      startedAt: performance.now(),
+      operation: 'getAlbumList2',
+      requestContext: 'listType=newest,page=1,size=30,secret=do-not-record',
+      errorCategory: 'none'
+    })
+
+    expect(recorder.list()[0]?.requestContext).toBeUndefined()
+    expect(recorder.list()[1]?.requestContext).toBe('listType=newest,page=1,size=30')
+    expect(recorder.exportText()).not.toContain('do-not-record')
+    expect(JSON.parse(recorder.exportText())).toMatchObject({ schemaVersion: 2 })
   })
 })

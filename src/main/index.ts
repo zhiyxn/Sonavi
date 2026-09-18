@@ -251,7 +251,8 @@ function registerLibraryIpc(libraryService: LibraryService): void {
         request.data.sessionId,
         request.data.type,
         request.data.offset,
-        request.data.size
+        request.data.size,
+        request.data.attempt
       )
     )
   })

@@ -1,6 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
+import { KeepAlive, defineComponent, h, nextTick, ref } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SonaviApi } from '../../src/shared/application'
 import type { ArtistSummary, CancelSearchRequest } from '../../src/shared/library'
@@ -12,6 +13,7 @@ import { searchLibrary } from '../../src/renderer/src/services/library'
 const SESSION_ID = 'c1a3b589-7763-4fc6-8d52-cad7a11986bb'
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.restoreAllMocks()
   Reflect.deleteProperty(window, 'sonavi')
   document.body.replaceChildren()
@@ -41,6 +43,43 @@ describe('P05 音乐库界面', () => {
     viewport.element.scrollTop = 360
     await viewport.trigger('scroll')
     expect(wrapper.emitted('update:scrollTop')?.at(-1)).toEqual([360])
+  })
+
+  it('从 KeepAlive 重新激活时立即恢复艺术家列表可见窗口', async () => {
+    const artists: ArtistSummary[] = Array.from({ length: 100 }, (_, index) => ({
+      id: String(index),
+      name: `艺术家 ${index}`,
+      albumCount: index % 12,
+      starred: false
+    }))
+    const active = ref(true)
+    const savedScrollTop = ref(360)
+    const InactiveView = defineComponent(() => () => h('div', '其他页面'))
+    const Host = defineComponent(() => () =>
+      h(KeepAlive, null, {
+        default: () => active.value
+          ? h(VirtualArtistList, {
+              key: 'artists',
+              artists,
+              scrollTop: savedScrollTop.value,
+              'onUpdate:scrollTop': (value: number) => { savedScrollTop.value = value }
+            })
+          : h(InactiveView, { key: 'inactive' })
+      })
+    )
+    const wrapper = mount(Host, { attachTo: document.body })
+    await nextTick()
+    await nextTick()
+
+    const previousViewport = wrapper.get('[data-testid="virtual-artist-list"]')
+    previousViewport.element.scrollTop = 0
+    active.value = false
+    await nextTick()
+    active.value = true
+    await nextTick()
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="virtual-artist-list"]').element.scrollTop).toBe(360)
   })
 
   it('同一连接会话重新打开艺术家页面不会重复请求完整索引', async () => {
@@ -96,6 +135,7 @@ describe('P05 音乐库界面', () => {
             artist: 'Sonavi Artist',
             songCount: 0,
             duration: 0,
+            coverUrl: 'sonavi-media://media/11111111-1111-4111-8111-111111111111',
             starred: false
           }
         ],
@@ -160,6 +200,12 @@ describe('P05 音乐库界面', () => {
     })
     await flushPromises()
     workspace.scrollTop = 640
+
+    expect(wrapper.get('img').attributes()).toMatchObject({
+      loading: 'lazy',
+      decoding: 'async',
+      fetchpriority: 'low'
+    })
 
     const album = wrapper.findAll('button').find((button) => button.text().includes('恢复位置专辑'))
     await album?.trigger('click')
@@ -311,6 +357,45 @@ describe('P05 音乐库界面', () => {
       offset: 0,
       size: 30
     }))
+  })
+
+  it('专辑列表超时只自动重试一次，并记录同一页的尝试序号', async () => {
+    vi.useFakeTimers()
+    const listAlbums = vi
+      .fn<SonaviApi['library']['listAlbums']>()
+      .mockRejectedValueOnce(new Error('timeout'))
+      .mockResolvedValue({
+        ok: true,
+        value: { items: [], nextOffset: 0, hasMore: false }
+      })
+    Object.defineProperty(window, 'sonavi', {
+      configurable: true,
+      value: { library: { listAlbums } } as unknown as SonaviApi
+    })
+    mount(LibraryPanel, {
+      props: {
+        sessionId: SESSION_ID,
+        serverId: 'https://music.example.com',
+        serverName: '测试服务器',
+        listType: 'newest',
+        title: '最近添加',
+        selectedAlbumId: null
+      },
+      global: {
+        plugins: [
+          createPinia(),
+          [VueQueryPlugin, { queryClient: new QueryClient() }]
+        ]
+      }
+    })
+
+    await flushPromises()
+    expect(listAlbums).toHaveBeenCalledOnce()
+    await vi.advanceTimersByTimeAsync(1_000)
+    await flushPromises()
+
+    expect(listAlbums).toHaveBeenCalledTimes(2)
+    expect(listAlbums.mock.calls.map(([request]) => request.attempt)).toEqual([1, 2])
   })
 
   it('renderer 中止搜索时只通过受限 API 请求主进程取消', async () => {

@@ -17,6 +17,14 @@ const SAFE_RESPONSE_HEADERS = [
   'last-modified'
 ] as const
 
+export const MAX_CONCURRENT_COVER_FETCHES = 6
+
+interface CoverSlotWaiter {
+  signal: AbortSignal
+  resolve: (release: (() => void) | null) => void
+  onAbort: () => void
+}
+
 export type MediaFetch = (url: string, init: RequestInit) => Promise<Response>
 
 function errorResponse(status: number, message: string): Response {
@@ -67,6 +75,8 @@ async function readBoundedBody(body: ReadableStream<Uint8Array>, maxBytes: numbe
 
 export class MediaProtocolService {
   private readonly activeRequests = new Map<string, Set<AbortController>>()
+  private activeCoverFetches = 0
+  private readonly coverSlotQueue: CoverSlotWaiter[] = []
 
   constructor(
     private readonly connectionService: ConnectionService,
@@ -87,6 +97,53 @@ export class MediaProtocolService {
 
   dispose(): void {
     for (const sessionId of [...this.activeRequests.keys()]) this.revokeSession(sessionId)
+  }
+
+  private acquireCoverSlot(signal: AbortSignal): Promise<(() => void) | null> {
+    if (signal.aborted) return Promise.resolve(null)
+    if (this.activeCoverFetches < MAX_CONCURRENT_COVER_FETCHES) {
+      this.activeCoverFetches += 1
+      return Promise.resolve(this.createCoverSlotRelease())
+    }
+
+    return new Promise((resolve) => {
+      const waiter: CoverSlotWaiter = {
+        signal,
+        resolve,
+        onAbort: () => {
+          const index = this.coverSlotQueue.indexOf(waiter)
+          if (index >= 0) this.coverSlotQueue.splice(index, 1)
+          resolve(null)
+        }
+      }
+      signal.addEventListener('abort', waiter.onAbort, { once: true })
+      this.coverSlotQueue.push(waiter)
+    })
+  }
+
+  private createCoverSlotRelease(): () => void {
+    let released = false
+    return () => {
+      if (released) return
+      released = true
+      this.activeCoverFetches = Math.max(0, this.activeCoverFetches - 1)
+      this.dispatchNextCoverFetch()
+    }
+  }
+
+  private dispatchNextCoverFetch(): void {
+    while (this.coverSlotQueue.length > 0) {
+      const waiter = this.coverSlotQueue.shift()
+      if (!waiter) return
+      waiter.signal.removeEventListener('abort', waiter.onAbort)
+      if (waiter.signal.aborted) {
+        waiter.resolve(null)
+        continue
+      }
+      this.activeCoverFetches += 1
+      waiter.resolve(this.createCoverSlotRelease())
+      return
+    }
   }
 
   async handle(request: Request): Promise<Response> {
@@ -148,10 +205,13 @@ export class MediaProtocolService {
     this.activeRequests.set(handle.sessionId, sessionRequests)
     const abortFromRequest = (): void => abortController.abort()
     request.signal.addEventListener('abort', abortFromRequest, { once: true })
+    let releaseCoverSlot: (() => void) | undefined
     let cleanedUp = false
     const cleanup = (): void => {
       if (cleanedUp) return
       cleanedUp = true
+      releaseCoverSlot?.()
+      releaseCoverSlot = undefined
       request.signal.removeEventListener('abort', abortFromRequest)
       sessionRequests.delete(abortController)
       if (sessionRequests.size === 0) this.activeRequests.delete(handle.sessionId)
@@ -184,6 +244,15 @@ export class MediaProtocolService {
           }
         : {})
     })
+
+    if (handle.kind === 'cover') {
+      releaseCoverSlot = (await this.acquireCoverSlot(abortController.signal)) ?? undefined
+      if (!releaseCoverSlot) {
+        settle('cancelled')
+        return errorResponse(502, 'Upstream cover request cancelled')
+      }
+    }
+
     let upstream: Response
     try {
       upstream = await this.fetchMedia(url, {

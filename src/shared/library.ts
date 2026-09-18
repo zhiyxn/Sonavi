@@ -19,6 +19,8 @@ export interface AlbumPageRequest {
   type: AlbumListType
   offset: number
   size: number
+  /** 当前同一页查询的尝试序号，仅用于脱敏诊断。 */
+  attempt?: number | undefined
 }
 
 export interface AlbumSummary {

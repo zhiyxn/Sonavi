@@ -50,6 +50,10 @@ export interface NetworkDiagnosticEntry {
   proxyMode: ProxyMode
   /** 请求的协议端点名（如 getArtists、stream），不含 URL 与参数。 */
   operation?: string | undefined
+  /** 仅包含白名单化后的非敏感查询上下文，例如列表类型与页码。 */
+  requestContext?: string | undefined
+  /** 当前查询的尝试序号。 */
+  attempt?: number | undefined
   status?: number | undefined
   contentType?: string | undefined
   errorCategory: DiagnosticErrorCategory

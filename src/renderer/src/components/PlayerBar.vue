@@ -152,25 +152,27 @@ function closeQueueFromPlayer(event: MouseEvent): void {
       </ol>
     </section>
     <LyricsPanel v-if="lyricsOpen" @close="lyricsOpen = false" />
-    <div class="album-placeholder">
-      <img
-        v-if="player.track?.coverUrl"
-        :src="player.track.coverUrl"
-        alt=""
-        aria-hidden="true"
-      />
-      <span v-else aria-hidden="true">{{ player.track ? '♪' : 'S' }}</span>
-    </div>
-    <div class="min-w-0">
-      <strong class="block truncate">{{ player.track?.title ?? '选择歌曲开始播放' }}</strong>
-      <span class="block truncate">{{ player.track?.artist ?? 'Sonavi AudioEngine' }}</span>
-      <div v-if="player.errorMessage" class="player-error-row" role="alert">
-        <span class="player-error">{{ player.errorMessage }}</span>
-        <Button variant="ghost" size="sm" @click="player.retry">重试播放</Button>
+    <div class="player-track">
+      <div class="album-placeholder">
+        <img
+          v-if="player.track?.coverUrl"
+          :src="player.track.coverUrl"
+          alt=""
+          aria-hidden="true"
+        />
+        <span v-else aria-hidden="true">{{ player.track ? '♪' : 'S' }}</span>
       </div>
-      <span v-else-if="player.track" class="player-stream-note" :title="player.track.playback.reason">
-        {{ player.track.playback.streamMode === 'transcode' ? '兼容转码' : '原始音频' }}
-      </span>
+      <div class="player-track-details min-w-0">
+        <strong class="block truncate">{{ player.track?.title ?? '选择歌曲开始播放' }}</strong>
+        <span class="block truncate">{{ player.track?.artist ?? 'Sonavi AudioEngine' }}</span>
+        <div v-if="player.errorMessage" class="player-error-row" role="alert">
+          <span class="player-error">{{ player.errorMessage }}</span>
+          <Button variant="ghost" size="sm" @click="player.retry">重试播放</Button>
+        </div>
+        <span v-else-if="player.track" class="player-stream-note" :title="player.track.playback.reason">
+          {{ player.track.playback.streamMode === 'transcode' ? '兼容转码' : '原始音频' }}
+        </span>
+      </div>
     </div>
     <div class="player-controls">
       <Button

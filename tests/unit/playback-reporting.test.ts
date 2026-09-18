@@ -71,4 +71,32 @@ describe('播放上报控制器', () => {
     expect(report).toHaveBeenCalledTimes(2)
     expect(report.mock.calls[1]?.[0]).toMatchObject({ submission: true, playedAtMs: 456 })
   })
+
+  it('上一首上报失败后，切到已在播放的新条目会立即再次上报', async () => {
+    const report = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('timeout'))
+      .mockResolvedValue({ reported: true })
+    const onError = vi.fn()
+    const controller = new PlaybackReportingController(report, onError, () => 789)
+
+    controller.observe(base)
+    controller.observe({ ...base, state: 'playing' })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    controller.observe({
+      ...base,
+      queueEntryId: 'entry-2',
+      trackId: 'track-2',
+      state: 'playing'
+    })
+    await Promise.resolve()
+
+    expect(report).toHaveBeenCalledTimes(2)
+    expect(report.mock.calls[1]?.[0]).toMatchObject({
+      trackId: 'track-2',
+      submission: false
+    })
+  })
 })

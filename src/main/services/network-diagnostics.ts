@@ -51,6 +51,18 @@ export function redactDiagnosticText(value: string): string {
     .slice(0, MAX_ERROR_DETAIL_LENGTH)
 }
 
+function sanitizeRequestContext(value: string): string | undefined {
+  const match = /^listType=(newest|alphabeticalByName),page=(\d{1,7}),size=(\d{1,3})$/.exec(value)
+  if (!match) return undefined
+  const [, listType, rawPage, rawSize] = match
+  const page = Number(rawPage)
+  const size = Number(rawSize)
+  if (!listType || !Number.isInteger(page) || page < 1 || !Number.isInteger(size) || size < 1 || size > 100) {
+    return undefined
+  }
+  return `listType=${listType},page=${page},size=${size}`
+}
+
 export function describeError(
   error: unknown
 ): Pick<NetworkDiagnosticEntry, 'errorName' | 'errorDetail'> {
@@ -96,6 +108,8 @@ export interface DiagnosticRecordInput {
   proxyMode: ProxyMode
   startedAt: number
   operation?: string | undefined
+  requestContext?: string | undefined
+  attempt?: number | undefined
   status?: number | undefined
   contentType?: string | undefined
   errorCategory: DiagnosticErrorCategory
@@ -106,12 +120,17 @@ export class NetworkDiagnosticRecorder {
   private readonly entries: NetworkDiagnosticEntry[] = []
 
   record(input: DiagnosticRecordInput): void {
+    const requestContext = input.requestContext
+      ? sanitizeRequestContext(input.requestContext)
+      : undefined
     const entry: NetworkDiagnosticEntry = {
       id: randomUUID(),
       timestamp: new Date().toISOString(),
       stage: input.stage,
       proxyMode: input.proxyMode,
       ...(input.operation ? { operation: input.operation.slice(0, MAX_OPERATION_LENGTH) } : {}),
+      ...(requestContext ? { requestContext } : {}),
+      ...(input.attempt ? { attempt: Math.min(20, Math.max(1, Math.floor(input.attempt))) } : {}),
       ...(input.status ? { status: input.status } : {}),
       ...(input.contentType ? { contentType: input.contentType.slice(0, 200) } : {}),
       errorCategory: input.errorCategory,
@@ -130,10 +149,10 @@ export class NetworkDiagnosticRecorder {
   exportText(): string {
     const payload = JSON.stringify(
       {
-        schemaVersion: 1,
+        schemaVersion: 2,
         generatedAt: new Date().toISOString(),
         redaction:
-          'URL、账号、凭据、token、资源 ID 与响应正文未被记录；端点名与错误文本在写入前已脱敏。',
+          'URL、账号、凭据、token、资源 ID 与响应正文未被记录；端点名、白名单查询上下文与错误文本在写入前已脱敏。',
         entries: this.entries
       },
       null,
@@ -143,10 +162,10 @@ export class NetworkDiagnosticRecorder {
       ? payload
       : JSON.stringify(
           {
-            schemaVersion: 1,
+            schemaVersion: 2,
             generatedAt: new Date().toISOString(),
             redaction:
-              'URL、账号、凭据、token、资源 ID 与响应正文未被记录；端点名与错误文本在写入前已脱敏。',
+              'URL、账号、凭据、token、资源 ID 与响应正文未被记录；端点名、白名单查询上下文与错误文本在写入前已脱敏。',
             entries: this.entries.slice(0, 100)
           },
           null,

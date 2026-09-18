@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { ArtistSummary } from '../../../shared/library'
 
 const props = withDefaults(defineProps<{ artists: ArtistSummary[]; scrollTop?: number }>(), {
@@ -49,10 +49,16 @@ function handleScroll(event: Event): void {
   emit('update:scrollTop', scrollTop)
 }
 
-onMounted(() => {
+async function synchronizeViewport(): Promise<void> {
+  await nextTick()
   if (!viewport.value) return
   applyScrollTop(props.scrollTop)
   updateViewportHeight(viewport.value.clientHeight)
+}
+
+onMounted(() => {
+  if (!viewport.value) return
+  void synchronizeViewport()
   if (!('ResizeObserver' in globalThis)) return
   resizeObserver = new ResizeObserver((entries) => {
     const entry = entries[0]
@@ -61,6 +67,7 @@ onMounted(() => {
   resizeObserver.observe(viewport.value)
 })
 
+onActivated(synchronizeViewport)
 watch(() => props.scrollTop, applyScrollTop)
 onBeforeUnmount(() => resizeObserver?.disconnect())
 </script>
@@ -80,7 +87,7 @@ onBeforeUnmount(() => resizeObserver?.disconnect())
         :key="row.artist.id"
         type="button"
         class="virtual-artist-row"
-        :style="{ height: `${ROW_HEIGHT}px`, transform: `translateY(${row.index * ROW_HEIGHT}px)` }"
+        :style="{ height: `${ROW_HEIGHT}px`, top: `${row.index * ROW_HEIGHT}px` }"
         @click="emit('select', row.artist)"
       >
         <img

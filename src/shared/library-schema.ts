@@ -27,7 +27,8 @@ export const AlbumPageRequestSchema = z.object({
   sessionId: SessionIdSchema,
   type: z.enum(['newest', 'alphabeticalByName']),
   offset: z.number().int().min(0).max(10_000_000),
-  size: z.number().int().min(1).max(100)
+  size: z.number().int().min(1).max(100),
+  attempt: z.number().int().min(1).max(20).optional()
 }) satisfies z.ZodType<AlbumPageRequest>
 
 export const ArtistIdSchema = z.string().min(1).max(1024)

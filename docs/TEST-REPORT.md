@@ -370,3 +370,26 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - 保留边界：左侧导航、专辑/艺术家/歌单实体入口、队列曲目和虚拟列表行属于业务组件，继续使用语义化原生按钮，不为形式统一套用通用 Button。Slider 提交到 AudioEngine 前将 seek 归一化到毫秒精度、音量归一化到百分之一，避免转码 `timeOffset` 浮点尾差。
 - 自动验证：Node.js 22.21.1 下 `npm run lint`、`npm run typecheck`、`npm test`（28 文件/147 项）、`npm run build` 全部通过。Windows 源码 Electron 完整冒烟通过，覆盖连接 Checkbox、显式搜索、歌单 Checkbox、设置 Select 持久化、原始与 MP3 转码 Slider seek、诊断、生命周期、队列恢复和凭据恢复/删除；构建仅有既有 Zod PURE 注释位置警告。
 - 当前状态：`RETEST`。未重新生成 Windows 安装包；macOS Intel x64 与 Apple Silicon arm64 实机均未验证。
+
+### P12-MI-020 播放器布局与艺术家缓存页重绘
+
+- Windows 源码预览反馈：shadcn-vue Slider 的进度/音量滑块圆点掉到轨道下方；播放控制区被左右不对称内容推离窗口中心；艺术家页从 `KeepAlive` 恢复时列表偶发空白，滚动后才重绘。
+- 修复：取消 `.player-bar span` 对 Slider 根节点 `display:flex` 的覆盖；播放器改为对称的“歌曲区 / 控制区 / 工具区”三列网格；艺术家虚拟列表在 `onActivated` 后重新同步滚动位置与视口高度，列表行改用绝对 `top` 定位以避免 Chromium 恢复后的延迟合成。
+- 自动验证：Node.js 22.21.1 下 `npm run lint`、`npm run typecheck`、`npm test`（28 文件/148 项）和 `npm run test:e2e` 全部通过。Electron 实渲染断言确认两个 Slider 圆点与轨道中心对齐，播放控制区与播放器几何中心偏差不超过 1px；艺术家导航、详情和专辑返回链路通过。
+- 当前状态：`RETEST`。Windows 源码 Electron 已验证；真实大型艺术家索引和 macOS 两架构实机仍未验证。
+
+### P12-MI-021 危险操作确认与通知关闭位置
+
+- 用户要求：清空封面缓存和断开连接都必须二次确认；Sonner 通知的关闭按钮从左上移到右上。
+- 实现：两项操作均复用项目持有的 shadcn-vue `AlertDialog`，取消时不调用 IPC，确认后才执行；对话框明确说明本地缓存、服务器音乐和加密凭据的边界。Toaster 使用 vue-sonner 官方 `closeButtonPosition="top-right"` 属性。
+- 自动验证：Node.js 22.21.1 下 lint、typecheck、28 文件/148 项 Vitest、生产构建与 Windows 源码 Electron 完整冒烟均通过。E2E 验证关闭按钮 `data-close-button-position=top-right`，并实际确认清空缓存与断开连接流程。
+- 当前状态：`RETEST`。Windows 源码 Electron 已验证；未生成新安装包，macOS 实机未验证。
+
+### P12-MI-022 封面并发、专辑重试诊断与连续 scrobble
+
+- 真实证据：首份诊断中 28 个 `getCoverArt` 在约 10 ms 内发起，`getAlbumList2` 呈默认多次重试；随后用户提供的界面记录确认 `operation=scrobble`、无 HTTP 状态、12014 ms、`timeout`。因此 scrobble 已进入传输层，但真实超时根因仍无法仅凭客户端日志唯一归因。
+- 实现：专辑网格图片使用 `loading=lazy`、异步解码和低 fetch priority，只加载可视区域附近封面；main 的媒体协议对缓存未命中的封面上游读取设置全局 6 并发，并在完成、取消、错误或会话撤销时释放槽位。`getAlbumList2` 显式设为最多一次自动重试，手动重试重新计数。
+- 诊断：导出结构升级为 schema v2；专辑列表 API 条目增加经白名单过滤的 `listType/page/size` 与 1 起始尝试序号，不记录 URL、资源 ID、凭据或响应正文。设置页同步显示这些字段。
+- 播放上报：修复队列项变化时重置后立即返回的问题；如果新歌曲第一次被观察到时已经是 `playing`，现在立即发送独立 now-playing，即使上一首请求超时也不会被其状态阻断。未知结果仍不自动重试，以免服务器实际已写入时重复计数。
+- 自动验证：Node.js 22.21.1 下 lint、typecheck、全量 Vitest 28 文件/153 项、生产构建和 Windows 源码 Electron 完整冒烟通过；网络诊断、OpenSubsonic 客户端、媒体协议、播放上报和专辑 UI 定向测试 5 文件/59 项通过，专辑 UI 新增重试/尝试序号后单文件 10 项通过。E2E 实际断言诊断页显示 `getAlbumList2 · listType=newest,page=1,size=30 · 第 1 次` 与 `scrobble` 条目；构建只有既有 Zod PURE 注释位置警告。
+- 当前状态：`RETEST`。Windows 真实服务器需确认封面峰值、每页最多两次 `getAlbumList2`、切歌立即出现新的 scrobble 条目，并继续定位服务端 12 秒无响应；macOS Intel/arm64 未验证。

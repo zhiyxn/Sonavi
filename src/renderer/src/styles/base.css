@@ -368,8 +368,8 @@ button.nav-item {
   display: grid;
   grid-column: 1 / -1;
   grid-row: 2;
-  grid-template-columns: auto minmax(190px, 1fr) 1fr auto;
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: clamp(12px, 2vw, 28px);
   align-items: center;
   padding: 12px 24px;
   border-top: 1px solid var(--sonavi-chrome-border);
@@ -388,6 +388,14 @@ button.nav-item {
   font-size: 20px;
 }
 
+.player-track {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  min-width: 0;
+}
+
 .album-placeholder img {
   width: 100%;
   height: 100%;
@@ -398,7 +406,7 @@ button.nav-item {
 .player-placeholder strong,
 .player-placeholder span,
 .player-bar strong,
-.player-bar span {
+.player-track-details > span {
   display: block;
 }
 
@@ -425,6 +433,7 @@ button.nav-item {
   row-gap: 2px;
   align-items: center;
   justify-content: center;
+  justify-self: center;
 }
 
 .player-controls > button {
@@ -480,6 +489,7 @@ button.nav-item {
   justify-content: flex-end;
   gap: 8px;
   min-width: 0;
+  justify-self: end;
 }
 
 .player-utilities .player-volume-slider {

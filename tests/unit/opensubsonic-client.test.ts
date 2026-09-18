@@ -116,14 +116,26 @@ describe('OpenSubsonicClient', () => {
     const client = new OpenSubsonicClient(transport)
 
     await client.getArtists('https://music.example.com', 'listener', 'secret')
-    await client.getAlbumList2('https://music.example.com', 'listener', 'secret', 0, 30, 'newest')
+    await client.getAlbumList2(
+      'https://music.example.com',
+      'listener',
+      'secret',
+      0,
+      30,
+      'newest',
+      2
+    )
 
     expect(transport.requestedOptions[0]).toMatchObject({
       maxResponseBytes: 16 * 1024 * 1024,
       operation: 'getArtists'
     })
     expect(transport.requestedOptions[1]).not.toHaveProperty('maxResponseBytes')
-    expect(transport.requestedOptions[1]).toMatchObject({ operation: 'getAlbumList2' })
+    expect(transport.requestedOptions[1]).toMatchObject({
+      operation: 'getAlbumList2',
+      requestContext: 'listType=newest,page=1,size=30',
+      attempt: 2
+    })
   })
 
   it('探测 ping、扩展和音乐文件夹，并把服务端 ID 统一为 string', async () => {
@@ -632,6 +644,40 @@ describe('OpenSubsonicClient', () => {
       errorName: 'AbortError'
     })
     expect(recorder.list()[0]?.status).toBeUndefined()
+  })
+
+  it('scrobble 超时明确记录端点，后续上报仍会发起独立请求', async () => {
+    vi.useFakeTimers()
+    const { client, recorder } = clientWithDiagnostics()
+
+    const first = client.scrobble(
+      'https://music.example.com',
+      'listener',
+      'secret',
+      'track-1',
+      false,
+      1_700_000_000_000
+    )
+    const firstAssertion = expect(first).rejects.toMatchObject({ code: 'timeout' })
+    await vi.advanceTimersByTimeAsync(12_000)
+    await firstAssertion
+
+    const second = client.scrobble(
+      'https://music.example.com',
+      'listener',
+      'secret',
+      'track-2',
+      false,
+      1_700_000_001_000
+    )
+    const secondAssertion = expect(second).rejects.toMatchObject({ code: 'timeout' })
+    await vi.advanceTimersByTimeAsync(12_000)
+    await secondAssertion
+
+    expect(recorder.list()).toHaveLength(2)
+    expect(recorder.list().every((entry) =>
+      entry.operation === 'scrobble' && entry.errorCategory === 'timeout'
+    )).toBe(true)
   })
 
   it('调用方取消记为 cancelled，而不是 timeout', async () => {

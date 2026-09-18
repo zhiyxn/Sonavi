@@ -405,8 +405,13 @@ describe('共享应用外壳', () => {
     expect(workspace.classes()).not.toContain('workspace-album-detail')
   })
 
-  it('断开连接先暂停并保存队列，确认断开后才清空播放器', async () => {
+  it('清空缓存和断开连接均在 AlertDialog 确认后才执行', async () => {
     const api = installPlatformApi('windows')
+    api.desktop.clearCoverCache = vi.fn(async () => ({
+      itemCount: 0,
+      totalBytes: 0,
+      maxBytes: 134_217_728
+    }))
     let finishDisconnect: ((result: boolean) => void) | undefined
     api.connection.disconnect = vi.fn(
       () => new Promise<boolean>((resolve) => { finishDisconnect = resolve })
@@ -437,8 +442,38 @@ describe('共享应用外壳', () => {
 
     const settingsButton = wrapper.findAll('button').find((button) => button.text() === '设置')
     await settingsButton?.trigger('click')
+    await flushPromises()
+
+    const clearCacheButton = wrapper.findAll('button')
+      .find((button) => button.text() === '清空当前账号缓存')
+    await clearCacheButton?.trigger('click')
+    await flushPromises()
+    expect(api.desktop.clearCoverCache).not.toHaveBeenCalled()
+    expect(document.body.textContent).toContain('清空当前账号的封面缓存？')
+
+    const cancelCacheButton = [...document.body.querySelectorAll('button')]
+      .find((button) => button.textContent === '取消')
+    cancelCacheButton?.click()
+    await flushPromises()
+    expect(api.desktop.clearCoverCache).not.toHaveBeenCalled()
+
+    await clearCacheButton?.trigger('click')
+    await flushPromises()
+    const confirmCacheButton = [...document.body.querySelectorAll('button')]
+      .find((button) => button.textContent === '清空缓存')
+    confirmCacheButton?.click()
+    await flushPromises()
+    expect(api.desktop.clearCoverCache).toHaveBeenCalledOnce()
+
     const disconnectButton = wrapper.findAll('button').find((button) => button.text() === '断开连接')
     await disconnectButton?.trigger('click')
+    await flushPromises()
+
+    expect(api.connection.disconnect).not.toHaveBeenCalled()
+    expect(document.body.textContent).toContain('断开当前连接？')
+    const confirmDisconnectButton = [...document.body.querySelectorAll('button')]
+      .find((button) => button.textContent === '确认断开')
+    confirmDisconnectButton?.click()
     await flushPromises()
 
     expect(pause).toHaveBeenCalledOnce()

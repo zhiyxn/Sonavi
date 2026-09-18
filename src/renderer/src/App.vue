@@ -368,6 +368,7 @@ async function confirmForget(): Promise<void> {
       position="top-center"
       rich-colors
       close-button
+      close-button-position="top-right"
       :visible-toasts="4"
       container-aria-label="Sonavi 通知"
       :toast-options="{

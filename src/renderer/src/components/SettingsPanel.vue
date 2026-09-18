@@ -23,6 +23,7 @@ import {
 } from './ui/select'
 import { clearCoverCache, loadCoverCacheInfo } from '../services/desktop'
 import { useDesktopStore } from '../stores/desktop'
+import ConfirmationDialog from './ConfirmationDialog.vue'
 
 const props = defineProps<{
   applicationInfo: ApplicationInfo
@@ -36,6 +37,8 @@ const statusMessage = ref('')
 const saving = ref(false)
 const savingDesktop = ref(false)
 const clearingCache = ref(false)
+const cacheConfirmationOpen = ref(false)
+const disconnectConfirmationOpen = ref(false)
 const desktopSettings = ref<DesktopPreferences | null>(null)
 const cacheInfo = ref<CoverCacheInfo | null>(null)
 const desktop = useDesktopStore()
@@ -119,7 +122,17 @@ async function clearCache(): Promise<void> {
     })
   } finally {
     clearingCache.value = false
+    cacheConfirmationOpen.value = false
   }
+}
+
+function requestClearCache(): void {
+  if (!clearingCache.value) cacheConfirmationOpen.value = true
+}
+
+function confirmDisconnect(): void {
+  disconnectConfirmationOpen.value = false
+  emit('disconnect')
 }
 
 function formatBytes(bytes: number): string {
@@ -311,7 +324,7 @@ async function exportDiagnostics(): Promise<void> {
       <ol v-else class="diagnostics-list">
         <li v-for="entry in diagnostics.slice(0, 20)" :key="entry.id">
           <strong>{{ stageLabels[entry.stage] }}</strong>
-          <span>{{ entry.operation || '—' }} · {{ entry.status ?? '—' }} · {{ entry.contentType || '无类型' }} · {{ entry.durationMs }} ms</span>
+          <span>{{ entry.operation || '—' }}<template v-if="entry.requestContext"> · {{ entry.requestContext }}</template><template v-if="entry.attempt"> · 第 {{ entry.attempt }} 次</template> · {{ entry.status ?? '—' }} · {{ entry.contentType || '无类型' }} · {{ entry.durationMs }} ms</span>
           <span>{{ entry.errorCategory }} · {{ entry.recommendation }}</span>
           <span v-if="entry.errorDetail">{{ entry.errorName || 'Error' }}: {{ entry.errorDetail }}</span>
         </li>
@@ -324,7 +337,7 @@ async function exportDiagnostics(): Promise<void> {
           <h2 id="cache-title">封面缓存</h2>
           <p>按账号隔离、最近最少使用淘汰，单账号上限 128 MiB；不缓存音频，不提供离线下载。</p>
         </div>
-        <Button variant="outline" size="sm" :disabled="clearingCache" @click="clearCache">
+        <Button variant="outline" size="sm" :disabled="clearingCache" @click="requestClearCache">
           {{ clearingCache ? '正在清理…' : '清空当前账号缓存' }}
         </Button>
       </header>
@@ -335,8 +348,24 @@ async function exportDiagnostics(): Promise<void> {
 
     <p v-if="statusMessage" class="settings-status" role="status">{{ statusMessage }}</p>
     <div class="mt-6 flex flex-wrap gap-3">
-      <Button variant="outline" @click="emit('disconnect')">断开连接</Button>
+      <Button variant="outline" @click="disconnectConfirmationOpen = true">断开连接</Button>
       <Button variant="ghost" @click="emit('forget')">退出并忘记账号</Button>
     </div>
+
+    <ConfirmationDialog
+      v-model:open="cacheConfirmationOpen"
+      title="清空当前账号的封面缓存？"
+      description="将删除当前账号在本机的所有封面缓存，不会删除服务器上的音乐。之后浏览时需重新下载封面。"
+      confirm-label="清空缓存"
+      :busy="clearingCache"
+      @confirm="clearCache"
+    />
+    <ConfirmationDialog
+      v-model:open="disconnectConfirmationOpen"
+      title="断开当前连接？"
+      description="将停止当前播放并退出此会话。已保存的加密凭据会保留，下次启动时仍可自动恢复。"
+      confirm-label="确认断开"
+      @confirm="confirmDisconnect"
+    />
   </section>
 </template>

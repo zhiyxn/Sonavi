@@ -25,6 +25,7 @@ import {
 } from './request-url'
 import {
   ResponseLimitError,
+  type ApiRequestOptions,
   type ApiTransport,
   type TransportResponse
 } from './transport'
@@ -427,13 +428,21 @@ export class OpenSubsonicClient {
     password: string,
     offset = 0,
     size = 30,
-    type: AlbumListType = 'newest'
+    type: AlbumListType = 'newest',
+    attempt?: number
   ): Promise<AlbumWithCover[]> {
-    const response = await this.request('getAlbumList2', baseUrl, username, password, {
-      type,
-      size,
-      offset
-    })
+    const response = await this.request(
+      'getAlbumList2',
+      baseUrl,
+      username,
+      password,
+      { type, size, offset },
+      undefined,
+      {
+        requestContext: `listType=${type},page=${Math.floor(offset / size) + 1},size=${size}`,
+        ...(attempt ? { attempt } : {})
+      }
+    )
 
     return (response.albumList2?.album ?? []).map(mapAlbum)
   }
@@ -700,7 +709,8 @@ export class OpenSubsonicClient {
     username: string,
     password: string,
     parameters: EndpointParameters = {},
-    externalSignal?: AbortSignal
+    externalSignal?: AbortSignal,
+    diagnosticContext?: Pick<ApiRequestOptions, 'requestContext' | 'attempt'>
   ): Promise<ParsedResponse> {
     const timeoutController = new AbortController()
     const signal = externalSignal
@@ -715,6 +725,7 @@ export class OpenSubsonicClient {
           ? { maxResponseBytes: LARGE_LIBRARY_RESPONSE_BYTES }
           : {}),
         operation: endpoint,
+        ...diagnosticContext,
         describeAbort: () => ({
           timedOut: timeoutController.signal.aborted,
           cancelledByCaller: externalSignal?.aborted === true

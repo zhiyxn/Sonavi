@@ -302,3 +302,14 @@ OpenSubsonic JSON 默认响应上限仍为 1 MiB；只有必须一次返回完�
 renderer 的通用输入、复选、标签、选择、滑块和危险确认分别使用项目持有的 shadcn-vue Input、Checkbox、Label、Select、Slider 与 AlertDialog 源码。组件通过官方 CLI 引入，再按 Sonavi tokens、`@lucide/vue`、中文界面和 `exactOptionalPropertyTypes` 规则适配；依赖继续精确锁定，不因 CLI 自动改写而放宽版本范围。Sonner 只用于错误等非阻断通知，危险操作必须使用具有模态焦点管理和明确确认/取消语义的 AlertDialog。
 
 业务导航、专辑/艺术家/歌单实体卡片、队列曲目和虚拟列表行仍可保留语义化原生按钮，因为这些是业务组合而不是通用控件重复实现。Slider 向 AudioEngine 提交前统一归一化浮点步进值，避免转码 `timeOffset` 因二进制小数尾差变成不稳定参数。该决定只统一 renderer 交互层，不改变 main IPC、安全边界或服务器写入条件。
+
+## D026：封面上游有界并发与列表查询可归因诊断
+
+- 日期：2026-09-18
+- 状态：已接受
+
+renderer 的列表图片使用浏览器原生懒加载，只在可视区域附近解析受限 `sonavi-media` URL；main 媒体协议再对所有缓存未命中的封面上游读取设置全局 6 并发上限。并发槽位覆盖完整响应读取，在成功、错误、消费者取消、会话撤销和服务释放时幂等归还。音频流不进入该队列，缓存命中也不占用上游槽位。
+
+`getAlbumList2` 每个查询运行最多自动重试一次；未知写操作（特别是 scrobble）继续不自动重试，避免服务端已经执行但响应丢失时重复计数。手动重试由用户明确触发并重置尝试序号。
+
+网络诊断导出升级为 schema v2。列表请求只允许记录由 main 构造并再次过滤的 `listType`、页码、页大小和尝试序号；不得接受或写入 URL、账号、资源 ID、查询文本、凭据、token、Cookie、Authorization 或响应正文。该上下文用于区分 `newest` 与 `alphabeticalByName` 及自动重试，不扩大 renderer 权限。

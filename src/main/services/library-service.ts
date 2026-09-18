@@ -50,7 +50,8 @@ export class LibraryService {
     sessionId: string,
     type: AlbumListType,
     offset: number,
-    size: number
+    size: number,
+    attempt?: number
   ): Promise<LibraryResult<AlbumPage>> {
     const session = this.connectionService.getSession(sessionId)
     if (!session) return this.notConnected()
@@ -63,7 +64,8 @@ export class LibraryService {
         password,
         offset,
         size,
-        type
+        type,
+        attempt
       )
       return {
         ok: true,

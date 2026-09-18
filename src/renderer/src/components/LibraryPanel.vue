@@ -42,21 +42,36 @@ const libraryRoot = ref<HTMLElement | null>(null)
 const albumListScrollTop = ref(0)
 const restoreAlbumListScroll = ref(false)
 const currentPage = computed(() => Math.max(1, Math.floor(props.page)))
+const albumRequestAttempts = new Map<string, number>()
+
+function albumRequestKey(): string {
+  return `${props.sessionId}:${props.listType}:${currentPage.value}`
+}
+
+async function loadAlbumPage() {
+  const requestKey = albumRequestKey()
+  const attempt = (albumRequestAttempts.get(requestKey) ?? 0) + 1
+  albumRequestAttempts.set(requestKey, attempt)
+  const page = await listAlbums({
+    sessionId: props.sessionId,
+    type: props.listType,
+    offset: (currentPage.value - 1) * ALBUM_PAGE_SIZE,
+    size: ALBUM_PAGE_SIZE,
+    attempt
+  })
+  albumRequestAttempts.delete(requestKey)
+  return page
+}
 
 const albumsQuery = useQuery({
   queryKey: computed(() => ['albums', props.sessionId, props.listType, currentPage.value]),
-  queryFn: () =>
-    listAlbums({
-      sessionId: props.sessionId,
-      type: props.listType,
-      offset: (currentPage.value - 1) * ALBUM_PAGE_SIZE,
-      size: ALBUM_PAGE_SIZE
-    }),
+  queryFn: loadAlbumPage,
   enabled: computed(() => props.albumListEnabled !== false),
   staleTime: Number.POSITIVE_INFINITY,
   gcTime: Number.POSITIVE_INFINITY,
   refetchOnMount: false,
-  refetchOnWindowFocus: false
+  refetchOnWindowFocus: false,
+  retry: 1
 })
 
 const albums = computed<AlbumSummary[]>(() => albumsQuery.data.value?.items ?? [])
@@ -125,6 +140,11 @@ function refreshCurrentView(): void {
     void albumQuery.refetch()
     return
   }
+  retryAlbumList()
+}
+
+function retryAlbumList(): void {
+  albumRequestAttempts.delete(albumRequestKey())
   void albumsQuery.refetch()
 }
 
@@ -265,7 +285,7 @@ function appendTrack(track: TrackSummary): void {
       role="alert"
     >
       <p>{{ albumsQuery.error.value?.message ?? '音乐库加载失败。' }}</p>
-      <Button class="mt-4" size="sm" @click="albumsQuery.refetch()">重试</Button>
+      <Button class="mt-4" size="sm" @click="retryAlbumList">重试</Button>
     </div>
 
     <template v-else>
@@ -282,6 +302,9 @@ function appendTrack(track: TrackSummary): void {
             v-if="album.coverUrl"
             :src="album.coverUrl"
             :alt="`${album.name} 封面`"
+            loading="lazy"
+            decoding="async"
+            fetchpriority="low"
             class="aspect-square w-full rounded-xl bg-sonavi-border object-cover"
           />
           <div v-else class="aspect-square rounded-xl bg-sonavi-border" aria-hidden="true" />

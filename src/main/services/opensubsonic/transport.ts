@@ -11,6 +11,8 @@ const DEFAULT_MAX_RESPONSE_BYTES = 1024 * 1024
 export interface ApiRequestOptions {
   maxResponseBytes?: number
   operation?: string
+  requestContext?: string
+  attempt?: number
   describeAbort?: () => AbortClassification
 }
 
@@ -110,6 +112,8 @@ export class ElectronSessionTransport implements ApiTransport {
         proxyMode: this.getProxyMode(),
         startedAt,
         ...(options.operation ? { operation: options.operation } : {}),
+        ...(options.requestContext ? { requestContext: options.requestContext } : {}),
+        ...(options.attempt ? { attempt: options.attempt } : {}),
         status: response.status,
         ...(contentType ? { contentType } : {}),
         errorCategory
@@ -126,6 +130,8 @@ export class ElectronSessionTransport implements ApiTransport {
         proxyMode: this.getProxyMode(),
         startedAt,
         ...(options.operation ? { operation: options.operation } : {}),
+        ...(options.requestContext ? { requestContext: options.requestContext } : {}),
+        ...(options.attempt ? { attempt: options.attempt } : {}),
         error,
         errorCategory:
           error instanceof ResponseLimitError

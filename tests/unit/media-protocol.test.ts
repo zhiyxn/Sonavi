@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from 'vitest'
 import { ConnectionService } from '../../src/main/services/connection-service'
 import type { CredentialStore } from '../../src/main/services/credentials/credential-store'
 import { MediaHandleRegistry } from '../../src/main/services/media-handle-registry'
-import { MediaProtocolService, type MediaFetch } from '../../src/main/services/media-protocol'
+import {
+  MAX_CONCURRENT_COVER_FETCHES,
+  MediaProtocolService,
+  type MediaFetch
+} from '../../src/main/services/media-protocol'
 import { NetworkDiagnosticRecorder } from '../../src/main/services/network-diagnostics'
 import { OpenSubsonicClient } from '../../src/main/services/opensubsonic/client'
 import type { ApiTransport } from '../../src/main/services/opensubsonic/transport'
@@ -179,6 +183,56 @@ describe('sonavi-media 协议', () => {
 
     await expect(protocol.handle(new Request(mediaUrl))).resolves.toMatchObject({ status: 502 })
     expect(put).not.toHaveBeenCalled()
+  })
+
+  it('缓存未命中时最多并发请求六张封面，并按完成顺序放行队列', async () => {
+    const { service, sessionId } = await connectedService()
+    const registry = new MediaHandleRegistry()
+    const releaseUpstream: Array<() => void> = []
+    let active = 0
+    let peakActive = 0
+    const fetchMedia = vi.fn<MediaFetch>(async () => {
+      active += 1
+      peakActive = Math.max(peakActive, active)
+      return await new Promise<Response>((resolve) => {
+        releaseUpstream.push(() => {
+          active -= 1
+          resolve(new Response(new Uint8Array([1]), {
+            headers: { 'content-type': 'image/png', 'content-length': '1' }
+          }))
+        })
+      })
+    })
+    const coverCache = {
+      get: async () => null,
+      canStore: () => true,
+      getMaxItemBytes: () => 1024,
+      put: async () => undefined
+    } as unknown as CoverCacheService
+    const protocol = new MediaProtocolService(
+      service,
+      registry,
+      fetchMedia,
+      undefined,
+      undefined,
+      coverCache
+    )
+    const requests = Array.from({ length: 12 }, (_, index) => {
+      const url = registry.create({
+        sessionId,
+        kind: 'cover',
+        resourceId: `cover-${index}`
+      })
+      return protocol.handle(new Request(url))
+    })
+
+    await vi.waitFor(() => expect(fetchMedia).toHaveBeenCalledTimes(MAX_CONCURRENT_COVER_FETCHES))
+    releaseUpstream.splice(0, MAX_CONCURRENT_COVER_FETCHES).forEach((release) => release())
+    await vi.waitFor(() => expect(fetchMedia).toHaveBeenCalledTimes(12))
+    releaseUpstream.splice(0).forEach((release) => release())
+
+    await expect(Promise.all(requests)).resolves.toHaveLength(12)
+    expect(peakActive).toBe(MAX_CONCURRENT_COVER_FETCHES)
   })
 
   it.each([

@@ -137,6 +137,46 @@ async function setSliderValue(page, label, value, step) {
   }
 }
 
+async function assertSliderAlignment(page, label) {
+  const slider = page.getByRole('slider', { name: label, exact: true })
+  const layout = await slider.evaluate((thumb) => {
+    const root = thumb.closest('[data-slot="slider"]')
+    const track = root?.querySelector('[data-slot="slider-track"]')
+    const rootView = root?.ownerDocument.defaultView
+    if (!root || !track || !rootView) return null
+
+    const thumbBox = thumb.getBoundingClientRect()
+    const trackBox = track.getBoundingClientRect()
+    return {
+      rootDisplay: rootView.getComputedStyle(root).display,
+      centerDelta: Math.abs(
+        thumbBox.top + thumbBox.height / 2 - (trackBox.top + trackBox.height / 2)
+      )
+    }
+  })
+
+  if (!layout || layout.rootDisplay !== 'flex' || layout.centerDelta > 1) {
+    throw new Error(`${label} 与轨道错位：${JSON.stringify(layout)}`)
+  }
+}
+
+async function assertPlayerControlsCentered(page) {
+  const layout = await page.locator('footer[aria-label="播放器"]').evaluate((footer) => {
+    const controls = footer.querySelector('.player-controls')
+    if (!controls) return null
+
+    const footerBox = footer.getBoundingClientRect()
+    const controlsBox = controls.getBoundingClientRect()
+    return Math.abs(
+      controlsBox.left + controlsBox.width / 2 - (footerBox.left + footerBox.width / 2)
+    )
+  })
+
+  if (layout === null || layout > 1) {
+    throw new Error(`播放控制区未水平居中，中心偏差 ${layout ?? '未知'}px`)
+  }
+}
+
 function playlistPayload(playlist) {
   const entries = playlist.songIds
     .map((songId) => fixtureTracks.find((track) => track.id === songId))
@@ -525,6 +565,13 @@ try {
     )
   }
 
+  await Promise.all([
+    assertSliderAlignment(window, '播放进度'),
+    assertSliderAlignment(window, '音量')
+  ])
+  await assertPlayerControlsCentered(window)
+  console.log('Player slider layout passed: progress and volume thumbs are track-aligned')
+
   const platformText = await window.getByTestId('platform-label').textContent()
   if (!platformText?.includes('v0.1.0')) {
     throw new Error(`应用版本 IPC 冒烟失败：${platformText ?? '空文本'}`)
@@ -630,6 +677,12 @@ try {
 
   await window.getByRole('button', { name: '测试连接' }).click()
   await window.getByText('连接信息不完整或超出允许范围。').waitFor()
+  const toastClosePosition = await window
+    .locator('[data-sonner-toast] [data-close-button]')
+    .getAttribute('data-close-button-position')
+  if (toastClosePosition !== 'top-right') {
+    throw new Error(`Sonner 关闭按钮位置错误：${toastClosePosition ?? '未设置'}`)
+  }
   console.log('Connection IPC passed: trusted sender + input validation + renderer result validation')
 
   fixtureServer = await startFixtureServer()
@@ -688,12 +741,12 @@ try {
   await window.getByText('4 项 · 顺序').waitFor()
   await window.getByRole('button', { name: '下一首', exact: true }).click()
   await window
-    .locator('footer[aria-label="播放器"] > div.min-w-0 > strong')
+    .locator('footer[aria-label="播放器"] .player-track-details > strong')
     .getByText('队列下一首')
     .waitFor()
   await window.getByRole('button', { name: '上一首', exact: true }).click()
   await window
-    .locator('footer[aria-label="播放器"] > div.min-w-0 > strong')
+    .locator('footer[aria-label="播放器"] .player-track-details > strong')
     .getByText('跨平台试音')
     .waitFor()
   await window.getByRole('button', { name: '暂停' }).click()
@@ -839,6 +892,11 @@ try {
   await window.getByRole('button', { name: '设置', exact: true }).click()
   await window.getByRole('button', { name: '刷新', exact: true }).click()
   await window.getByText('转码音频', { exact: true }).first().waitFor()
+  await window
+    .getByText(/getAlbumList2 · listType=newest,page=1,size=30 · 第 1 次/)
+    .first()
+    .waitFor()
+  await window.getByText(/scrobble ·/).first().waitFor()
   await chooseSelectOption(window, '关闭窗口时', '隐藏窗口并继续播放（默认）')
   await chooseSelectOption(window, '外观', '深色')
   await window.getByRole('button', { name: '保存桌面设置' }).click()
@@ -847,6 +905,10 @@ try {
     throw new Error('深色主题偏好未应用到共享 renderer')
   }
   await window.getByText(/项 · .* MiB/).waitFor()
+  await window.getByRole('button', { name: '清空当前账号缓存', exact: true }).click()
+  await window.getByRole('heading', { name: '清空当前账号的封面缓存？' }).waitFor()
+  await window.getByRole('button', { name: '清空缓存', exact: true }).click()
+  await window.getByText('0 项 · 0 B / 128.0 MiB', { exact: true }).waitFor()
   await mkdir(dirname(diagnosticsScreenshotPath), { recursive: true })
   await window.screenshot({ path: diagnosticsScreenshotPath, fullPage: true })
   console.log('P08 integration passed: shared proxy policy + compatible transcode + full-timeline seek + diagnostics')
@@ -904,12 +966,14 @@ try {
   await window.getByRole('button', { name: '设置', exact: true }).click()
   await window.getByRole('heading', { name: '设置', exact: true }).waitFor()
   const expectedPausedTitle = (await window
-    .locator('footer[aria-label="播放器"] > div.min-w-0 > strong')
+    .locator('footer[aria-label="播放器"] .player-track-details > strong')
     .textContent())?.trim()
   if (!expectedPausedTitle || !fixtureTracks.some((track) => track.title === expectedPausedTitle)) {
     throw new Error(`断开前无法确定当前歌曲：${expectedPausedTitle ?? '空'}`)
   }
   await window.getByRole('button', { name: '断开连接' }).click()
+  await window.getByRole('heading', { name: '断开当前连接？' }).waitFor()
+  await window.getByRole('button', { name: '确认断开', exact: true }).click()
   await window.getByRole('heading', { name: '连接你的音乐空间' }).waitFor()
   try {
     await waitForCondition(async () => {
@@ -958,7 +1022,7 @@ try {
   window = await electronApplication.firstWindow()
   await window.getByRole('heading', { name: '最近添加' }).waitFor()
   await window
-    .locator('footer[aria-label="播放器"] > div.min-w-0 > strong')
+    .locator('footer[aria-label="播放器"] .player-track-details > strong')
     .getByText(expectedPausedTitle, { exact: true })
     .waitFor()
   await window.getByRole('button', { name: '继续播放' }).waitFor()
