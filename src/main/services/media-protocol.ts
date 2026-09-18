@@ -378,6 +378,7 @@ export class MediaProtocolService {
       async cancel(reason) {
         clientCancelled = true
         settle('cancelled', upstream.status, contentType)
+        abortController.abort()
         try {
           await reader.cancel(reason)
         } catch {

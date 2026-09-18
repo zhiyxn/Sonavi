@@ -244,3 +244,14 @@ P01 已达到验收条件，P02～P10 已按序达到当时可用环境的代码
 - [ ] P12-MI-021：清空当前账号封面缓存与断开连接已增加 shadcn-vue AlertDialog 二次确认，Sonner 关闭按钮已移到右上。lint、typecheck、28 文件/148 项测试、生产构建与 Windows 源码 Electron 冒烟通过；待当前预览人工复验及下一统一包。
 - [ ] P12-MI-022：专辑网格封面改为视口附近懒加载，main 对缓存未命中的封面上游请求设置全局 6 并发；`getAlbumList2` 每页最多自动重试一次，诊断增加脱敏 listType/page/size 与尝试序号（当前整体 schema v3）。lint、typecheck、28 文件/153 项测试、生产构建和 Windows 源码 Electron 冒烟通过；等待真实服务器复验。
 - [ ] P12-MI-023：AudioEngine 缓冲状态增加脱敏 `buffer-start` / `buffer-end` 诊断和持续时间，严格 IPC 拒绝歌曲 ID、URL、会话及任意多余字段；Logo 区域通过 main 固定白名单在系统浏览器打开 Sonavi GitHub。lint、typecheck、29 文件/157 项测试、生产构建和 Windows 源码 Electron 完整冒烟通过；等待真实网络缓冲与浏览器打开真机复验。
+
+## P13：稳定性修复（进行中）
+
+- [x] 以 `docs/KNOWN-ISSUES.md` 为唯一 Bug 输入源核对优先级。
+- [x] P13-CR-001：已用真实脱敏日志确认 FLAC 原始流 seek 后出现长时间缓冲，并用回归测试复现下游取消时上游 fetch 没有中止。
+- [x] P13-CR-001：最小修复为媒体流取消时主动 `abort()` 上游请求；媒体协议定向测试 17/17 通过。
+- [x] P13-CR-001：修复受控 Slider 在拖动期间被旧播放时间覆盖的问题；拖动保留临时值，松手仅提交一次 seek，播放器定向测试 18/18 通过。
+- [x] P13-CR-001：移除“播放超过 3 秒时上一首重播当前歌曲”的隐式语义；seek 后上一首仍切换前一队列项，播放器定向测试 19/19 通过。
+- [ ] P13-CR-001：完整 lint/typecheck/test（29 文件/159 项）与生产构建已通过；剩余 Windows 真实 FLAC 原始流 seek/切歌/上一首复验。
+- [ ] 已登记 P13-MA-001（歌词高亮不自动滚动）与 P13-MA-002（全页面点击外部收起队列）；按优先级未实施。
+- [ ] Blocker/Critical 全部清零后停止，等待 P14；不处理 Major/Minor 或格式展示等新功能。

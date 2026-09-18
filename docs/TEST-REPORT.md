@@ -401,3 +401,17 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - 安全边界：Zod strict schema 限制事件枚举、开始时长必须为 0、结束时长为 0～3,600,000 ms 整数，任何 `trackId`、URL、会话或任意扩展字段都拒绝。Logo preload 方法无参数，main 使用固定 HTTPS 常量调用系统浏览器；renderer 仍不能发起任意外链或新窗口。
 - 自动验证：Node.js 22.21.1 下定向 3 文件/19 项、lint、typecheck、全量 Vitest 29 文件/157 项、生产构建和 Windows 源码 Electron 完整冒烟通过；覆盖缓冲重复事件去重、切歌结束/重开、持续时间、上报失败不影响播放、身份字段拒绝，以及 Logo 按钮只调用无参数受限方法。E2E 进一步确认带 `trackId` 的 IPC 被拒绝，设置页显示 `buffer-end · 1234 ms`，Logo 控件具有明确可访问名称；构建只有既有 Zod PURE 注释位置警告。
 - 当前状态：`RETEST`。Windows 真实网络缓冲和点击 Logo 后系统默认浏览器打开仍待人工复验；macOS Intel/arm64 未验证。
+
+## P13 稳定性修复（2026-09-18）
+
+### P13-CR-001 FLAC 原始流 seek/切歌取消上游请求
+
+- 人工复现：Windows 11 x64 当前源码预览，`audio/flac` 原始流，多次点击进度条后进入缓冲，切歌未恢复。
+- 日志证据：13:05:09 导出的 schema v3 脱敏日志含 200 条记录；12:52:53 的原始 FLAC 流为 HTTP 206 / `cancelled`，12:53:42 开始的缓冲持续 130456 ms，12:55:56 最后一条 `buffer-start` 到导出时已持续 553099 ms 且没有 `buffer-end`。
+- 根因：进度 Slider 未保存拖动中的 `update:modelValue`；下游取消媒体流时上游 fetch 的 `AbortSignal` 仍为 false；“上一首”在当前进度超过 3 秒时被隐式改为重播当前曲目。
+- 回归证据：Slider 测试在修复前期望 4.2 却得到 0；媒体协议期望 `aborted=true` 却得到 false；seek 后上一首期望 `one` 却仍为 `two`。
+- 最小修复：Slider 拖动时保留临时值、松手 seek 一次；消费者 cancel 时主动 `abortController.abort()`；“上一首”不再根据当前时间改变语义。
+- 修复后定向测试：`tests/unit/player-store.test.ts` 19/19，`tests/unit/media-protocol.test.ts` 17/17。
+- 完整闸门：Node.js 22.21.1；`npm run lint` 通过；`npm run typecheck` 通过；`npm test` 为 29 文件/159 项全通过；`npm run build` 通过，只有既有 Zod PURE 注释位置警告。
+- 预览：旧进程已停止，修复后的 Windows 源码预览已重新启动。
+- 未验证：同一真实 FLAC 样本的 seek/快速切歌；macOS Intel x64 与 Apple Silicon arm64 实机。在 Windows 复验通过前状态保持 `RETEST`。

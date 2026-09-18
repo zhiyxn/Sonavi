@@ -361,6 +361,7 @@ describe('sonavi-media 协议', () => {
     const registry = new MediaHandleRegistry()
     const mediaUrl = registry.create({ sessionId, kind: 'audio', resourceId: 'song-1' })
     const diagnostics = new NetworkDiagnosticRecorder()
+    let upstreamSignal: AbortSignal | undefined
     const upstreamBody = new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(new Uint8Array([1, 2, 3]))
@@ -369,7 +370,10 @@ describe('sonavi-media 协议', () => {
     const protocol = new MediaProtocolService(
       service,
       registry,
-      async () => new Response(upstreamBody, { headers: { 'content-type': 'audio/mpeg' } }),
+      async (_url, init) => {
+        upstreamSignal = init.signal ?? undefined
+        return new Response(upstreamBody, { headers: { 'content-type': 'audio/mpeg' } })
+      },
       diagnostics
     )
 
@@ -380,6 +384,7 @@ describe('sonavi-media 协议', () => {
     await reader.cancel().catch(() => undefined)
     await pendingRead.catch(() => undefined)
 
+    expect(upstreamSignal?.aborted).toBe(true)
     expect(diagnostics.list()).toHaveLength(1)
     expect(diagnostics.list()[0]).toMatchObject({
       stage: 'audio-original',

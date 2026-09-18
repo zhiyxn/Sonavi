@@ -182,10 +182,6 @@ export const usePlayerStore = defineStore('player', () => {
 
   async function previous(): Promise<void> {
     if (!currentEntry.value) return
-    if (currentTime.value > 3) {
-      await restartCurrent()
-      return
-    }
 
     if (playbackOrder.value === 'shuffle') {
       while (playbackHistory.value.at(-1) === currentEntryId.value) playbackHistory.value.pop()

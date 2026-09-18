@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import {
   ChevronDown,
   ChevronUp,
@@ -24,6 +24,7 @@ const player = usePlayerStore()
 const queueOpen = ref(false)
 const queueList = ref<HTMLOListElement | null>(null)
 const lyricsOpen = ref(false)
+const seekPreview = ref<number | null>(null)
 
 const stateLabels = {
   idle: '空闲',
@@ -42,9 +43,31 @@ function formatTime(seconds: number): string {
   return `${minutes}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`
 }
 
-function onSeek(values: number[] | undefined): void {
+const progressModelValue = computed(() => [seekPreview.value ?? player.currentTime])
+
+function normalizeSeekValue(value: number): number {
+  return Math.round(value * 1000) / 1000
+}
+
+function onSeekPreview(values: number[] | undefined): void {
   const value = values?.[0]
-  if (value !== undefined) void player.seek(Math.round(value * 1000) / 1000)
+  if (value !== undefined && Number.isFinite(value)) seekPreview.value = normalizeSeekValue(value)
+}
+
+async function onSeek(values: number[] | undefined): Promise<void> {
+  const value = values?.[0]
+  if (value === undefined || !Number.isFinite(value)) {
+    seekPreview.value = null
+    return
+  }
+
+  const nextValue = normalizeSeekValue(value)
+  seekPreview.value = nextValue
+  try {
+    await player.seek(nextValue)
+  } finally {
+    seekPreview.value = null
+  }
 }
 
 function onVolume(values: number[] | undefined): void {
@@ -57,6 +80,11 @@ const repeatLabel = computed(() => {
   if (player.repeatMode === 'all') return '列表循环'
   return '不循环'
 })
+
+watch(
+  () => player.currentEntry?.queueEntryId,
+  () => { seekPreview.value = null }
+)
 
 async function toggleQueue(): Promise<void> {
   queueOpen.value = !queueOpen.value
@@ -230,9 +258,10 @@ function closeQueueFromPlayer(event: MouseEvent): void {
         :min="0"
         :max="Math.max(player.duration, 1)"
         :step="0.1"
-        :model-value="[player.currentTime]"
+        :model-value="progressModelValue"
         :disabled="!player.track || !player.canSeek"
         :title="player.track && !player.canSeek ? '当前播放策略无法安全跳转；可在设置中选择原始模式，或使用支持 transcodeOffset 的服务器。' : undefined"
+        @update:model-value="onSeekPreview"
         @value-commit="onSeek"
       />
       <span>{{ formatTime(player.duration) }}</span>

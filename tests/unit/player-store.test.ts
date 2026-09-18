@@ -177,6 +177,20 @@ describe('P04 播放队列', () => {
     expect(player.state).toBe('paused')
   })
 
+  it('seek 后点击上一首仍切换到前一个队列项', async () => {
+    const player = usePlayerStore()
+    await player.replaceQueue([track('one'), track('two')], 1, scope)
+    const currentAudio = FakeAudio.instances.at(-1)!
+
+    await player.seek(6)
+    currentAudio.dispatchEvent(new Event('seeked'))
+    expect(player.currentTime).toBe(6)
+
+    await player.previous()
+    expect(player.track?.id).toBe('one')
+    expect(player.currentTime).toBe(0)
+  })
+
   it('音频流失败后可在原进度创建新宿主并重试', async () => {
     const player = usePlayerStore()
     await player.replaceQueue([track('retryable')], 0, scope)
@@ -293,6 +307,26 @@ describe('P04 播放队列', () => {
 
     expect(seek).toHaveBeenCalledWith(2)
     expect(setVolume).toHaveBeenCalledWith(0.42)
+  })
+
+  it('拖动进度时保留临时值，松手后才提交 seek', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const player = usePlayerStore()
+    const seek = vi.spyOn(player, 'seek').mockResolvedValue()
+    const wrapper = mount(PlayerBar, { global: { plugins: [pinia] } })
+    const progress = wrapper.findAllComponents(Slider)[0]!
+
+    progress.vm.$emit('update:modelValue', [4.2])
+    await wrapper.vm.$nextTick()
+
+    expect(progress.props('modelValue')).toEqual([4.2])
+    expect(seek).not.toHaveBeenCalled()
+
+    progress.vm.$emit('valueCommit', [4.2])
+    await wrapper.vm.$nextTick()
+    expect(seek).toHaveBeenCalledOnce()
+    expect(seek).toHaveBeenCalledWith(4.2)
   })
 
   it('播放区域优先显示当前歌曲封面，没有封面时保留占位符', async () => {

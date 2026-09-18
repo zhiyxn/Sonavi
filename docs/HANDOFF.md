@@ -129,3 +129,12 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 - 随后的真实记录已出现 `operation=scrobble`、无 HTTP 状态、`durationMs=12014`、`errorCategory=timeout`，证明请求进入了传输层但 12 秒内没有响应；该证据不能单独区分服务端、反向代理或链路等待。播放上报控制器已修复新队列项首次观察即为 `playing` 时重置后提前返回的问题，因此上一首超时不会让下一首等待后续进度事件才上报；未知结果仍不自动重试，避免重复计数。
 - P12-MI-022 已为专辑列表图片增加原生懒加载/异步解码/低优先级，并在 main 媒体协议对缓存未命中的封面上游读取设置全局 6 并发队列；专辑页查询显式限制为最多一次自动重试，手动重试会重新从第 1 次计数。诊断导出升级到 schema v2，`getAlbumList2` 记录白名单化的 `listType/page/size` 和 `attempt`，不记录资源 ID、URL 或凭据。Node.js 22.21.1 下 lint、typecheck、28 文件/153 项测试、生产构建和 Windows 源码 Electron 完整冒烟通过；E2E 实际确认诊断页显示列表上下文、第 1 次尝试与 scrobble 条目。下一入口是真实服务器复验封面峰值、专辑最多两次请求及切歌后的新 scrobble。
 - P12-MI-023 已将 `waiting` / `stalled` 收敛为脱敏 `buffer-start` 和 `buffer-end`，结束条目记录缓冲持续时间。renderer→main 的新 IPC 使用 strict schema，只允许事件枚举与 0～3,600,000 ms 整数，多带 `trackId` 等字段即拒绝；诊断导出升级到 schema v3。Logo 区域改为可访问按钮，调用无参数 preload 方法，由 main 固定打开 `https://github.com/zhiyxn/Sonavi`，不提供任意外链能力。Node.js 22.21.1 下 lint、typecheck、29 文件/157 项测试、生产构建和 Windows 源码 Electron 完整冒烟通过；E2E 验证多余身份字段被拒绝、诊断页显示 1234 ms 的 buffer-end，Logo 控件可访问。下一入口是真实网络缓冲和系统浏览器打开真机复验。
+
+## P13 稳定性修复进展（2026-09-18）
+
+- 用户人工用例发现 `PLAY-02`：Windows 上 FLAC 原始流 seek 后长时间缓冲，切歌无法恢复。脱敏日志确认 `audio/flac` / HTTP 206，一次缓冲持续 130456 ms，末次 `buffer-start` 到导出时已持续 553099 ms 且未结束。
+- `P13-CR-001` 已记入 `docs/KNOWN-ISSUES.md`。已确认三个直接原因：受控 Slider 没有保存拖动临时值，媒体消费者取流时没有主动 abort 上游 fetch，以及“上一首”在当前进度超过 3 秒时隐式改为重播当前歌曲。已分别做最小修复。
+- 三个回归检查在修复前均稳定失败；修复后播放器 19/19、媒体协议 17/17 通过。Node.js 22.21.1 下 lint、typecheck、29 文件/159 项 Vitest 和生产构建均通过；只有既有 Zod PURE 注释位置警告。
+- 修复后的 Windows 源码预览已重新启动。下一入口是复测同一首 FLAC 的进度拖动、连续点击与切歌；通过前 Critical 仍为 1，不处理 Major/Minor。
+- 歌曲格式展示是功能增强，按 P13 禁止项暂不实施，留待 P14 评估。
+- 新反馈的歌词高亮不自动滚动与队列全页面点击外部收起已分别登记为 P13-MA-001、P13-MA-002；当前不越过 Critical 优先级实施。
