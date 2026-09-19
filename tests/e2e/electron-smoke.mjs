@@ -867,7 +867,7 @@ try {
     throw new Error(`设置组件未持久化所选值：${JSON.stringify(savedNetworkSettings)}`)
   }
   await window.getByRole('button', { name: '首页', exact: true }).click()
-  await window.getByRole('button', { name: /石与琥珀/ }).first().click()
+  await window.getByRole('heading', { name: '专辑详情', exact: true }).waitFor()
   await window.getByRole('button', { name: '播放 跨平台试音' }).click()
   await window.getByRole('button', { name: '暂停' }).waitFor()
   await window.locator('footer[aria-label="播放器"]').getByText('兼容转码', { exact: true }).waitFor()
@@ -936,7 +936,7 @@ try {
   console.log('P08 integration passed: shared proxy policy + compatible transcode + full-timeline seek + diagnostics')
 
   await window.getByRole('button', { name: '首页', exact: true }).click()
-  await window.getByRole('button', { name: /石与琥珀/ }).first().click()
+  await window.getByRole('heading', { name: '专辑详情', exact: true }).waitFor()
   await window.getByRole('button', { name: '播放 跨平台试音' }).click()
   await window.getByRole('button', { name: '暂停' }).waitFor()
   const windowIdentityBeforeClose = await electronApplication.evaluate(({ BrowserWindow }) => {
@@ -973,7 +973,7 @@ try {
     await window.getByRole('button', { name: '设置', exact: true }).click()
     await window.getByRole('heading', { name: '设置', exact: true }).waitFor()
     await window.getByRole('button', { name: '首页', exact: true }).click()
-    await window.getByRole('heading', { name: '最近添加', exact: true }).waitFor()
+    await window.getByRole('heading', { name: '专辑详情', exact: true }).waitFor()
   }
   const memoryAfter = await electronApplication.evaluate(({ app }) =>
     app.getAppMetrics().reduce((total, metric) => total + metric.memory.workingSetSize, 0)

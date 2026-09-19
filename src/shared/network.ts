@@ -65,6 +65,10 @@ export interface NetworkDiagnosticEntry {
   event?: PlaybackBufferEvent | undefined
   status?: number | undefined
   contentType?: string | undefined
+  /** 从请求开始到收到响应头的毫秒数；不包含 URL 或身份信息。 */
+  responseHeadersMs?: number | undefined
+  /** 已读取的响应正文字节数；不保存正文内容。 */
+  responseBytes?: number | undefined
   errorCategory: DiagnosticErrorCategory
   errorName?: string | undefined
   errorDetail?: string | undefined

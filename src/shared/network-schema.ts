@@ -47,6 +47,8 @@ export const NetworkDiagnosticEntrySchema = z.object({
   event: z.enum(['buffer-start', 'buffer-end']).optional(),
   status: z.number().int().min(100).max(599).optional(),
   contentType: z.string().max(200).optional(),
+  responseHeadersMs: z.number().int().min(0).max(3_600_000).optional(),
+  responseBytes: z.number().int().min(0).max(32 * 1024 * 1024).optional(),
   errorCategory: z.enum([
     'none',
     'network',

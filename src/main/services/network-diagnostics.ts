@@ -114,6 +114,8 @@ export interface DiagnosticRecordInput {
   event?: PlaybackBufferEvent | undefined
   status?: number | undefined
   contentType?: string | undefined
+  responseHeadersMs?: number | undefined
+  responseBytes?: number | undefined
   errorCategory: DiagnosticErrorCategory
   error?: unknown
   durationMs?: number | undefined
@@ -137,6 +139,12 @@ export class NetworkDiagnosticRecorder {
       ...(input.event ? { event: input.event } : {}),
       ...(input.status ? { status: input.status } : {}),
       ...(input.contentType ? { contentType: input.contentType.slice(0, 200) } : {}),
+      ...(input.responseHeadersMs !== undefined
+        ? { responseHeadersMs: Math.min(3_600_000, Math.max(0, Math.round(input.responseHeadersMs))) }
+        : {}),
+      ...(input.responseBytes !== undefined
+        ? { responseBytes: Math.min(32 * 1024 * 1024, Math.max(0, Math.round(input.responseBytes))) }
+        : {}),
       errorCategory: input.errorCategory,
       ...describeError(input.error),
       durationMs:
@@ -161,7 +169,7 @@ export class NetworkDiagnosticRecorder {
   exportText(): string {
     const payload = JSON.stringify(
       {
-        schemaVersion: 3,
+        schemaVersion: 4,
         generatedAt: new Date().toISOString(),
         redaction:
           'URL、账号、凭据、token、资源 ID 与响应正文未被记录；缓冲日志只包含事件、持续时间，端点名、白名单查询上下文与错误文本在写入前已脱敏。',
@@ -174,7 +182,7 @@ export class NetworkDiagnosticRecorder {
       ? payload
       : JSON.stringify(
           {
-            schemaVersion: 3,
+            schemaVersion: 4,
             generatedAt: new Date().toISOString(),
             redaction:
               'URL、账号、凭据、token、资源 ID 与响应正文未被记录；缓冲日志只包含事件、持续时间，端点名、白名单查询上下文与错误文本在写入前已脱敏。',

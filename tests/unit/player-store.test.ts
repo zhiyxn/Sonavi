@@ -211,6 +211,28 @@ describe('P04 播放队列', () => {
     expect(player.errorMessage).toBe('')
   })
 
+  it('音频流中断后按队列项最多自动恢复一次并保持原进度', async () => {
+    const player = usePlayerStore()
+    await player.replaceQueue([track('auto-retry')], 0, scope)
+    const firstAudio = FakeAudio.instances.at(-1)!
+    firstAudio.currentTime = 5
+    firstAudio.dispatchEvent(new Event('timeupdate'))
+    firstAudio.dispatchEvent(new Event('error'))
+
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(FakeAudio.instances).toHaveLength(2)
+    expect(FakeAudio.instances.at(-1)).toMatchObject({
+      src: 'sonavi-media://auto-retry',
+      currentTime: 5,
+      paused: false
+    })
+
+    FakeAudio.instances.at(-1)!.dispatchEvent(new Event('error'))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(FakeAudio.instances).toHaveLength(2)
+    expect(player.state).toBe('error')
+  })
+
   it('转码跳转通过受限 API 换流，并保持完整时间线与暂停意图', async () => {
     const createTranscodeSeek = vi.fn().mockResolvedValue({
       ok: true,

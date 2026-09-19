@@ -1,6 +1,6 @@
 # Sonavi 架构
 
-更新日期：2026-09-15
+更新日期：2026-09-19
 
 ## 单工程与共享边界
 
@@ -67,6 +67,8 @@ P09 将非敏感队列元数据保存到 main 的 `desktop-state.v1.json`，不�
 
 搜索只调用公共 `search3`，艺术家、专辑和歌曲使用相同 offset/size 分页。输入与已提交关键词分离，只有按 Enter 或点击搜索按钮才更新查询；TanStack Query 为每个查询提供 AbortSignal。renderer 生成随机 requestId，通过固定 `cancel-search` preload 方法请求 main 中止对应 AbortController。main 同时校验 sessionId/requestId，断开或轮换账号时取消该会话的全部活动搜索。搜索结果只返回纯文本元数据及随机媒体句柄，不允许 renderer 访问任意 URL。
 
+完整艺术家索引仍使用公共 `getArtists` 和独立 16 MiB 上限，但真实大库按端点使用一次 45 秒有界超时；renderer 关闭该查询的自动重试，仅由用户明确刷新。其他 API 保持 12 秒超时，避免慢艺术家端点扩大所有请求的等待边界。
+
 首页、专辑、艺术家、搜索、收藏与歌单组件由 `KeepAlive` 保留已访问实例，避免栏目切换重建搜索条件、歌单详情和查询观察器；设置页不缓存。服务器读取按 session 与资源键在当前连接会话内保持新鲜，禁用挂载和窗口聚焦自动重取，各页的刷新按钮直接 `refetch` 当前列表、当前分页或当前详情，不清空全局缓存。收藏/歌单写入仍按资源失效并重读服务器事实；代理变更、恢复/解锁、断开和忘记账号继续清除查询缓存，其中网络设置变更同时轮换页面缓存实例，确保不会复用旧网络上下文。
 
 设置页在同一共享组件中呈现平台、服务器、协议、播放/网络策略、关闭动作、主题、当前账号封面缓存与安全退出；平台行为由 preload/main 适配，不在 Vue 组件读取 `process`。
@@ -98,6 +100,8 @@ renderer 根节点只挂载一个项目持有的 shadcn-vue Sonner `Toaster`。�
 API、封面和音频都使用 `session.defaultSession`，由 `NetworkPolicyService` 以 `system`、`direct` 或 `fixed_servers` 三种互斥配置统一控制。代理变更先调用 `setProxy`，再 `closeAllConnections`，随后撤销媒体句柄、停止播放和清查询缓存；任何失败都直接返回，不叠加系统/手动代理，也不降级直连。设置 JSON 位于 Electron `userData`，不含凭据。
 
 `NetworkDiagnosticRecorder` 在 main 内维护最多 200 条结构化记录，阶段限定为 API、封面、原始音频、转码音频和播放缓冲。AudioEngine 的 `waiting` / `stalled` 状态经独立控制器收敛为一次 `buffer-start` 与一次 `buffer-end`；结束记录包含持续毫秒数，重复事件不产生重复开始。缓冲 IPC 不传 queueEntryId、trackId、URL、会话或任意文本。其余记录只含代理模式、HTTP 状态、内容类型、错误分类、耗时和建议；URL、账号、token/salt、代理地址、资源 ID 与响应正文从不进入记录。导出由 main 的保存对话框完成并限制在 256 KiB。证书错误只给出解释和建议，不关闭 TLS 校验。
+
+schema v4 进一步区分响应头与正文阶段：正文中途超时时仍可保留状态码、内容类型、响应头耗时和已读字节数。AudioEngine 连续缓冲 30 秒会释放旧宿主；player 仅对可保持时间线的网络流错误或缓冲超时自动恢复一次，第二次失败回到显式手动重试。
 
 ## P09 桌面宿主、状态与缓存
 

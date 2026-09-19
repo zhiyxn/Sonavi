@@ -38,7 +38,11 @@ export class ResponseLimitError extends Error {
   }
 }
 
-async function readLimitedBody(response: Response, maxResponseBytes: number): Promise<string> {
+async function readLimitedBody(
+  response: Response,
+  maxResponseBytes: number,
+  onBytesRead?: (byteCount: number) => void
+): Promise<string> {
   if (!response.body) return ''
 
   const reader = response.body.getReader()
@@ -51,6 +55,7 @@ async function readLimitedBody(response: Response, maxResponseBytes: number): Pr
     if (done) break
 
     byteCount += value.byteLength
+    onBytesRead?.(byteCount)
     if (byteCount > maxResponseBytes) {
       await reader.cancel()
       throw new ResponseLimitError()
@@ -81,6 +86,10 @@ export class ElectronSessionTransport implements ApiTransport {
     options: ApiRequestOptions = {}
   ): Promise<TransportResponse> {
     const startedAt = performance.now()
+    let status: number | undefined
+    let contentType: string | undefined
+    let responseHeadersMs: number | undefined
+    let responseBytes = 0
     try {
       const response = await session.defaultSession.fetch(url, {
         method: 'GET',
@@ -90,10 +99,13 @@ export class ElectronSessionTransport implements ApiTransport {
         referrerPolicy: 'no-referrer',
         signal
       })
-      const contentType = response.headers.get('content-type') ?? ''
+      status = response.status
+      contentType = response.headers.get('content-type') ?? ''
+      responseHeadersMs = Math.max(0, Math.round(performance.now() - startedAt))
       const body = await readLimitedBody(
         response,
-        options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES
+        options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES,
+        (byteCount) => { responseBytes = byteCount }
       )
       const errorCategory =
         response.status === 401
@@ -114,8 +126,10 @@ export class ElectronSessionTransport implements ApiTransport {
         ...(options.operation ? { operation: options.operation } : {}),
         ...(options.requestContext ? { requestContext: options.requestContext } : {}),
         ...(options.attempt ? { attempt: options.attempt } : {}),
-        status: response.status,
+        status,
         ...(contentType ? { contentType } : {}),
+        responseHeadersMs,
+        responseBytes,
         errorCategory
       })
       return {
@@ -132,6 +146,10 @@ export class ElectronSessionTransport implements ApiTransport {
         ...(options.operation ? { operation: options.operation } : {}),
         ...(options.requestContext ? { requestContext: options.requestContext } : {}),
         ...(options.attempt ? { attempt: options.attempt } : {}),
+        ...(status ? { status } : {}),
+        ...(contentType ? { contentType } : {}),
+        ...(responseHeadersMs !== undefined ? { responseHeadersMs } : {}),
+        responseBytes,
         error,
         errorCategory:
           error instanceof ResponseLimitError

@@ -53,6 +53,8 @@ export const usePlayerStore = defineStore('player', () => {
   const repeatMode = ref<RepeatMode>('off')
   const shuffleOrder = ref<string[]>([])
   const playbackHistory = ref<string[]>([])
+  const automaticRecoveryAttempted = new Set<string>()
+  let automaticRecoveryTimer: ReturnType<typeof setTimeout> | null = null
 
   const currentEntry = computed(
     () => queue.value.find((entry) => entry.queueEntryId === currentEntryId.value) ?? null
@@ -77,12 +79,40 @@ export const usePlayerStore = defineStore('player', () => {
   })
 
   function applySnapshot(snapshot: AudioEngineSnapshot): void {
+    const wasActive = isActivePlaybackState(state.value)
     generationId.value = snapshot.generationId
     state.value = snapshot.state
     currentTime.value = snapshot.currentTime
     duration.value = snapshot.duration
     volume.value = snapshot.volume
     errorMessage.value = snapshot.errorMessage
+    const entry = currentEntry.value
+    if (
+      snapshot.state === 'error' &&
+      wasActive &&
+      entry &&
+      entry.track.playback.seekMode !== 'unavailable' &&
+      (snapshot.errorReason === 'stream' || snapshot.errorReason === 'buffer-timeout')
+    ) {
+      scheduleAutomaticRecovery(entry.queueEntryId)
+    }
+  }
+
+  function scheduleAutomaticRecovery(queueEntryId: string): void {
+    if (automaticRecoveryAttempted.has(queueEntryId)) return
+    automaticRecoveryAttempted.add(queueEntryId)
+    if (automaticRecoveryTimer !== null) clearTimeout(automaticRecoveryTimer)
+    automaticRecoveryTimer = setTimeout(() => {
+      automaticRecoveryTimer = null
+      if (currentEntryId.value !== queueEntryId || state.value !== 'error') return
+      void recoverCurrentEntry()
+    }, 0)
+  }
+
+  function cancelScheduledAutomaticRecovery(): void {
+    if (automaticRecoveryTimer === null) return
+    clearTimeout(automaticRecoveryTimer)
+    automaticRecoveryTimer = null
   }
 
   function orderedEntryIds(): string[] {
@@ -110,6 +140,7 @@ export const usePlayerStore = defineStore('player', () => {
     autoplay: boolean,
     recordHistory = true
   ): Promise<void> {
+    cancelScheduledAutomaticRecovery()
     currentEntryId.value = entry.queueEntryId
     if (recordHistory && playbackHistory.value.at(-1) !== entry.queueEntryId) {
       playbackHistory.value.push(entry.queueEntryId)
@@ -133,6 +164,8 @@ export const usePlayerStore = defineStore('player', () => {
     scope: PlaybackScope,
     autoplay = true
   ): Promise<void> {
+    cancelScheduledAutomaticRecovery()
+    automaticRecoveryAttempted.clear()
     engine.stop()
     queue.value = tracks.map((item) => createQueueEntry(item, scope))
     shuffleOrder.value =
@@ -224,6 +257,7 @@ export const usePlayerStore = defineStore('player', () => {
     queue.value = queue.value.filter((entry) => entry.queueEntryId !== queueEntryId)
     shuffleOrder.value = shuffleOrder.value.filter((id) => id !== queueEntryId)
     playbackHistory.value = playbackHistory.value.filter((id) => id !== queueEntryId)
+    automaticRecoveryAttempted.delete(queueEntryId)
     if (!removingCurrent) return
 
     const replacement = entryById(replacementId)
@@ -241,6 +275,8 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   function clearQueue(): void {
+    cancelScheduledAutomaticRecovery()
+    automaticRecoveryAttempted.clear()
     engine.stop()
     queue.value = []
     currentEntryId.value = null
@@ -290,6 +326,11 @@ export const usePlayerStore = defineStore('player', () => {
   }
 
   async function retry(): Promise<void> {
+    cancelScheduledAutomaticRecovery()
+    await recoverCurrentEntry()
+  }
+
+  async function recoverCurrentEntry(): Promise<void> {
     const entry = currentEntry.value
     if (!entry) return
     const resumeAt = Math.min(Math.max(0, currentTime.value), entry.track.duration)

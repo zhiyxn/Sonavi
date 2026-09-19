@@ -329,7 +329,9 @@ async function exportDiagnostics(): Promise<void> {
       <ol v-else class="diagnostics-list">
         <li v-for="entry in diagnostics.slice(0, 20)" :key="entry.id">
           <strong>{{ stageLabels[entry.stage] }}</strong>
-          <span>{{ entry.event || entry.operation || '—' }}<template v-if="entry.requestContext"> · {{ entry.requestContext }}</template><template v-if="entry.attempt"> · 第 {{ entry.attempt }} 次</template> · {{ entry.status ?? '—' }} · {{ entry.contentType || '无类型' }} · {{ entry.durationMs }} ms</span>
+          <span>
+            {{ entry.event || entry.operation || '—' }}<template v-if="entry.requestContext"> · {{ entry.requestContext }}</template><template v-if="entry.attempt"> · 第 {{ entry.attempt }} 次</template> · {{ entry.status ?? '—' }} · {{ entry.contentType || '无类型' }} · {{ entry.durationMs }} ms<template v-if="entry.responseHeadersMs !== undefined"> · 响应头 {{ entry.responseHeadersMs }} ms</template><template v-if="entry.responseBytes !== undefined"> · 已读 {{ formatBytes(entry.responseBytes) }}</template>
+          </span>
           <span>{{ entry.errorCategory }} · {{ entry.recommendation }}</span>
           <span v-if="entry.errorDetail">{{ entry.errorName || 'Error' }}: {{ entry.errorDetail }}</span>
         </li>

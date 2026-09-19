@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { HtmlAudioEngine } from '../../src/renderer/src/services/audio-engine/html-audio-engine'
 
 class FakeAudio extends EventTarget {
@@ -36,6 +36,10 @@ function asAudio(element: FakeAudio): HTMLAudioElement {
   return element as unknown as HTMLAudioElement
 }
 
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 describe('HtmlAudioEngine', () => {
   it('使用单一枚举状态表达加载、缓冲、seek、暂停、结束和错误', async () => {
     const element = new FakeAudio()
@@ -59,7 +63,29 @@ describe('HtmlAudioEngine', () => {
     element.dispatchEvent(new Event('ended'))
     expect(engine.getSnapshot().state).toBe('ended')
     element.dispatchEvent(new Event('error'))
-    expect(engine.getSnapshot()).toMatchObject({ state: 'error', errorMessage: '音频流加载失败。' })
+    expect(engine.getSnapshot()).toMatchObject({
+      state: 'error',
+      errorMessage: '音频流加载失败。',
+      errorReason: 'stream'
+    })
+  })
+
+  it('连续缓冲超过看门狗阈值时释放旧宿主并进入可恢复错误态', async () => {
+    vi.useFakeTimers()
+    const element = new FakeAudio()
+    const engine = new HtmlAudioEngine(() => asAudio(element), 1_000)
+    await engine.load({ trackId: 'slow', streamUrl: 'sonavi-media://slow', duration: 60 }, true)
+
+    element.dispatchEvent(new Event('waiting'))
+    await vi.advanceTimersByTimeAsync(999)
+    expect(engine.getSnapshot().state).toBe('buffering')
+    await vi.advanceTimersByTimeAsync(1)
+
+    expect(element.src).toBe('')
+    expect(engine.getSnapshot()).toMatchObject({
+      state: 'error',
+      errorReason: 'buffer-timeout'
+    })
   })
 
   it('暂停加载不会被迟到的 play 拒绝改成错误', async () => {

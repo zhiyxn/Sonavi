@@ -96,6 +96,87 @@ const successfulFolders = {
 }
 
 describe('OpenSubsonicClient', () => {
+  it('完整艺术家索引使用独立 45 秒超时，其他端点继续保持 12 秒', async () => {
+    vi.useFakeTimers()
+    const signals: AbortSignal[] = []
+    const transport: ApiTransport = {
+      request: vi.fn((_url, signal) => {
+        signals.push(signal)
+        return new Promise<TransportResponse>((_resolve, reject) => {
+          signal.addEventListener(
+            'abort',
+            () => reject(new DOMException('This operation was aborted', 'AbortError')),
+            { once: true }
+          )
+        })
+      })
+    }
+    const client = new OpenSubsonicClient(transport)
+
+    const artistsRequest = client
+      .getArtists('https://music.example.com', 'listener', 'secret')
+      .then(() => null, (error: unknown) => error)
+    await vi.advanceTimersByTimeAsync(12_000)
+    expect(signals[0]?.aborted).toBe(false)
+    await vi.advanceTimersByTimeAsync(32_999)
+    expect(signals[0]?.aborted).toBe(false)
+    await vi.advanceTimersByTimeAsync(1)
+    await expect(artistsRequest).resolves.toMatchObject({ code: 'timeout' })
+
+    const albumRequest = client
+      .getAlbumList2(
+        'https://music.example.com',
+        'listener',
+        'secret',
+        0,
+        30,
+        'newest',
+        1
+      )
+      .then(() => null, (error: unknown) => error)
+    await vi.advanceTimersByTimeAsync(11_999)
+    expect(signals[1]?.aborted).toBe(false)
+    await vi.advanceTimersByTimeAsync(1)
+    await expect(albumRequest).resolves.toMatchObject({ code: 'timeout' })
+  })
+
+  it('收到响应头后读取正文超时时保留状态、响应头耗时和已读字节数', async () => {
+    vi.useFakeTimers()
+    const recorder = new NetworkDiagnosticRecorder()
+    const target = session.defaultSession as unknown as { fetch: SessionFetch }
+    target.fetch = vi.fn(async (_url, init) => {
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('{"subsonic-response":'))
+          init.signal.addEventListener(
+            'abort',
+            () => controller.error(new DOMException('This operation was aborted', 'AbortError')),
+            { once: true }
+          )
+        }
+      })
+      return new Response(body, {
+        status: 200,
+        headers: { 'content-type': 'application/json' }
+      })
+    })
+    const client = new OpenSubsonicClient(new ElectronSessionTransport(recorder, () => 'system'))
+    const request = client
+      .getArtists('https://music.example.com', 'listener', 'secret')
+      .then(() => null, (error: unknown) => error)
+
+    await vi.advanceTimersByTimeAsync(45_000)
+    await expect(request).resolves.toMatchObject({ code: 'timeout' })
+    expect(recorder.list()[0]).toMatchObject({
+      operation: 'getArtists',
+      status: 200,
+      contentType: 'application/json',
+      responseBytes: 21,
+      errorCategory: 'timeout'
+    })
+    expect(recorder.list()[0]?.responseHeadersMs).toBeGreaterThanOrEqual(0)
+  })
+
   it('只为完整艺术家索引使用仍然有界的较大响应上限', async () => {
     const transport = new EndpointTransport({
       getArtists: jsonResponse({

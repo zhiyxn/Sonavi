@@ -31,6 +31,7 @@ import {
 } from './transport'
 
 const RESPONSE_TIMEOUT_MS = 12_000
+const ARTISTS_RESPONSE_TIMEOUT_MS = 45_000
 const LARGE_LIBRARY_RESPONSE_BYTES = 16 * 1024 * 1024
 
 const SubsonicErrorSchema = z.object({
@@ -713,10 +714,11 @@ export class OpenSubsonicClient {
     diagnosticContext?: Pick<ApiRequestOptions, 'requestContext' | 'attempt'>
   ): Promise<ParsedResponse> {
     const timeoutController = new AbortController()
+    const timeoutMs = endpoint === 'getArtists' ? ARTISTS_RESPONSE_TIMEOUT_MS : RESPONSE_TIMEOUT_MS
     const signal = externalSignal
       ? AbortSignal.any([timeoutController.signal, externalSignal])
       : timeoutController.signal
-    const timeout = setTimeout(() => timeoutController.abort(), RESPONSE_TIMEOUT_MS)
+    const timeout = setTimeout(() => timeoutController.abort(), timeoutMs)
 
     try {
       const url = buildEndpointUrl(baseUrl, endpoint, username, password, undefined, parameters)

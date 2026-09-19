@@ -25,6 +25,7 @@ const { pendingKey, toggleStarred } = useStarredMutation(() => props.sessionId)
 const artistsQuery = useQuery({
   queryKey: computed(() => ['artists', props.sessionId]),
   queryFn: () => listArtists(props.sessionId),
+  retry: false,
   staleTime: Number.POSITIVE_INFINITY,
   gcTime: Number.POSITIVE_INFINITY,
   refetchOnMount: false,

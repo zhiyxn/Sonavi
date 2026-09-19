@@ -121,6 +121,37 @@ describe('P05 音乐库界面', () => {
     expect(listArtists).toHaveBeenCalledOnce()
   })
 
+  it('艺术家完整索引失败时不自动重试，只允许用户明确刷新', async () => {
+    const listArtists = vi.fn<SonaviApi['library']['listArtists']>().mockResolvedValue({
+      ok: false,
+      error: { code: 'network', message: '艺术家索引读取超时。', retryable: true }
+    })
+    Object.defineProperty(window, 'sonavi', {
+      configurable: true,
+      value: { library: { listArtists } } as unknown as SonaviApi
+    })
+    const queryClient = new QueryClient()
+    const wrapper = mount(ArtistsPanel, {
+      props: { sessionId: SESSION_ID, selectedArtistId: null },
+      global: {
+        plugins: [
+          createPinia(),
+          [VueQueryPlugin, { queryClient }]
+        ]
+      }
+    })
+
+    await flushPromises()
+    expect(listArtists).toHaveBeenCalledOnce()
+    expect(wrapper.text()).toContain('艺术家索引读取超时')
+
+    const retryButton = wrapper.findAll('button').find((button) => button.text() === '重试')
+    expect(retryButton).toBeDefined()
+    await retryButton!.trigger('click')
+    await flushPromises()
+    expect(listArtists).toHaveBeenCalledTimes(2)
+  })
+
   it.each([
     ['newest', '最近添加'],
     ['alphabeticalByName', '全部专辑']

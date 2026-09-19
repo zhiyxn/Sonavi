@@ -8,6 +8,8 @@ export type AudioEngineState =
   | 'ended'
   | 'error'
 
+export type AudioEngineErrorReason = 'playback-start' | 'stream' | 'buffer-timeout'
+
 export interface AudioEngineSource {
   trackId: string
   streamUrl: string
@@ -24,6 +26,7 @@ export interface AudioEngineSnapshot {
   duration: number
   volume: number
   errorMessage: string
+  errorReason: AudioEngineErrorReason | null
 }
 
 export type AudioEngineEvent =

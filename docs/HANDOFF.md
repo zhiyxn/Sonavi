@@ -1,10 +1,10 @@
 # 项目交接
 
-更新日期：2026-09-16
+更新日期：2026-09-19
 
 ## 当前目标与状态
 
-P01～P10 已完成，当前处于 P11 Release Candidate 独立审查、修复与真机测试准备。未换框架或大重构，也未配置签名/公证/自动更新或发布 Release。修复后 Windows 自动化允许进入真机测试，当前为 0 Blocker、0 Critical、4 Major；仍不能判定为发布就绪。完整结论见 `docs/RC-AUDIT.md`、`docs/TEST-MATRIX.md` 与 `docs/KNOWN-ISSUES.md`。
+P01～P10 已完成，P11～P14 已进入修复与真机回归；当前为 P15 macOS 播放日志稳定性修复。未换框架或大重构，也未配置签名/公证/自动更新或创建新的 Release。最新代码仍不能判定为发布就绪，完整结论见 `docs/TEST-REPORT.md`、`docs/TEST-MATRIX.md` 与 `docs/KNOWN-ISSUES.md`。
 
 P11 原 Critical 已修复：媒体句柄改为会话密钥加密、带 epoch 的无状态 token，不再因 2,000 项 FIFO 淘汰；10,000 个后续封面句柄回归测试通过。用户真实 Windows 记录 `docs/Existing issues.md` 中的艺术家大响应、后续播放、scrobble 和 UI 问题均有针对性代码修复，但艺术家/scrobble 必须回到原服务器复验，不能仅凭 fixture 宣称关闭。
 
@@ -152,3 +152,11 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 - `P13-MI-001` 已修复：设置快捷键只忽略文本输入/选择/可编辑区域，空格播放仍忽略按钮与链接；侧栏按钮聚焦时快捷键恢复。修复前按钮目标不匹配，修复后定向 4/4、lint、typecheck、29 文件/166 项全量测试通过。
 - 用户要求的 6 个逻辑问题均已完成最小修复，目前全部为 `RETEST`；未实现功能增强或引入 vue-router。最终 lint、typecheck、29 文件/166 项测试与生产构建通过，旧实例已停止，包含全部修复的 Windows 源码预览已启动。下一入口是按 `CURRENT-MANUAL-TEST-CASES` 集中复验 `PLAY-11`、`PLAY-05`、`LIB-02`、`LIB-07`、`PLAY-08`、`SET-02` 与 `LIFE-03`。
 - 2026-09-18 已由电脑控制完成 Windows 真实窗口集中复验：歌词 seek 自动滚动、全页面点击外部收队列、删除当前/非当前队列项保持展开、断开后安全重连、侧栏聚焦时 `Ctrl+,` 均通过。栏目详情隔离因真实服务器艺术家全量索引 90 秒仍不可用、收藏无艺术家且通配搜索前 12 个艺术家无专辑而记为 `BLOCKED`，未观察到修复反例。人工清单现为 32 PASS、0 FAIL、2 BLOCKED、1 NOT TESTED；macOS Intel/arm64 未验证。复验结束后已重新打开当前源码预览；下一入口是在服务器能返回带专辑的艺术家时复验 `LIB-02` / `LIB-07`，再转入两种 macOS 架构真机矩阵。
+
+## P15 macOS 播放日志修复（2026-09-19）
+
+- macOS 脱敏日志确认 `getArtists` 八次 12 秒超时、一次 MP3 转码流在 102 秒后发生 HTTP/2 协议错误，并在导出时存在约 16 秒未结束缓冲；同期其余 API、108 次封面和 5 次 scrobble 均成功。
+- `getArtists` 现为单次 45 秒、无自动重试；AudioEngine 连续缓冲 30 秒释放旧宿主，player 仅对可保持位置的流错误/缓冲超时按队列项自动恢复一次。
+- 诊断导出升级 schema v4，新增状态、响应头耗时与已读字节数以区分“未收到响应头”和“正文读取过慢”，继续不记录 URL、正文、资源 ID 或凭据。
+- Node.js 22.19.0 下 lint、typecheck、29 文件/172 项测试、生产构建和 macOS Intel 源码 Electron 完整冒烟通过；诊断裁剪导出分支也由回归测试确认保持 schema v4。第一次冒烟暴露脚本仍假设首页切回列表；按 P14 详情持久化语义修正测试后完整通过，产品代码未为测试回退。
+- 下一入口：在真实 macOS 服务复验艺术家单次 45 秒、长缓冲退出和一次自动恢复，并按本地时间对照反向代理/Navidrome 的 HTTP/2 错误日志；Windows 11 与 macOS arm64 仍未验证。

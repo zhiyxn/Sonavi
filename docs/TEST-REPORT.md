@@ -506,3 +506,16 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - `P13-MA-001`、`P13-MA-002`、`P13-MA-004`、`P13-MA-005` 与 `P13-MI-001` 均通过；对应 `PLAY-11`、`PLAY-05`、`PLAY-08`、`SET-02`、`LIFE-03` 已改为 `PASS`。
 - `P13-MA-003` 未出现修复反例，但真实数据入口阻塞：艺术家全量索引 90 秒未显示，收藏无艺术家，`*` 搜索前 12 个艺术家均无可见专辑；`LIB-02`、`LIB-07` 改为 `BLOCKED`，不以单元测试代替真机结论。
 - 当前人工汇总为 32 PASS、0 FAIL、2 BLOCKED、1 NOT TESTED；macOS Intel/arm64 全部仍为未验证。
+
+## P15 macOS 播放日志稳定性修复（2026-09-19）
+
+- 输入证据：用户导出的 schema v3 日志共 171 条，覆盖约 5 分钟。152 条正常；8 次 `getArtists` 在约 12 秒超时，一次 `audio/mpeg` 转码流在 102235 ms 后以 `net::ERR_HTTP2_PROTOCOL_ERROR` 中断，最后一个 `buffer-start` 到导出时约 16 秒未结束。108 次封面、4 次专辑列表与 5 次 scrobble 均成功。
+- 代码修复：`getArtists` 使用单次 45 秒端点超时并关闭自动重试；连续缓冲 30 秒进入可恢复错误并释放旧宿主；`native` / `transcode-offset` 流错误按 queueEntryId 最多自动恢复一次；schema v4 在正文超时时保留状态、类型、响应头耗时和已读字节数。
+- 定向验证：`opensubsonic-client`、`library-ui`、`network-diagnostics`、`html-audio-engine`、`player-store` 共 5 文件/72 项通过；新增 5 项核心回归。
+- 完整验证环境：macOS 13.7.8 Intel x64，Node.js 22.19.0，npm 10.9.3，Electron 44.3.0。
+- `npm run lint`：通过，0 warning。
+- `npm run typecheck`：node、web、test 三组通过。
+- `npm test`：29 文件/172 项通过；新增覆盖超过导出上限后裁剪为 100 条时仍保持 schema v4。
+- `npm run build`：通过；仅有既有 Zod PURE 注释位置警告。
+- `npm run test:e2e`：最终完整通过，覆盖连接、音乐库、播放/seek、歌词、scrobble、收藏/歌单、转码、诊断、桌面生命周期、队列与凭据恢复/删除；启动样本 2052 ms，20 轮切页内存增量 52544 KiB、媒体请求 +0。首次运行在首页详情持久化处暴露旧测试假设，修正脚本明确等待已保留的“专辑详情”后复跑通过，没有放宽产品要求。
+- 未验证：真实服务器的单次 45 秒艺术家索引、30 秒缓冲看门狗、一次自动恢复、HTTP/2 反向代理根因；Windows 11 x64 与 macOS arm64 实机。

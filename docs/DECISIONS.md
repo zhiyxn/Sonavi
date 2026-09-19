@@ -324,3 +324,16 @@ HTMLAudioElement 的 `waiting` 与 `stalled` 仍由 AudioEngine 统一转换为 
 renderer→main 只允许严格的 `{ event, durationMs }`，事件限于 `buffer-start` / `buffer-end`，开始持续时间固定为 0，结束持续时间限制在一小时内。schema 拒绝所有未知字段，因此 queueEntryId、trackId、sessionId、URL、账号、凭据和任意文本不能进入该通道。上报失败被吞并为非阻断诊断缺失，不得影响 AudioEngine。
 
 Logo 外链采用同一最小权限原则：preload 只暴露无参数 `openProjectHomepage()`；main 内固定目标为 `https://github.com/zhiyxn/Sonavi` 并调用系统 `shell.openExternal`。不得让 renderer 传入 URL，也不放宽现有新窗口与导航拒绝策略。
+
+## D028：大型艺术家索引与音频断流使用有界、可诊断的恢复策略
+
+- 日期：2026-09-19
+- 状态：已接受
+
+真实 macOS schema v3 诊断显示，其他 API、封面和 scrobble 正常时，`getArtists` 仍可连续触发八次固定 12 秒超时；同一日志还记录了一次持续 102 秒后以 `net::ERR_HTTP2_PROTOCOL_ERROR` 中断的 MP3 转码流，以及导出时尚未结束的缓冲区间。该证据不支持全局放宽 API 超时或关闭 TLS/HTTP2。
+
+`getArtists` 单独使用一次 45 秒有界请求，renderer 禁止该查询的 TanStack 自动重试，只保留用户明确刷新。其他 API 继续使用 12 秒超时，艺术家响应仍受 16 MiB 上限保护。这样不会以四个连续全量索引请求加重慢服务器负载。
+
+AudioEngine 对连续 `buffering` 设置 30 秒看门狗；超时后释放旧 HTMLAudioElement 与上游请求并进入带原因的错误态。player 只对 `stream` 或 `buffer-timeout`、且能保持时间线的 `native` / `transcode-offset` 队列项自动恢复一次；播放启动失败不自动重试，无法安全保持位置的转码流也不擅自从头播放。第二次失败保留显式“重试播放”，避免无限循环。
+
+API 诊断升级为 schema v4。若请求已收到响应头但正文读取超时，记录 HTTP 状态、内容类型、响应头耗时和已读取字节数；这些字段只包含受限枚举或数字，不记录 URL、响应正文、资源 ID、账号、凭据、Cookie、Authorization 或 token。
