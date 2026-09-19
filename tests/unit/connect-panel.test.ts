@@ -93,6 +93,7 @@ describe('ConnectPanel', () => {
           refreshQueuePlayback: vi.fn(),
           clearPausedQueue: vi.fn(),
           completeQuitPreparation: vi.fn(),
+          restartApplication: vi.fn(),
           getCoverCacheInfo: vi.fn(),
           clearCoverCache: vi.fn()
         }

@@ -855,6 +855,9 @@ try {
 
   await window.getByRole('button', { name: '设置', exact: true }).click()
   await window.getByRole('heading', { name: '设置', exact: true }).waitFor()
+  await window.getByRole('button', { name: '重启 Sonavi', exact: true }).click()
+  await window.getByText('重启 Sonavi？', { exact: true }).waitFor()
+  await window.getByRole('button', { name: '取消', exact: true }).click()
   await chooseSelectOption(window, '播放模式', 'MP3 兼容转码')
   await chooseSelectOption(window, '转码最高码率', '192 kbps')
   await window.getByRole('button', { name: '保存播放与网络设置' }).click()

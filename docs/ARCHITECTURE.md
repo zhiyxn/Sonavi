@@ -109,6 +109,8 @@ schema v4 进一步区分响应头与正文阶段：正文中途超时时仍可�
 
 `DesktopIntegrationController` 保持一个强引用 BrowserWindow 和 Tray。默认关闭事件被拦截并隐藏既有窗口，因此 renderer 内唯一 AudioEngine 不会被销毁；设置为 `quit`、托盘“真正退出”或系统退出角色会进入 `app.quit()`，`before-quit` 再允许窗口关闭并释放媒体请求/句柄。最小化使用系统原生行为。macOS Dock/应用激活与托盘点击均显示并聚焦同一窗口；不存在 Windows/Mac 页面副本。
 
+设置页重启使用独立的无参数 preload 方法。main 在校验可信发送者后让 `DesktopIntegrationController` 只安排一次 `app.relaunch()`，随后调用 `app.quit()` 进入同一 `before-quit` 路径：renderer 刷新暂停队列并回执，若 renderer 已异常则最长 5 秒后继续退出。新进程按既有加密凭据和暂停队列恢复规则启动。renderer 不能传入可执行文件、参数、路径或环境变量；若 main 自身完全无响应，该入口无法替代操作系统强制退出。
+
 播放状态由 renderer 通过固定 IPC 同步给 main，仅用于更新托盘菜单；main 到 preload 的命令事件只接受固定枚举。系统媒体键与媒体信息使用 Chromium Media Session，项目不注册 `globalShortcut` 的媒体键，避免同一次按键被执行两次。设置按 preload 提供的平台修饰键匹配 `Ctrl+,` 或 `Cmd+,`，空格播放键与设置键都只在非编辑目标上生效。`powerMonitor` 的 suspend/lock 只发暂停，resume/unlock 会关闭旧连接、撤销媒体句柄并刷新队列句柄，但保持暂停。
 
 `DesktopStateService` 在 Electron `userData` 下原子写入主题、音量、关闭动作、窗口 normal bounds/maximized 和暂停队列元数据。窗口恢复先按当前显示器工作区裁剪，避免拔掉显示器后窗口留在屏外。`CoverCacheService` 使用账号哈希目录和资源 ID 哈希文件名，单项 5 MiB、单账号 128 MiB，按文件访问时间执行 LRU；忘记账号和用户清理只删除当前账号目录。它不缓存音频，也不是离线播放层。

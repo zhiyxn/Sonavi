@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createTrayMenuTemplate } from '../../src/main/platform/desktop-integration'
+import {
+  createTrayMenuTemplate,
+  DesktopIntegrationController
+} from '../../src/main/platform/desktop-integration'
 import {
   createPausedQueuePersistence,
   isSettingsShortcut,
@@ -16,6 +19,26 @@ const queueRequest = (title: string): SavePausedQueueRequest => ({
 })
 
 describe('P09 桌面集成', () => {
+  it('重启请求只安排一次 relaunch 并进入既有退出流程', () => {
+    const relaunchApplication = vi.fn()
+    const quitApplication = vi.fn()
+    const controller = new DesktopIntegrationController({
+      getWindow: () => null,
+      getPreferences: () => ({ closeAction: 'hide', theme: 'system', volume: 1 }),
+      saveWindowState: async () => undefined,
+      sendCommand: vi.fn(),
+      recoverNetwork: async () => undefined,
+      relaunchApplication,
+      quitApplication
+    })
+
+    controller.requestRestart()
+    controller.requestRestart()
+
+    expect(relaunchApplication).toHaveBeenCalledOnce()
+    expect(quitApplication).toHaveBeenCalledOnce()
+  })
+
   it('托盘区分播放控制、显示窗口与真正退出', () => {
     const showWindow = vi.fn()
     const sendCommand = vi.fn()

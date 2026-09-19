@@ -58,6 +58,7 @@ import {
   GET_COVER_CACHE_INFO_CHANNEL,
   GET_DESKTOP_PREFERENCES_CHANNEL,
   REFRESH_QUEUE_PLAYBACK_CHANNEL,
+  RESTART_APPLICATION_CHANNEL,
   RESTORE_PAUSED_QUEUE_CHANNEL,
   SAVE_PAUSED_QUEUE_CHANNEL,
   UPDATE_DESKTOP_PREFERENCES_CHANNEL,
@@ -150,6 +151,7 @@ const sonaviApi: SonaviApi = Object.freeze({
       ipcRenderer.invoke(REFRESH_QUEUE_PLAYBACK_CHANNEL, request),
     clearPausedQueue: () => ipcRenderer.invoke(CLEAR_PAUSED_QUEUE_CHANNEL),
     completeQuitPreparation: () => ipcRenderer.invoke(COMPLETE_QUIT_PREPARATION_CHANNEL),
+    restartApplication: () => ipcRenderer.invoke(RESTART_APPLICATION_CHANNEL),
     getCoverCacheInfo: (sessionId: string) =>
       ipcRenderer.invoke(GET_COVER_CACHE_INFO_CHANNEL, sessionId),
     clearCoverCache: (sessionId: string) =>

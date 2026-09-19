@@ -346,3 +346,12 @@ API 诊断升级为 schema v4。若请求已收到响应头但正文读取超时
 歌曲格式展示不增加新的服务端端点、IPC 参数或媒体探测请求。播放器只使用现有 `TrackSummary.contentType`：该字段来自公共 OpenSubsonic 响应，经过 main 解析、共享返回 schema 和 renderer 校验后才进入组件。renderer 去除 MIME 参数并只映射已知音频 MIME；未知、缺失或非音频值显示“未知格式”，不直接回显任意 MIME 子串，也不从不透明媒体句柄、URL、文件路径或响应正文推断。
 
 源歌曲格式与实际传输输出是两个概念。原始流显示“FLAC · 原始音频”一类标签；兼容转码固定显示“FLAC → MP3 · 兼容转码”一类标签。该标签只负责解释现有播放计划，不改变 `NetworkPolicyService`、AudioEngine、seek、回退或诊断行为。窄窗口下视觉文本单行截断，完整受控标签和既有策略原因保留在原生 title 中。
+
+## D030：设置页重启复用安全退出准备，不暴露通用进程控制
+
+- 日期：2026-09-19
+- 状态：已接受
+
+renderer 只获得无参数 `restartApplication()`，不能指定可执行文件、命令行参数、工作目录、环境变量、延迟或目标进程。main IPC 先执行既有可信 BrowserWindow/main frame/origin 校验，再由 `DesktopIntegrationController` 幂等安排一次 Electron `app.relaunch()` 并调用 `app.quit()`。
+
+重启不建立第二套清理逻辑。`app.quit()` 继续触发现有 `before-quit`：renderer 刷新暂停队列并回执，main 最长等待 5 秒后结束旧进程；媒体协议、媒体句柄和桌面集成仍在 `will-quit` 释放。这样 renderer 正常时保留最新暂停队列，renderer 异常时也不会无限等待。此入口依赖设置页和 main 尚能响应，不是操作系统级 watchdog；main 完全卡死时仍需由用户通过系统强制退出。

@@ -121,6 +121,7 @@ import {
   GET_COVER_CACHE_INFO_CHANNEL,
   GET_DESKTOP_PREFERENCES_CHANNEL,
   REFRESH_QUEUE_PLAYBACK_CHANNEL,
+  RESTART_APPLICATION_CHANNEL,
   RESTORE_PAUSED_QUEUE_CHANNEL,
   SAVE_PAUSED_QUEUE_CHANNEL,
   UPDATE_DESKTOP_PREFERENCES_CHANNEL,
@@ -669,6 +670,12 @@ function registerDesktopIpc(
     return true
   })
 
+  ipcMain.handle(RESTART_APPLICATION_CHANNEL, (event) => {
+    assertTrustedIpcSender(event)
+    desktopIntegration.requestRestart()
+    return true
+  })
+
   ipcMain.handle(GET_COVER_CACHE_INFO_CHANNEL, async (event, rawSessionId: unknown) => {
     assertTrustedIpcSender(event)
     const sessionId = SessionIdSchema.parse(rawSessionId)
@@ -801,6 +808,8 @@ void app.whenReady().then(async () => {
     getPreferences: () => desktopState.getPreferences(),
     saveWindowState: (state) => desktopState.saveWindowState(state),
     sendCommand: sendDesktopCommand,
+    relaunchApplication: () => app.relaunch(),
+    quitApplication: () => app.quit(),
     recoverNetwork: async () => {
       const sessionId = connectionService.getCurrentSessionId()
       if (sessionId) {

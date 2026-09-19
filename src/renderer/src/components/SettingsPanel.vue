@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue
 } from './ui/select'
-import { clearCoverCache, loadCoverCacheInfo } from '../services/desktop'
+import { clearCoverCache, loadCoverCacheInfo, restartApplication } from '../services/desktop'
 import { useDesktopStore } from '../stores/desktop'
 import ConfirmationDialog from './ConfirmationDialog.vue'
 
@@ -43,6 +43,8 @@ const savingDesktop = ref(false)
 const clearingCache = ref(false)
 const cacheConfirmationOpen = ref(false)
 const disconnectConfirmationOpen = ref(false)
+const restartConfirmationOpen = ref(false)
+const restarting = ref(false)
 const desktopSettings = ref<DesktopPreferences | null>(null)
 const cacheInfo = ref<CoverCacheInfo | null>(null)
 const desktop = useDesktopStore()
@@ -138,6 +140,22 @@ function requestClearCache(): void {
 function confirmDisconnect(): void {
   disconnectConfirmationOpen.value = false
   emit('disconnect')
+}
+
+async function confirmRestart(): Promise<void> {
+  if (restarting.value) return
+  restarting.value = true
+  try {
+    await restartApplication()
+  } catch {
+    showErrorToast('无法请求重启，请先保存工作后手动退出并重新打开 Sonavi。', {
+      title: '重启失败',
+      id: 'restart-application-error'
+    })
+  } finally {
+    restarting.value = false
+    restartConfirmationOpen.value = false
+  }
 }
 
 function formatBytes(bytes: number): string {
@@ -355,6 +373,18 @@ async function exportDiagnostics(): Promise<void> {
       </p>
     </section>
 
+    <section class="diagnostics-card" aria-labelledby="restart-title">
+      <header>
+        <div>
+          <h2 id="restart-title">应用恢复</h2>
+          <p>界面或播放状态异常时，可关闭当前进程并重新打开 Sonavi。当前队列会按既有退出流程保存，并在重启后以暂停状态恢复；若整个应用已无法响应，仍需使用系统强制退出。</p>
+        </div>
+        <Button variant="outline" :disabled="restarting" @click="restartConfirmationOpen = true">
+          {{ restarting ? '正在重启…' : '重启 Sonavi' }}
+        </Button>
+      </header>
+    </section>
+
     <p v-if="statusMessage" class="settings-status" role="status">{{ statusMessage }}</p>
     <div class="mt-6 flex flex-wrap gap-3">
       <Button variant="outline" @click="disconnectConfirmationOpen = true">断开连接</Button>
@@ -375,6 +405,14 @@ async function exportDiagnostics(): Promise<void> {
       description="将停止当前播放并退出此会话。已保存的加密凭据会保留，下次启动时仍可自动恢复。"
       confirm-label="确认断开"
       @confirm="confirmDisconnect"
+    />
+    <ConfirmationDialog
+      v-model:open="restartConfirmationOpen"
+      title="重启 Sonavi？"
+      description="当前播放会停止，队列将保存并在新进程中以暂停状态恢复。尚未保存的设置修改不会保留。"
+      confirm-label="确认重启"
+      :busy="restarting"
+      @confirm="confirmRestart"
     />
   </section>
 </template>

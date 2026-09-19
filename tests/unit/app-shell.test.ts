@@ -1,4 +1,4 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createPinia } from 'pinia'
 import { VueQueryPlugin } from '@tanstack/vue-query'
@@ -106,6 +106,7 @@ function installPlatformApi(platform: 'windows' | 'macos'): SonaviApi {
       updatePreferences: async (preferences) => preferences,
       updatePlaybackStatus: async () => true,
       onCommand: () => () => undefined,
+      restartApplication: vi.fn(async () => true),
       savePausedQueue: async () => true,
       restorePausedQueue: async () => null,
       refreshQueuePlayback: async () => null,
@@ -125,6 +126,8 @@ afterEach(() => {
   Reflect.deleteProperty(window, 'confirm')
   document.body.innerHTML = ''
 })
+
+enableAutoUnmount(afterEach)
 
 describe('共享应用外壳', () => {
   it('按 preload 契约显示 Windows 快捷键，不渲染伪窗口按钮', async () => {

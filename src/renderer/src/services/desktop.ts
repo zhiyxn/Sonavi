@@ -51,6 +51,10 @@ export function completeQuitPreparation(): Promise<boolean> {
   return window.sonavi.desktop.completeQuitPreparation()
 }
 
+export function restartApplication(): Promise<boolean> {
+  return window.sonavi.desktop.restartApplication()
+}
+
 export async function loadCoverCacheInfo(sessionId: string): Promise<CoverCacheInfo> {
   return CoverCacheInfoSchema.parse(await window.sonavi.desktop.getCoverCacheInfo(sessionId))
 }

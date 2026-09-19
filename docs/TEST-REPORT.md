@@ -567,3 +567,16 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - `npm run build`：通过；仅有既有 Zod PURE 注释位置提示。
 - `npm run test:e2e`：受限沙箱内因 Electron 无法启动而失败；获准在本机桌面环境运行同一命令后完整通过。冒烟直接断言 WAV fixture 在兼容模式下显示“WAV → MP3 · 兼容转码”；启动样本 1288 ms，20 轮切页内存增量 50,364 KiB、媒体请求增量 0。
 - 未验证：真实服务器是否为各曲目提供准确 MIME、MP3/AAC/M4A/FLAC/Opus/Ogg 的实机标签与听音矩阵、Windows 11 x64、macOS arm64。本轮没有重新生成安装包，也没有发布或上传。
+
+## P17 设置页安全重启（2026-09-19）
+
+- 范围：新增无参数重启 IPC、main 单次 relaunch/quit、设置页说明与 AlertDialog；不增加 shell、命令行、任意路径或其他进程控制能力。
+- failure-first：新 UI 用例找不到“重启 Sonavi”，生命周期控制器也没有 `requestRestart()`，两项按预期失败。
+- 定向回归：设置页取消不调用 IPC、确认只调用一次；控制器连续收到两次请求仍只调用一次 relaunch 和一次 quit。相关 4 文件/18 项通过。
+- 测试稳定性：新增用例最初插入历史 `app-shell` 文件后暴露旧 wrapper/查询未卸载造成的跨用例计数串扰；将新 UI 用例隔离，并让 `app-shell` 在清空 DOM 前统一卸载 wrapper。没有修改产品查询重试策略或放宽旧断言。首次并行全量运行及修正清理顺序前的两次运行均保留为失败证据；最终独立全量通过。
+- `npm run lint`：通过，0 warning。
+- `npm run typecheck`：node、web、test 三组通过。
+- `npm test`：30 文件/180 项通过。
+- `npm run build`：通过；仅有既有 Zod PURE 注释位置提示。
+- `npm run test:e2e`：受限沙箱内 Electron 无法启动；获准在本机桌面环境运行同一命令后完整通过。设置页实际打开重启确认并取消，随后完整连接、音乐库、播放、转码、诊断、生命周期、队列和凭据流程通过；启动样本 1389 ms，20 轮切页内存增量 61,288 KiB、媒体请求增量 0。
+- 未验证：为避免打断整条自动冒烟，E2E 未点击“确认重启”；Windows 11 x64、macOS Intel x64 与 macOS arm64 的实际旧进程退出、新进程唯一启动及队列暂停恢复均待真机。未重新生成安装包，未发布或上传。

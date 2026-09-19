@@ -7,6 +7,7 @@ export const RESTORE_PAUSED_QUEUE_CHANNEL = 'sonavi:desktop:restore-paused-queue
 export const REFRESH_QUEUE_PLAYBACK_CHANNEL = 'sonavi:desktop:refresh-queue-playback' as const
 export const CLEAR_PAUSED_QUEUE_CHANNEL = 'sonavi:desktop:clear-paused-queue' as const
 export const COMPLETE_QUIT_PREPARATION_CHANNEL = 'sonavi:desktop:complete-quit-preparation' as const
+export const RESTART_APPLICATION_CHANNEL = 'sonavi:desktop:restart-application' as const
 export const GET_COVER_CACHE_INFO_CHANNEL = 'sonavi:desktop:get-cover-cache-info' as const
 export const CLEAR_COVER_CACHE_CHANNEL = 'sonavi:desktop:clear-cover-cache' as const
 
@@ -87,6 +88,7 @@ export interface DesktopApi {
   ) => Promise<import('./library').TrackSummary[] | null>
   clearPausedQueue: () => Promise<boolean>
   completeQuitPreparation: () => Promise<boolean>
+  restartApplication: () => Promise<boolean>
   getCoverCacheInfo: (sessionId: string) => Promise<CoverCacheInfo>
   clearCoverCache: (sessionId: string) => Promise<CoverCacheInfo>
 }

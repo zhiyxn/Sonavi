@@ -54,6 +54,8 @@ interface DesktopIntegrationOptions {
   saveWindowState: (state: PersistedWindowState) => Promise<void>
   sendCommand: (command: DesktopCommand) => void
   recoverNetwork: () => Promise<void>
+  relaunchApplication: () => void
+  quitApplication: () => void
 }
 
 const EMPTY_PLAYBACK_STATUS: DesktopPlaybackStatus = {
@@ -67,6 +69,7 @@ export class DesktopIntegrationController {
   private tray: Tray | null = null
   private playbackStatus = { ...EMPTY_PLAYBACK_STATUS }
   private quitting = false
+  private restartRequested = false
   private quitPreparationPending = false
   private quitPreparationTimer: NodeJS.Timeout | null = null
   private saveTimer: NodeJS.Timeout | null = null
@@ -132,6 +135,13 @@ export class DesktopIntegrationController {
 
   completeQuitPreparation(): void {
     if (this.quitPreparationPending) this.finishQuit()
+  }
+
+  requestRestart(): void {
+    if (this.quitting || this.restartRequested) return
+    this.options.relaunchApplication()
+    this.restartRequested = true
+    this.options.quitApplication()
   }
 
   dispose(): void {

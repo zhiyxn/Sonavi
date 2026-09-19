@@ -199,3 +199,10 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 - 之前因 P13 稳定性闸门暂缓的歌曲格式展示已实现。播放器复用受校验的 `TrackSummary.contentType`，显示“FLAC · 原始音频”或“FLAC → MP3 · 兼容转码”一类标签；缺失、非音频和未知类型统一显示“未知格式”。不新增端点、IPC 或媒体探测，也不解析不透明媒体 URL。
 - failure-first 旧实现按预期失败；最终定向 2 文件/31 项、lint、typecheck、29 文件/178 项测试、生产构建和获准后的 macOS Intel 源码 Electron 完整冒烟通过。冒烟验证 WAV fixture 的转码标签；启动样本 1288 ms，20 轮切页内存增量 50,364 KiB、媒体请求增量 0。
 - 本轮没有重新生成或启动新的安装包，没有发布、上传或创建提交。真实服务器格式标签与物理听音 `PLAY-12`、Windows 11 x64 和 macOS arm64 仍未验证；不能以 MIME 标签或 WAV fixture 替代真实格式矩阵。
+
+## P17 设置页安全重启（2026-09-19）
+
+- 设置页新增“应用恢复 / 重启 Sonavi”及 AlertDialog。取消不触发 IPC；确认调用无参数 preload 方法。main 校验可信发送者，只安排一次 `app.relaunch()` 并进入既有 `app.quit()`，从而复用暂停队列刷新、5 秒超时和 `will-quit` 资源释放。renderer 无法传入命令、路径、参数或目标进程。
+- failure-first 两项按预期失败；最终定向 4 文件/18 项、lint、typecheck、30 文件/180 项测试、生产构建和获准后的 macOS Intel 源码 Electron 完整冒烟通过。冒烟覆盖打开/取消重启确认；启动样本 1389 ms，20 轮切页内存增量 61,288 KiB、媒体请求增量 0。
+- `app-shell` 旧测试的 wrapper/查询清理串扰已通过“先卸载、后清空 DOM”修复，没有放宽原断言。实际确认重启会中断自动冒烟，尚未在 Windows 11 x64、macOS Intel x64 或 macOS arm64 执行；`LIFE-06` 保持 `NOT TESTED`。该入口也不能恢复完全无响应的 main，届时仍需系统强制退出。
+- 本轮未生成安装包、未发布、未推送、未创建提交。下一入口是在当前源码或新测试包上执行 `LIFE-06`，确认旧进程退出、单一新进程启动、加密账号和暂停队列恢复。
