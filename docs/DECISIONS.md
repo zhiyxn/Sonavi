@@ -337,3 +337,12 @@ Logo 外链采用同一最小权限原则：preload 只暴露无参数 `openProj
 AudioEngine 对连续 `buffering` 设置 30 秒看门狗；超时后释放旧 HTMLAudioElement 与上游请求并进入带原因的错误态。player 只对 `stream` 或 `buffer-timeout`、且能保持时间线的 `native` / `transcode-offset` 队列项自动恢复一次；播放启动失败不自动重试，无法安全保持位置的转码流也不擅自从头播放。第二次失败保留显式“重试播放”，避免无限循环。
 
 API 诊断升级为 schema v4。若请求已收到响应头但正文读取超时，记录 HTTP 状态、内容类型、响应头耗时和已读取字节数；这些字段只包含受限枚举或数字，不记录 URL、响应正文、资源 ID、账号、凭据、Cookie、Authorization 或 token。
+
+## D029：歌曲格式标签复用受校验 MIME，并区分源格式与播放输出
+
+- 日期：2026-09-19
+- 状态：已接受
+
+歌曲格式展示不增加新的服务端端点、IPC 参数或媒体探测请求。播放器只使用现有 `TrackSummary.contentType`：该字段来自公共 OpenSubsonic 响应，经过 main 解析、共享返回 schema 和 renderer 校验后才进入组件。renderer 去除 MIME 参数并只映射已知音频 MIME；未知、缺失或非音频值显示“未知格式”，不直接回显任意 MIME 子串，也不从不透明媒体句柄、URL、文件路径或响应正文推断。
+
+源歌曲格式与实际传输输出是两个概念。原始流显示“FLAC · 原始音频”一类标签；兼容转码固定显示“FLAC → MP3 · 兼容转码”一类标签。该标签只负责解释现有播放计划，不改变 `NetworkPolicyService`、AudioEngine、seek、回退或诊断行为。窄窗口下视觉文本单行截断，完整受控标签和既有策略原因保留在原生 title 中。

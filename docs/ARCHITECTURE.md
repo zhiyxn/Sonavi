@@ -95,6 +95,8 @@ renderer 根节点只挂载一个项目持有的 shadcn-vue Sonner `Toaster`。�
 
 `NetworkPolicyService` 是 main 中唯一播放/代理策略来源。播放策略生成每首曲目的实际 `streamMode`、`seekMode` 和用户可见原因：原始模式使用 `format=raw`；兼容模式固定使用 MP3 与受限码率；自动模式对已知媒体类型优先原始流并只附带一个兼容回退句柄，未知类型直接转码。HTMLAudioEngine 只在第一次解码错误切换 fallback，第二次失败进入错误态，避免无限重试。
 
+播放器格式标签只复用已经通过 OpenSubsonic 响应 schema、共享 IPC schema 和 renderer 返回值校验的 `TrackSummary.contentType`。renderer 去除 MIME 参数后只映射受控音频类型；缺失、非音频或未知值统一显示“未知格式”，不会展示任意服务端文本，也不会解析不透明媒体 URL。标签将源格式与实际播放模式分开：原始流显示源格式，兼容转码明确显示源格式到 MP3 的关系；该展示不参与播放策略判断。
+
 兼容转码只有在连接阶段验证的扩展名包含 `transcodeOffset` 时才允许 seek。renderer 通过固定方法提交 session、track 和秒数；main 复核会话与能力后生成带 `timeOffset` 的新不透明句柄。AudioEngine 保存 `timelineOffset`，对外进度始终为 `timelineOffset + segment.currentTime`，并保留歌曲总 duration；player store、歌词和播放上报因此共享完整歌曲时间线。未确认能力时 UI 禁用 seek 并解释，不猜测服务器行为。
 
 API、封面和音频都使用 `session.defaultSession`，由 `NetworkPolicyService` 以 `system`、`direct` 或 `fixed_servers` 三种互斥配置统一控制。代理变更先调用 `setProxy`，再 `closeAllConnections`，随后撤销媒体句柄、停止播放和清查询缓存；任何失败都直接返回，不叠加系统/手动代理，也不降级直连。设置 JSON 位于 Electron `userData`，不含凭据。

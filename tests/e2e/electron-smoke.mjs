@@ -859,7 +859,7 @@ try {
   await chooseSelectOption(window, '转码最高码率', '192 kbps')
   await window.getByRole('button', { name: '保存播放与网络设置' }).click()
   await window.getByText('当前歌曲会尽量从原进度切换，否则下一曲生效。').waitFor()
-  await window.locator('footer[aria-label="播放器"]').getByText('兼容转码', { exact: true }).waitFor()
+  await window.locator('footer[aria-label="播放器"] .player-stream-note').getByText('WAV → MP3 · 兼容转码', { exact: true }).waitFor()
   await chooseSelectOption(window, '代理模式', '直接连接')
   await window.getByRole('button', { name: '保存播放与网络设置' }).click()
   await window.getByText('代理已切换，旧连接和当前播放已安全停止。').waitFor()
@@ -875,7 +875,7 @@ try {
   await window.getByRole('heading', { name: '专辑详情', exact: true }).waitFor()
   await window.getByRole('button', { name: '播放 跨平台试音' }).click()
   await window.getByRole('button', { name: '暂停' }).waitFor()
-  await window.locator('footer[aria-label="播放器"]').getByText('兼容转码', { exact: true }).waitFor()
+  await window.locator('footer[aria-label="播放器"] .player-stream-note').getByText('WAV → MP3 · 兼容转码', { exact: true }).waitFor()
   await setSliderValue(window, '播放进度', 2, 0.1)
   await window.waitForFunction(() =>
     globalThis.document

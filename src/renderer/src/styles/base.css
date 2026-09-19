@@ -424,6 +424,12 @@ button.nav-item {
   font-size: 11px;
 }
 
+.player-stream-note {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .transport-placeholder {
   color: #aaa99f;
   text-align: center;

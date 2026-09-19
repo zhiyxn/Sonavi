@@ -555,3 +555,15 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - 执行环境：临时以 Electron 本地调试端口连接同一个 macOS x64 包和默认 userData，端口只监听 `127.0.0.1`；脚本只输出布尔结果。完成后已正常退出调试实例、确认端口关闭，并普通重开应用。
 - 自动化结论：当前源码与本机未签名 macOS x64 包通过代码、构建、包元数据和 fixture Electron 闸门。
 - 仍未验证：真实服务器登录/恢复、真实音乐库、物理听音、真实格式、macOS 菜单栏/Dock/媒体键、锁屏/睡眠、P15 的 45 秒艺术家索引和网络自动恢复；Windows 11 x64 与 macOS arm64 本轮也未执行。
+
+## P16 歌曲格式展示（2026-09-19）
+
+- 范围：只修改播放器当前歌曲的说明标签和对应测试；不增加端点、IPC、媒体请求或播放策略分支。
+- failure-first：新增播放器组件回归后，旧实现得到“原始音频”而不是“FLAC · 原始音频”，定向测试按预期 1 项失败。
+- 定向回归：`player-store` 与 `interaction-style` 共 2 文件/31 项通过，覆盖带 MIME 参数的 FLAC、M4A 到 MP3、异常非音频类型降级，以及既有布局样式。
+- `npm run lint`：通过，0 warning。
+- `npm run typecheck`：node、web、test 三组通过。
+- `npm test`：29 文件/178 项通过。
+- `npm run build`：通过；仅有既有 Zod PURE 注释位置提示。
+- `npm run test:e2e`：受限沙箱内因 Electron 无法启动而失败；获准在本机桌面环境运行同一命令后完整通过。冒烟直接断言 WAV fixture 在兼容模式下显示“WAV → MP3 · 兼容转码”；启动样本 1288 ms，20 轮切页内存增量 50,364 KiB、媒体请求增量 0。
+- 未验证：真实服务器是否为各曲目提供准确 MIME、MP3/AAC/M4A/FLAC/Opus/Ogg 的实机标签与听音矩阵、Windows 11 x64、macOS arm64。本轮没有重新生成安装包，也没有发布或上传。

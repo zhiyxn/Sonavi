@@ -104,6 +104,7 @@ UI 技术路线保留原始开发提示中的 `shadcn-vue + Tailwind CSS`，并�
 - P01 使用各平台原生窗口边框和控制按钮；不绘制假的红黄绿按钮。
 - 快捷键提示由受限平台信息驱动：Windows 为 Ctrl，macOS 为 Cmd。
 - 字体依次覆盖 Segoe UI、Microsoft YaHei UI、PingFang SC、Hiragino Sans GB、Noto Sans SC/CJK 与 system-ui。
+- 播放器使用公共协议返回的媒体类型展示当前歌曲源格式；原始播放显示“源格式 · 原始音频”，兼容转码显示“源格式 → MP3 · 兼容转码”。缺失或无法识别的类型显示“未知格式”，不得从媒体 URL、文件路径或响应正文推断。
 - P09 起两端默认关闭窗口均隐藏同一个播放宿主；Windows 从托盘、macOS 从菜单栏或 Dock 重新显示。用户可在设置中改为关闭即真正退出。
 - 最小化与隐藏不会销毁 renderer；“真正退出 Sonavi”、Windows 应用退出菜单及 macOS Cmd+Q 才终止进程与播放。
 

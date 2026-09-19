@@ -443,6 +443,39 @@ describe('P04 播放队列', () => {
     expect(wrapper.get('.album-placeholder').text()).toBe('S')
   })
 
+  it('播放器区分源歌曲格式与实际播放模式', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const player = usePlayerStore()
+    await player.replaceQueue(
+      [{ ...track('flac-source'), contentType: 'audio/flac; charset=binary' }],
+      0,
+      scope,
+      false
+    )
+    const wrapper = mount(PlayerBar, { global: { plugins: [pinia] } })
+
+    expect(wrapper.get('.player-stream-note').text()).toBe('FLAC · 原始音频')
+
+    await player.replaceQueue(
+      [{ ...transcodedTrack('aac-source', 'transcode-offset'), contentType: 'audio/mp4' }],
+      0,
+      scope,
+      false
+    )
+    await wrapper.vm.$nextTick()
+    expect(wrapper.get('.player-stream-note').text()).toBe('M4A → MP3 · 兼容转码')
+
+    await player.replaceQueue(
+      [{ ...track('unknown-source'), contentType: 'text/html<script>' }],
+      0,
+      scope,
+      false
+    )
+    await wrapper.vm.$nextTick()
+    expect(wrapper.get('.player-stream-note').text()).toBe('未知格式 · 原始音频')
+  })
+
   it('打开播放队列时将当前歌曲滚动到可视区域中央', async () => {
     const scrollIntoView = vi
       .spyOn(HTMLElement.prototype, 'scrollIntoView')

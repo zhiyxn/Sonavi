@@ -37,6 +37,38 @@ const stateLabels = {
   error: '播放错误'
 } as const
 
+const audioFormatLabels: Readonly<Record<string, string>> = {
+  'audio/aac': 'AAC',
+  'audio/flac': 'FLAC',
+  'audio/mp3': 'MP3',
+  'audio/mp4': 'M4A',
+  'audio/mpeg': 'MP3',
+  'audio/ogg': 'OGG',
+  'audio/opus': 'OPUS',
+  'audio/wav': 'WAV',
+  'audio/webm': 'WEBM',
+  'audio/x-aac': 'AAC',
+  'audio/x-alac': 'ALAC',
+  'audio/x-flac': 'FLAC',
+  'audio/x-m4a': 'M4A',
+  'audio/x-wav': 'WAV'
+}
+
+function getSourceFormatLabel(contentType: string | undefined): string {
+  const normalizedType = contentType?.split(';', 1)[0]?.trim().toLowerCase()
+  return normalizedType ? (audioFormatLabels[normalizedType] ?? '未知格式') : '未知格式'
+}
+
+const streamNote = computed(() => {
+  const track = player.track
+  if (!track) return ''
+
+  const sourceFormat = getSourceFormatLabel(track.contentType)
+  return track.playback.streamMode === 'transcode'
+    ? `${sourceFormat} → MP3 · 兼容转码`
+    : `${sourceFormat} · 原始音频`
+})
+
 function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
   const minutes = Math.floor(seconds / 60)
@@ -201,8 +233,12 @@ onBeforeUnmount(() => document.removeEventListener('click', closeQueueFromDocume
           <span class="player-error">{{ player.errorMessage }}</span>
           <Button variant="ghost" size="sm" @click="player.retry">重试播放</Button>
         </div>
-        <span v-else-if="player.track" class="player-stream-note" :title="player.track.playback.reason">
-          {{ player.track.playback.streamMode === 'transcode' ? '兼容转码' : '原始音频' }}
+        <span
+          v-else-if="player.track"
+          class="player-stream-note"
+          :title="`${streamNote}。${player.track.playback.reason}`"
+        >
+          {{ streamNote }}
         </span>
       </div>
     </div>
