@@ -4,6 +4,7 @@ import type {
   DesktopCommand,
   DesktopPlaybackStatus,
   DesktopPreferences,
+  RefreshQueuePlaybackRequest,
   RestoredPausedQueue,
   SavePausedQueueRequest
 } from './desktop'
@@ -62,6 +63,13 @@ export const RestoredPausedQueueSchema = z.object({
 }) satisfies z.ZodType<RestoredPausedQueue>
 
 export const RestoredPausedQueueResultSchema = RestoredPausedQueueSchema.nullable()
+
+export const RefreshQueuePlaybackRequestSchema = z.object({
+  sessionId: SessionIdSchema,
+  tracks: z.array(PausedQueueTrackSchema).min(1).max(1_000)
+}) satisfies z.ZodType<RefreshQueuePlaybackRequest>
+
+export const RefreshedQueuePlaybackResultSchema = AlbumDetailSchema.shape.tracks.nullable()
 
 export const CoverCacheInfoSchema = z.object({
   itemCount: z.number().int().nonnegative(),

@@ -597,7 +597,9 @@ button.nav-item {
   max-height: 440px;
   margin: 0;
   padding: 18px 24px 28px;
-  overflow: auto;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   list-style: none;
   text-align: center;
 }
@@ -694,7 +696,6 @@ button.nav-item {
 
 .workspace,
 .queue-panel ol,
-.lyrics-lines,
 .album-track-list {
   scrollbar-width: thin;
   scrollbar-color: var(--sonavi-accent) transparent;
@@ -702,7 +703,6 @@ button.nav-item {
 
 .workspace::-webkit-scrollbar,
 .queue-panel ol::-webkit-scrollbar,
-.lyrics-lines::-webkit-scrollbar,
 .album-track-list::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -710,12 +710,17 @@ button.nav-item {
 
 .workspace::-webkit-scrollbar-thumb,
 .queue-panel ol::-webkit-scrollbar-thumb,
-.lyrics-lines::-webkit-scrollbar-thumb,
 .album-track-list::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
   background: color-mix(in srgb, var(--sonavi-accent) 72%, transparent);
   background-clip: padding-box;
+}
+
+.lyrics-lines::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .player-error-row {

@@ -33,7 +33,8 @@ export const NetworkSettingsSchema = z.object({
 
 export const NetworkSettingsUpdateResultSchema = z.object({
   settings: NetworkSettingsSchema,
-  connectionsReset: z.boolean()
+  connectionsReset: z.boolean(),
+  playbackChanged: z.boolean()
 }) satisfies z.ZodType<NetworkSettingsUpdateResult>
 
 export const NetworkDiagnosticEntrySchema = z.object({

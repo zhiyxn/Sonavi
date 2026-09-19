@@ -63,7 +63,19 @@ describe('P08 网络与播放策略', () => {
       proxyRules: 'http://127.0.0.1:7890'
     })
     expect(closeAllConnections).toHaveBeenCalledTimes(3)
-    expect(result).toMatchObject({ connectionsReset: true })
+    expect(result).toMatchObject({ connectionsReset: true, playbackChanged: true })
+  })
+
+  it('只修改播放策略时标记媒体计划变化但不重置连接', async () => {
+    const { service, setProxy, closeAllConnections } = await createService()
+    const result = await service.update({
+      playback: { mode: 'compatible', maxBitRate: 256 },
+      proxy: { mode: 'system' }
+    })
+
+    expect(result).toMatchObject({ connectionsReset: false, playbackChanged: true })
+    expect(setProxy).toHaveBeenCalledOnce()
+    expect(closeAllConnections).toHaveBeenCalledOnce()
   })
 
   it('拒绝带凭据的代理，且不会静默改为直连', async () => {

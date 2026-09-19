@@ -57,6 +57,7 @@ import {
   DESKTOP_COMMAND_CHANNEL,
   GET_COVER_CACHE_INFO_CHANNEL,
   GET_DESKTOP_PREFERENCES_CHANNEL,
+  REFRESH_QUEUE_PLAYBACK_CHANNEL,
   RESTORE_PAUSED_QUEUE_CHANNEL,
   SAVE_PAUSED_QUEUE_CHANNEL,
   UPDATE_DESKTOP_PREFERENCES_CHANNEL,
@@ -64,6 +65,7 @@ import {
   type DesktopPlaybackStatus,
   type DesktopPreferences,
   type DesktopCommand,
+  type RefreshQueuePlaybackRequest,
   type SavePausedQueueRequest
 } from '../shared/desktop'
 
@@ -144,6 +146,8 @@ const sonaviApi: SonaviApi = Object.freeze({
       ipcRenderer.invoke(SAVE_PAUSED_QUEUE_CHANNEL, request),
     restorePausedQueue: (sessionId: string) =>
       ipcRenderer.invoke(RESTORE_PAUSED_QUEUE_CHANNEL, sessionId),
+    refreshQueuePlayback: (request: RefreshQueuePlaybackRequest) =>
+      ipcRenderer.invoke(REFRESH_QUEUE_PLAYBACK_CHANNEL, request),
     clearPausedQueue: () => ipcRenderer.invoke(CLEAR_PAUSED_QUEUE_CHANNEL),
     completeQuitPreparation: () => ipcRenderer.invoke(COMPLETE_QUIT_PREPARATION_CHANNEL),
     getCoverCacheInfo: (sessionId: string) =>

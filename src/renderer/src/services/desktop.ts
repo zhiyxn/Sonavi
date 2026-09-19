@@ -2,12 +2,14 @@ import type {
   CoverCacheInfo,
   DesktopPlaybackStatus,
   DesktopPreferences,
+  RefreshQueuePlaybackRequest,
   RestoredPausedQueue,
   SavePausedQueueRequest
 } from '../../../shared/desktop'
 import {
   CoverCacheInfoSchema,
   DesktopPreferencesSchema,
+  RefreshedQueuePlaybackResultSchema,
   RestoredPausedQueueResultSchema
 } from '../../../shared/desktop-schema'
 
@@ -32,6 +34,12 @@ export function savePausedQueue(request: SavePausedQueueRequest): Promise<boolea
 export async function restorePausedQueue(sessionId: string): Promise<RestoredPausedQueue | null> {
   return RestoredPausedQueueResultSchema.parse(
     await window.sonavi.desktop.restorePausedQueue(sessionId)
+  )
+}
+
+export async function refreshQueuePlayback(request: RefreshQueuePlaybackRequest) {
+  return RefreshedQueuePlaybackResultSchema.parse(
+    await window.sonavi.desktop.refreshQueuePlayback(request)
   )
 }
 

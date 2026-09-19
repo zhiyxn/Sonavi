@@ -120,6 +120,7 @@ import {
   DESKTOP_COMMAND_CHANNEL,
   GET_COVER_CACHE_INFO_CHANNEL,
   GET_DESKTOP_PREFERENCES_CHANNEL,
+  REFRESH_QUEUE_PLAYBACK_CHANNEL,
   RESTORE_PAUSED_QUEUE_CHANNEL,
   SAVE_PAUSED_QUEUE_CHANNEL,
   UPDATE_DESKTOP_PREFERENCES_CHANNEL,
@@ -130,6 +131,8 @@ import {
   CoverCacheInfoSchema,
   DesktopPlaybackStatusSchema,
   DesktopPreferencesSchema,
+  RefreshedQueuePlaybackResultSchema,
+  RefreshQueuePlaybackRequestSchema,
   RestoredPausedQueueResultSchema,
   SavePausedQueueRequestSchema
 } from '../shared/desktop-schema'
@@ -643,6 +646,15 @@ function registerDesktopIpc(
       ...restored,
       tracks: libraryService.rehydrateTracks(sessionId, restored.tracks)
     })
+  })
+
+  ipcMain.handle(REFRESH_QUEUE_PLAYBACK_CHANNEL, (event, rawRequest: unknown) => {
+    assertTrustedIpcSender(event)
+    const request = RefreshQueuePlaybackRequestSchema.parse(rawRequest)
+    if (!connectionService.getSession(request.sessionId)) return null
+    return RefreshedQueuePlaybackResultSchema.parse(
+      libraryService.rehydrateTracks(request.sessionId, request.tracks)
+    )
   })
 
   ipcMain.handle(CLEAR_PAUSED_QUEUE_CHANNEL, async (event) => {

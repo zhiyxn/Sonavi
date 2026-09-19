@@ -4,6 +4,7 @@ export const UPDATE_PLAYBACK_STATUS_CHANNEL = 'sonavi:desktop:update-playback-st
 export const DESKTOP_COMMAND_CHANNEL = 'sonavi:desktop:command' as const
 export const SAVE_PAUSED_QUEUE_CHANNEL = 'sonavi:desktop:save-paused-queue' as const
 export const RESTORE_PAUSED_QUEUE_CHANNEL = 'sonavi:desktop:restore-paused-queue' as const
+export const REFRESH_QUEUE_PLAYBACK_CHANNEL = 'sonavi:desktop:refresh-queue-playback' as const
 export const CLEAR_PAUSED_QUEUE_CHANNEL = 'sonavi:desktop:clear-paused-queue' as const
 export const COMPLETE_QUIT_PREPARATION_CHANNEL = 'sonavi:desktop:complete-quit-preparation' as const
 export const GET_COVER_CACHE_INFO_CHANNEL = 'sonavi:desktop:get-cover-cache-info' as const
@@ -63,6 +64,11 @@ export interface RestoredPausedQueue {
   repeatMode: 'off' | 'all' | 'one'
 }
 
+export interface RefreshQueuePlaybackRequest {
+  sessionId: string
+  tracks: PausedQueueTrack[]
+}
+
 export interface CoverCacheInfo {
   itemCount: number
   totalBytes: number
@@ -76,6 +82,9 @@ export interface DesktopApi {
   onCommand: (listener: (command: DesktopCommand) => void) => () => void
   savePausedQueue: (request: SavePausedQueueRequest) => Promise<boolean>
   restorePausedQueue: (sessionId: string) => Promise<RestoredPausedQueue | null>
+  refreshQueuePlayback: (
+    request: RefreshQueuePlaybackRequest
+  ) => Promise<import('./library').TrackSummary[] | null>
   clearPausedQueue: () => Promise<boolean>
   completeQuitPreparation: () => Promise<boolean>
   getCoverCacheInfo: (sessionId: string) => Promise<CoverCacheInfo>

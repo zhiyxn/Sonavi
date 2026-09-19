@@ -12,8 +12,12 @@ const props = withDefaults(defineProps<{
   sessionId: string
   selectedArtistId: string | null
   listScrollTop?: number
+  artistListEnabled?: boolean
+  backLabel?: string
 }>(), {
-  listScrollTop: 0
+  listScrollTop: 0,
+  artistListEnabled: true,
+  backLabel: '返回艺术家'
 })
 const emit = defineEmits<{
   'update:selectedArtistId': [artistId: string | null]
@@ -25,6 +29,7 @@ const { pendingKey, toggleStarred } = useStarredMutation(() => props.sessionId)
 const artistsQuery = useQuery({
   queryKey: computed(() => ['artists', props.sessionId]),
   queryFn: () => listArtists(props.sessionId),
+  enabled: computed(() => props.artistListEnabled),
   retry: false,
   staleTime: Number.POSITIVE_INFINITY,
   gcTime: Number.POSITIVE_INFINITY,
@@ -111,7 +116,7 @@ function refreshCurrentView(): void {
           variant="outline"
           @click="emit('update:selectedArtistId', null)"
         >
-          返回艺术家
+          {{ backLabel }}
         </Button>
       </div>
     </div>

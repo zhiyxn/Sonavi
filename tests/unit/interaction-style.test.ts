@@ -75,4 +75,19 @@ describe('可点击控件样式', () => {
     expect(pageRule?.style.height).toBe('100%')
     expect(pageRule?.style.minHeight).toBe('0')
   })
+
+  it('歌词保留滚动能力但隐藏会随自动定位闪动的视觉滚动条', () => {
+    const style = document.createElement('style')
+    style.textContent = baseCss
+    document.head.append(style)
+    const rules = [...(style.sheet?.cssRules ?? [])] as CSSStyleRule[]
+    const lyricsRule = rules.find((rule) => rule.selectorText === '.lyrics-lines')
+    const webkitRule = rules.find(
+      (rule) => rule.selectorText === '.lyrics-lines::-webkit-scrollbar'
+    )
+
+    expect(lyricsRule?.style.scrollbarWidth).toBe('none')
+    expect(lyricsRule?.style.overflowY).toBe('auto')
+    expect(webkitRule?.style.display).toBe('none')
+  })
 })

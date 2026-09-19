@@ -635,6 +635,7 @@ try {
     onDesktopCommand: typeof window.sonavi?.desktop?.onCommand,
     savePausedQueue: typeof window.sonavi?.desktop?.savePausedQueue,
     restorePausedQueue: typeof window.sonavi?.desktop?.restorePausedQueue,
+    refreshQueuePlayback: typeof window.sonavi?.desktop?.refreshQueuePlayback,
     completeQuitPreparation: typeof window.sonavi?.desktop?.completeQuitPreparation,
     getCoverCacheInfo: typeof window.sonavi?.desktop?.getCoverCacheInfo,
     clearCoverCache: typeof window.sonavi?.desktop?.clearCoverCache,
@@ -665,6 +666,7 @@ try {
     bridgeShape.onDesktopCommand !== 'function' ||
     bridgeShape.savePausedQueue !== 'function' ||
     bridgeShape.restorePausedQueue !== 'function' ||
+    bridgeShape.refreshQueuePlayback !== 'function' ||
     bridgeShape.completeQuitPreparation !== 'function' ||
     bridgeShape.getCoverCacheInfo !== 'function' ||
     bridgeShape.clearCoverCache !== 'function' ||
@@ -855,6 +857,9 @@ try {
   await window.getByRole('heading', { name: '设置', exact: true }).waitFor()
   await chooseSelectOption(window, '播放模式', 'MP3 兼容转码')
   await chooseSelectOption(window, '转码最高码率', '192 kbps')
+  await window.getByRole('button', { name: '保存播放与网络设置' }).click()
+  await window.getByText('当前歌曲会尽量从原进度切换，否则下一曲生效。').waitFor()
+  await window.locator('footer[aria-label="播放器"]').getByText('兼容转码', { exact: true }).waitFor()
   await chooseSelectOption(window, '代理模式', '直接连接')
   await window.getByRole('button', { name: '保存播放与网络设置' }).click()
   await window.getByText('代理已切换，旧连接和当前播放已安全停止。').waitFor()

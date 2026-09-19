@@ -66,6 +66,21 @@ function track(id: string, title = id): TrackSummary {
   }
 }
 
+function transcodedTrack(
+  id: string,
+  seekMode: TrackSummary['playback']['seekMode']
+): TrackSummary {
+  return {
+    ...track(id),
+    streamUrl: `sonavi-media://transcoded-${id}`,
+    playback: {
+      streamMode: 'transcode',
+      seekMode,
+      reason: '测试兼容转码。'
+    }
+  }
+}
+
 beforeEach(() => {
   FakeAudio.instances = []
   vi.stubGlobal('Audio', FakeAudio)
@@ -266,6 +281,63 @@ describe('P04 播放队列', () => {
     })
     expect(player.currentTime).toBe(6)
     expect(player.duration).toBe(10)
+  })
+
+  it('播放策略变化时优先在当前进度切换转码并更新整个队列', async () => {
+    const createTranscodeSeek = vi.fn().mockResolvedValue({
+      ok: true,
+      streamUrl: 'sonavi-media://media/00000000-0000-4000-8000-000000000002',
+      timelineOffset: 4
+    })
+    Object.defineProperty(window, 'sonavi', {
+      value: { network: { createTranscodeSeek } },
+      configurable: true
+    })
+    const player = usePlayerStore()
+    await player.replaceQueue([track('one'), track('two')], 0, scope)
+    const firstAudio = FakeAudio.instances.at(-1)!
+    firstAudio.currentTime = 4
+    firstAudio.dispatchEvent(new Event('timeupdate'))
+
+    await player.refreshQueueTracks([
+      transcodedTrack('one', 'transcode-offset'),
+      transcodedTrack('two', 'transcode-offset')
+    ])
+
+    expect(createTranscodeSeek).toHaveBeenCalledWith({
+      sessionId: scope.sessionId,
+      trackId: 'one',
+      timeOffset: 4
+    })
+    expect(player.track?.playback.streamMode).toBe('transcode')
+    expect(player.queue[1]?.track.playback.streamMode).toBe('transcode')
+    expect(FakeAudio.instances.at(-1)).toMatchObject({
+      src: 'sonavi-media://media/00000000-0000-4000-8000-000000000002',
+      paused: false
+    })
+    expect(player.currentTime).toBe(4)
+  })
+
+  it('服务器不支持转码偏移时保持当前流，下一曲使用新转码策略', async () => {
+    const player = usePlayerStore()
+    await player.replaceQueue([track('one'), track('two')], 0, scope)
+    const firstAudio = FakeAudio.instances.at(-1)!
+    firstAudio.currentTime = 4
+    firstAudio.dispatchEvent(new Event('timeupdate'))
+
+    await player.refreshQueueTracks([
+      transcodedTrack('one', 'unavailable'),
+      transcodedTrack('two', 'unavailable')
+    ])
+
+    expect(FakeAudio.instances).toHaveLength(1)
+    expect(player.track?.playback.streamMode).toBe('original')
+    expect(player.queue[1]?.track.playback.streamMode).toBe('transcode')
+
+    await player.next()
+    expect(player.track?.id).toBe('two')
+    expect(player.track?.playback.streamMode).toBe('transcode')
+    expect(FakeAudio.instances.at(-1)?.src).toBe('sonavi-media://transcoded-two')
   })
 
   it('连续点击播放控制不会创建第二个引擎或音频宿主', async () => {

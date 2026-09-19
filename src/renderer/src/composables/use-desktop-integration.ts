@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted, watch } from 'vue'
 import type { DesktopCommand, SavePausedQueueRequest } from '../../../shared/desktop'
 import {
   completeQuitPreparation,
+  refreshQueuePlayback,
   restorePausedQueue,
   savePausedQueue,
   updateDesktopPlaybackStatus
@@ -96,7 +97,10 @@ function applyTheme(theme: 'system' | 'light' | 'dark'): void {
 export function useDesktopIntegration(options?: {
   getShortcutModifier: () => 'Ctrl' | 'Cmd' | undefined
   openSettings: () => void
-}): { flushPausedQueue: () => Promise<boolean> } {
+}): {
+  flushPausedQueue: () => Promise<boolean>
+  refreshPlaybackQueue: () => Promise<boolean>
+} {
   const player = usePlayerStore()
   const session = useSessionStore()
   const desktop = useDesktopStore()
@@ -106,6 +110,19 @@ export function useDesktopIntegration(options?: {
   let readySessionId: string | null = null
   const mediaQuery = matchMedia('(prefers-color-scheme: dark)')
   const queuePersistence = createPausedQueuePersistence()
+
+  const createQueueTracks = (): SavePausedQueueRequest['tracks'] =>
+    player.queue.map(({ track }) => ({
+      id: track.id,
+      title: track.title,
+      artist: track.artist,
+      album: track.album,
+      duration: track.duration,
+      ...(track.track ? { track: track.track } : {}),
+      ...(track.disc ? { disc: track.disc } : {}),
+      ...(track.contentType ? { contentType: track.contentType } : {}),
+      starred: track.starred
+    }))
 
   const createQueueSaveRequest = (sessionId: string): SavePausedQueueRequest => {
     const entries = player.queue.map((entry) => ({
@@ -118,17 +135,7 @@ export function useDesktopIntegration(options?: {
     )
     return {
       sessionId,
-      tracks: entries.map(({ track }) => ({
-        id: track.id,
-        title: track.title,
-        artist: track.artist,
-        album: track.album,
-        duration: track.duration,
-        ...(track.track ? { track: track.track } : {}),
-        ...(track.disc ? { disc: track.disc } : {}),
-        ...(track.contentType ? { contentType: track.contentType } : {}),
-        starred: track.starred
-      })),
+      tracks: createQueueTracks(),
       currentIndex,
       playbackOrder: player.playbackOrder,
       repeatMode: player.repeatMode
@@ -140,6 +147,20 @@ export function useDesktopIntegration(options?: {
     if (!connected || readySessionId !== connected.sessionId) return false
     try {
       return await queuePersistence.flush(createQueueSaveRequest(connected.sessionId))
+    } catch {
+      return false
+    }
+  }
+
+  const refreshPlaybackQueue = async (): Promise<boolean> => {
+    const connected = session.connection
+    if (!connected || player.queue.length === 0) return false
+    try {
+      const freshTracks = await refreshQueuePlayback({
+        sessionId: connected.sessionId,
+        tracks: createQueueTracks()
+      })
+      return freshTracks ? await player.refreshQueueTracks(freshTracks) : false
     } catch {
       return false
     }
@@ -374,5 +395,5 @@ export function useDesktopIntegration(options?: {
     clearMediaActionHandlers()
   })
 
-  return { flushPausedQueue }
+  return { flushPausedQueue, refreshPlaybackQueue }
 }

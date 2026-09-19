@@ -57,6 +57,13 @@ function sameProxy(left: NetworkSettings['proxy'], right: NetworkSettings['proxy
   return left.mode === right.mode && left.manualUrl === right.manualUrl
 }
 
+function samePlayback(
+  left: NetworkSettings['playback'],
+  right: NetworkSettings['playback']
+): boolean {
+  return left.mode === right.mode && left.maxBitRate === right.maxBitRate
+}
+
 export class NetworkPolicyService {
   private settings: NetworkSettings = structuredClone(DEFAULT_SETTINGS)
   private readonly settingsPath: string
@@ -127,6 +134,7 @@ export class NetworkPolicyService {
     const next = this.normalize(NetworkSettingsSchema.parse(rawSettings))
     const previous = this.settings
     const connectionsReset = !sameProxy(previous.proxy, next.proxy)
+    const playbackChanged = !samePlayback(previous.playback, next.playback)
     if (connectionsReset) await this.applyProxy(next.proxy)
     this.settings = next
     try {
@@ -136,7 +144,7 @@ export class NetworkPolicyService {
       if (connectionsReset) await this.applyProxy(previous.proxy)
       throw error
     }
-    return { settings: this.getSettings(), connectionsReset }
+    return { settings: this.getSettings(), connectionsReset, playbackChanged }
   }
 
   private normalize(settings: NetworkSettings): NetworkSettings {

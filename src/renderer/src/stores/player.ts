@@ -30,6 +30,17 @@ function createQueueEntry(track: TrackSummary, scope: PlaybackScope): QueueEntry
   }
 }
 
+function replaceTrackPlayback(existing: TrackSummary, fresh: TrackSummary): TrackSummary {
+  const refreshed: TrackSummary = {
+    ...existing,
+    streamUrl: fresh.streamUrl,
+    playback: { ...fresh.playback }
+  }
+  if (fresh.fallbackStreamUrl) refreshed.fallbackStreamUrl = fresh.fallbackStreamUrl
+  else delete refreshed.fallbackStreamUrl
+  return refreshed
+}
+
 function shuffleIds(ids: string[]): string[] {
   const shuffled = [...ids]
   for (let index = shuffled.length - 1; index > 0; index -= 1) {
@@ -191,6 +202,61 @@ export const usePlayerStore = defineStore('player', () => {
     playbackOrder.value = restoredPlaybackOrder
     repeatMode.value = restoredRepeatMode
     await replaceQueue(tracks, startIndex, scope, false)
+  }
+
+  async function refreshQueueTracks(freshTracks: TrackSummary[]): Promise<boolean> {
+    if (
+      freshTracks.length !== queue.value.length ||
+      freshTracks.some((freshTrack, index) => freshTrack.id !== queue.value[index]?.trackId)
+    ) {
+      return false
+    }
+
+    const currentId = currentEntryId.value
+    const currentIndex = queue.value.findIndex((entry) => entry.queueEntryId === currentId)
+    const refreshedTracks = queue.value.map((entry, index) =>
+      replaceTrackPlayback(entry.track, freshTracks[index]!)
+    )
+    queue.value = queue.value.map((entry, index) =>
+      index === currentIndex ? entry : { ...entry, track: refreshedTracks[index]! }
+    )
+    if (currentIndex < 0 || !currentId) return true
+
+    const freshCurrent = refreshedTracks[currentIndex]!
+    const resumeAt = Math.floor(Math.min(Math.max(0, currentTime.value), freshCurrent.duration))
+    const shouldResume = isActivePlaybackState(state.value)
+    if (resumeAt > 0 && freshCurrent.playback.seekMode === 'unavailable') return true
+
+    let streamUrl = freshCurrent.streamUrl
+    let timelineOffset: number | undefined
+    if (resumeAt > 0 && freshCurrent.playback.seekMode === 'transcode-offset') {
+      const result = await createTranscodeSeek({
+        sessionId: queue.value[currentIndex]!.scope.sessionId,
+        trackId: freshCurrent.id,
+        timeOffset: resumeAt
+      })
+      if (currentEntryId.value !== currentId || !result.ok) return true
+      streamUrl = result.streamUrl
+      timelineOffset = result.timelineOffset
+    }
+
+    const activeEntry = entryById(currentId)
+    if (!activeEntry || activeEntry.trackId !== freshCurrent.id) return true
+    activeEntry.track = freshCurrent
+    await engine.load(
+      {
+        trackId: freshCurrent.id,
+        streamUrl,
+        ...(freshCurrent.fallbackStreamUrl
+          ? { fallbackStreamUrl: freshCurrent.fallbackStreamUrl }
+          : {}),
+        duration: freshCurrent.duration,
+        ...(timelineOffset !== undefined ? { timelineOffset } : {})
+      },
+      shouldResume
+    )
+    if (resumeAt > 0 && freshCurrent.playback.seekMode === 'native') engine.seek(resumeAt)
+    return true
   }
 
   function appendToQueue(tracks: TrackSummary[], scope: PlaybackScope): void {
@@ -420,6 +486,7 @@ export const usePlayerStore = defineStore('player', () => {
     canSeek,
     replaceQueue,
     restoreQueue,
+    refreshQueueTracks,
     appendToQueue,
     playQueueEntry,
     next,

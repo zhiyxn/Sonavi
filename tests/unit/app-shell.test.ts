@@ -91,7 +91,11 @@ function installPlatformApi(platform: 'windows' | 'macos'): SonaviApi {
         playback: { mode: 'automatic', maxBitRate: 320 },
         proxy: { mode: 'system' }
       }),
-      updateSettings: async (settings) => ({ settings, connectionsReset: false }),
+      updateSettings: async (settings) => ({
+        settings,
+        connectionsReset: false,
+        playbackChanged: false
+      }),
       listDiagnostics: async () => [],
       exportDiagnostics: async () => ({ exported: false, cancelled: true }),
       reportPlaybackBuffer: async () => undefined,
@@ -104,6 +108,7 @@ function installPlatformApi(platform: 'windows' | 'macos'): SonaviApi {
       onCommand: () => () => undefined,
       savePausedQueue: async () => true,
       restorePausedQueue: async () => null,
+      refreshQueuePlayback: async () => null,
       clearPausedQueue: async () => true,
       completeQuitPreparation: async () => true,
       getCoverCacheInfo: async () => ({ itemCount: 0, totalBytes: 0, maxBytes: 134_217_728 }),
@@ -340,7 +345,7 @@ describe('共享应用外壳', () => {
     expect(api.library.search).toHaveBeenCalledOnce()
   })
 
-  it('从搜索进入艺术家专辑时保留艺术家导航并返回艺术家详情', async () => {
+  it('从搜索进入艺术家及其专辑时保留搜索来源并逐级返回', async () => {
     const api = installPlatformApi('windows')
     api.library.listAlbums = vi.fn(api.library.listAlbums)
     api.library.getAlbum = vi.fn<SonaviApi['library']['getAlbum']>().mockResolvedValue({
@@ -383,6 +388,9 @@ describe('共享应用外壳', () => {
     await flushPromises()
     const artistsPanel = wrapper.getComponent({ name: 'ArtistsPanel' })
     expect(artistsPanel.props('selectedArtistId')).toBe('artist-1')
+    expect(artistsPanel.props('artistListEnabled')).toBe(false)
+    expect(artistsPanel.props('backLabel')).toBe('返回搜索')
+    expect(navigation('搜索').classes()).toContain('active')
     const workspace = wrapper.get('.workspace')
     expect(workspace.classes()).not.toContain('workspace-artists-list')
     workspace.element.scrollTop = 410
@@ -392,7 +400,8 @@ describe('共享应用外壳', () => {
     await flushPromises()
     expect(workspace.element.scrollTop).toBe(0)
     expect(workspace.classes()).toContain('workspace-album-detail')
-    expect(navigation('艺术家').classes()).toContain('active')
+    expect(navigation('搜索').classes()).toContain('active')
+    expect(navigation('艺术家').classes()).not.toContain('active')
     expect(navigation('专辑').classes()).not.toContain('active')
     const libraryPanel = wrapper.getComponent({ name: 'LibraryPanel' })
     expect(libraryPanel.props('backLabel')).toBe('返回艺术家详情')
@@ -404,9 +413,73 @@ describe('共享应用外壳', () => {
     await back?.trigger('click')
     await flushPromises()
     expect(wrapper.getComponent({ name: 'ArtistsPanel' }).props('selectedArtistId')).toBe('artist-1')
-    expect(navigation('艺术家').classes()).toContain('active')
+    expect(navigation('搜索').classes()).toContain('active')
     expect(workspace.element.scrollTop).toBe(410)
     expect(workspace.classes()).not.toContain('workspace-album-detail')
+
+    wrapper.getComponent({ name: 'ArtistsPanel' }).vm.$emit('update:selectedArtistId', null)
+    await flushPromises()
+    expect(wrapper.findComponent({ name: 'SearchPanel' }).exists()).toBe(true)
+    expect(navigation('搜索').classes()).toContain('active')
+  })
+
+  it('搜索与收藏的专辑详情保留来源栏目并返回原页面', async () => {
+    const api = installPlatformApi('windows')
+    api.library.getAlbum = vi.fn<SonaviApi['library']['getAlbum']>().mockResolvedValue({
+      ok: true,
+      value: {
+        id: 'album-1',
+        name: '来源专辑',
+        artist: '测试艺术家',
+        songCount: 0,
+        duration: 0,
+        starred: false,
+        tracks: []
+      }
+    })
+    const pinia = createPinia()
+    const wrapper = mount(App, { global: { plugins: [pinia, VueQueryPlugin] } })
+    await flushPromises()
+    useSessionStore(pinia).establish({
+      ok: true,
+      sessionId: '1e2d7353-9554-46a5-84fe-89b53008f01d',
+      server: {
+        baseUrl: 'https://music.example.com',
+        protocolVersion: '1.16.1',
+        serverType: 'navidrome',
+        openSubsonic: true,
+        capabilityStatus: 'available',
+        extensions: [],
+        musicFolders: []
+      },
+      credentialPersistence: 'encrypted'
+    })
+    await flushPromises()
+
+    const navigation = (label: string) =>
+      wrapper.findAll('button.nav-item').find((button) => button.text() === label)!
+    for (const [label, componentName, backLabel] of [
+      ['搜索', 'SearchPanel', '返回搜索'],
+      ['收藏', 'FavoritesPanel', '返回收藏']
+    ] as const) {
+      await navigation(label).trigger('click')
+      await flushPromises()
+      wrapper.getComponent({ name: componentName }).vm.$emit('openAlbum', 'album-1')
+      await flushPromises()
+
+      const libraryPanel = wrapper.getComponent({ name: 'LibraryPanel' })
+      expect(libraryPanel.props('selectedAlbumId')).toBe('album-1')
+      expect(libraryPanel.props('backLabel')).toBe(backLabel)
+      expect(libraryPanel.props('albumListEnabled')).toBe(false)
+      expect(navigation(label).classes()).toContain('active')
+      expect(navigation('专辑').classes()).not.toContain('active')
+
+      const back = wrapper.findAll('button').find((button) => button.text() === backLabel)
+      await back?.trigger('click')
+      await flushPromises()
+      expect(wrapper.findComponent({ name: componentName }).exists()).toBe(true)
+      expect(navigation(label).classes()).toContain('active')
+    }
   })
 
   it('首页、专辑与艺术家栏目分别保留自己的详情状态', async () => {
@@ -563,13 +636,56 @@ describe('共享应用外壳', () => {
     expect(wrapper.text()).toContain('使用已保存账号重新连接')
   })
 
-  it('保存播放设置保留当前播放，仅代理连接重置时停止播放器', async () => {
+  it('保存播放设置刷新队列播放计划，仅代理连接重置时停止播放器', async () => {
     const api = installPlatformApi('windows')
-    api.network.updateSettings = vi.fn(async (settings) => ({ settings, connectionsReset: false }))
+    api.library.listAlbums = vi.fn<SonaviApi['library']['listAlbums']>().mockResolvedValue({
+      ok: true,
+      value: { items: [], nextOffset: 30, hasMore: false }
+    })
+    api.network.updateSettings = vi.fn(async (settings) => ({
+      settings,
+      connectionsReset: false,
+      playbackChanged: true
+    }))
     const pinia = createPinia()
     const wrapper = mount(App, { global: { plugins: [pinia, VueQueryPlugin] } })
     const player = usePlayerStore(pinia)
     const stop = vi.spyOn(player, 'stop').mockImplementation(() => undefined)
+    const refreshedTrack = {
+      id: 'track-1',
+      title: '策略切换测试',
+      artist: 'Sonavi Artist',
+      album: 'Queue Album',
+      duration: 120,
+      streamUrl: 'sonavi-media://media/00000000-0000-4000-8000-000000000003',
+      playback: {
+        streamMode: 'transcode' as const,
+        seekMode: 'unavailable' as const,
+        reason: '测试兼容转码。'
+      },
+      starred: false
+    }
+    player.queue = [{
+      queueEntryId: 'queue-1',
+      trackId: refreshedTrack.id,
+      scope: {
+        sessionId: '1e2d7353-9554-46a5-84fe-89b53008f01d',
+        serverId: 'https://music.example.com',
+        accountId: '1e2d7353-9554-46a5-84fe-89b53008f01d'
+      },
+      track: {
+        ...refreshedTrack,
+        streamUrl: 'sonavi-media://media/00000000-0000-4000-8000-000000000004',
+        playback: {
+          streamMode: 'original',
+          seekMode: 'native',
+          reason: '测试原始音频。'
+        }
+      }
+    }]
+    player.currentEntryId = 'queue-1'
+    api.desktop.refreshQueuePlayback = vi.fn(async () => [refreshedTrack])
+    const refreshQueueTracks = vi.spyOn(player, 'refreshQueueTracks').mockResolvedValue(true)
 
     useSessionStore(pinia).establish({
       ok: true,
@@ -586,6 +702,7 @@ describe('共享应用外壳', () => {
       credentialPersistence: 'encrypted'
     })
     await flushPromises()
+    expect(api.library.listAlbums).toHaveBeenCalledOnce()
 
     const settingsButton = wrapper.findAll('button').find((button) => button.text() === '设置')
     await settingsButton?.trigger('click')
@@ -600,9 +717,13 @@ describe('共享应用外壳', () => {
     await flushPromises()
 
     expect(api.network.updateSettings).toHaveBeenCalledOnce()
+    expect(api.library.listAlbums).toHaveBeenCalledTimes(2)
+    expect(api.desktop.refreshQueuePlayback).toHaveBeenCalledOnce()
+    expect(refreshQueueTracks).toHaveBeenCalledWith([refreshedTrack])
+    expect(settingsPanel.text()).toContain('当前歌曲会尽量从原进度切换，否则下一曲生效')
     expect(stop).not.toHaveBeenCalled()
 
-    settingsPanel.vm.$emit('networkChanged', true)
+    settingsPanel.vm.$emit('networkChanged', true, false)
     await flushPromises()
     expect(stop).toHaveBeenCalledOnce()
   })

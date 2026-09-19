@@ -28,6 +28,7 @@ export interface NetworkSettings {
 export interface NetworkSettingsUpdateResult {
   settings: NetworkSettings
   connectionsReset: boolean
+  playbackChanged: boolean
 }
 
 export type DiagnosticStage =
