@@ -18,6 +18,7 @@ import type { PersistedWindowState } from '../services/desktop-state-service'
 export interface TrayActions {
   showWindow: () => void
   sendCommand: (command: DesktopCommand) => void
+  restart: () => void
   quit: () => void
 }
 
@@ -44,6 +45,7 @@ export function createTrayMenuTemplate(
       click: () => actions.sendCommand('next')
     },
     { type: 'separator' },
+    { label: '重启 Sonavi', click: actions.restart },
     { label: '退出 Sonavi', click: actions.quit }
   ]
 }
@@ -185,6 +187,7 @@ export class DesktopIntegrationController {
       createTrayMenuTemplate(this.playbackStatus, {
         showWindow: () => this.showWindow(),
         sendCommand: (command) => this.options.sendCommand(command),
+        restart: () => this.requestRestart(),
         quit: () => app.quit()
       })
     )

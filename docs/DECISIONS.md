@@ -384,3 +384,12 @@ renderer 只获得无参数 `restartApplication()`，不能指定可执行文件
 搜索结果按艺术家、专辑、歌曲上下排列，不再用桌面双栏改变阅读顺序。专辑与歌曲分别保存页码、渲染分页器并报告 `hasMore`；共享请求 schema 使用独立的 `albumOffset` / `trackOffset`，main 映射到公共 `search3` 的 `albumOffset` / `songOffset`，艺术家始终取 offset 0 的首批结果。
 
 两个分页仍合并为一次 `search3` 请求，避免慢服务器首屏请求翻倍。切换任一页只改变对应偏移量，另一页码保持不变；查询 key 同时包含两个页码，过期组合继续通过已有 requestId/AbortSignal 取消。没有新增 IPC 通道、私有 Navidrome API、服务器写入或权限。
+
+## D034：托盘重启复用 main 的幂等安全退出流程
+
+- 日期：2026-09-20
+- 状态：已接受
+
+Windows 托盘与 macOS 菜单栏在共享菜单模板中增加“重启 Sonavi”。该入口不通过 renderer 或 preload，也不新增任何 IPC；点击后只调用 `DesktopIntegrationController.requestRestart()`。
+
+控制器继续以 `restartRequested` 防止重复安排，调用固定的 `app.relaunch()` 后进入既有 `app.quit()` / `before-quit` 路径。因此暂停队列刷新、5 秒超时、媒体句柄释放和新进程恢复与设置页重启保持同一套逻辑。托盘菜单不接受命令、路径、参数或环境变量，不扩大进程控制权限。

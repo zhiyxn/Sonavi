@@ -39,23 +39,26 @@ describe('P09 桌面集成', () => {
     expect(quitApplication).toHaveBeenCalledOnce()
   })
 
-  it('托盘区分播放控制、显示窗口与真正退出', () => {
+  it('托盘区分播放控制、显示窗口、安全重启与真正退出', () => {
     const showWindow = vi.fn()
     const sendCommand = vi.fn()
+    const restart = vi.fn()
     const quit = vi.fn()
     const template = createTrayMenuTemplate(
       { hasTrack: true, isPlaying: true, canGoPrevious: true, canGoNext: false },
-      { showWindow, sendCommand, quit }
+      { showWindow, sendCommand, restart, quit }
     )
 
     expect(template.map((item) => item.label).filter(Boolean)).toEqual([
-      '显示 Sonavi', '暂停', '上一首', '下一首', '退出 Sonavi'
+      '显示 Sonavi', '暂停', '上一首', '下一首', '重启 Sonavi', '退出 Sonavi'
     ])
     ;(template[0]?.click as () => void)()
     ;(template[2]?.click as () => void)()
     ;(template[6]?.click as () => void)()
+    ;(template[7]?.click as () => void)()
     expect(showWindow).toHaveBeenCalledOnce()
     expect(sendCommand).toHaveBeenCalledWith('toggle-playback')
+    expect(restart).toHaveBeenCalledOnce()
     expect(quit).toHaveBeenCalledOnce()
     expect(template[4]?.enabled).toBe(false)
   })

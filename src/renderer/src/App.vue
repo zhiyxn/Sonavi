@@ -83,7 +83,7 @@ const activeAlbumPage = computed(() => {
   return 1
 })
 const albumBackLabel = computed(() => {
-  if (selectedArtistId.value) return '返回艺术家详情'
+  if (selectedArtistId.value) return '返回艺术家专辑'
   if (activeView.value === 'search') return '返回搜索'
   if (activeView.value === 'favorites') return '返回收藏'
   return '返回专辑'

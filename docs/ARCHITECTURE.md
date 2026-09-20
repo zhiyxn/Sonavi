@@ -1,6 +1,6 @@
 # Sonavi 架构
 
-更新日期：2026-09-19
+更新日期：2026-09-20
 
 ## 单工程与共享边界
 
@@ -109,7 +109,7 @@ schema v4 进一步区分响应头与正文阶段：正文中途超时时仍可�
 
 ## P09 桌面宿主、状态与缓存
 
-`DesktopIntegrationController` 保持一个强引用 BrowserWindow 和 Tray。默认关闭事件被拦截并隐藏既有窗口，因此 renderer 内唯一 AudioEngine 不会被销毁；设置为 `quit`、托盘“真正退出”或系统退出角色会进入 `app.quit()`，`before-quit` 再允许窗口关闭并释放媒体请求/句柄。最小化使用系统原生行为。macOS Dock/应用激活与托盘点击均显示并聚焦同一窗口；不存在 Windows/Mac 页面副本。
+`DesktopIntegrationController` 保持一个强引用 BrowserWindow 和 Tray。默认关闭事件被拦截并隐藏既有窗口，因此 renderer 内唯一 AudioEngine 不会被销毁；设置为 `quit`、托盘“真正退出”或系统退出角色会进入 `app.quit()`，`before-quit` 再允许窗口关闭并释放媒体请求/句柄。托盘“重启 Sonavi”则直接复用控制器的幂等 `requestRestart()`，不经 renderer，不接受命令、路径或参数。最小化使用系统原生行为。macOS Dock/应用激活与托盘点击均显示并聚焦同一窗口；不存在 Windows/Mac 页面副本。
 
 设置页重启使用独立的无参数 preload 方法。main 在校验可信发送者后让 `DesktopIntegrationController` 只安排一次 `app.relaunch()`，随后调用 `app.quit()` 进入同一 `before-quit` 路径：renderer 刷新暂停队列并回执，若 renderer 已异常则最长 5 秒后继续退出。新进程按既有加密凭据和暂停队列恢复规则启动。renderer 不能传入可执行文件、参数、路径或环境变量；若 main 自身完全无响应，该入口无法替代操作系统强制退出。
 
@@ -127,7 +127,7 @@ schema v4 进一步区分响应头与正文阶段：正文中途超时时仍可�
 | 关闭窗口（默认） | 隐藏同一窗口到托盘 | 隐藏同一窗口到菜单栏/Dock | P09 已实现；Windows 待实机 |
 | 重新激活 | 托盘点击显示既有窗口 | 菜单栏/Dock 激活显示既有窗口 | macOS Intel 已实测 |
 | 最小化 | 保留 AudioEngine | 保留 AudioEngine | 共享原生行为；需分平台人工复验 |
-| 托盘/菜单栏播放控制 | 播放/暂停/前后切歌/显示/真正退出 | 同左 | 已实现；macOS Intel 自动化覆盖宿主生命周期 |
+| 托盘/菜单栏控制 | 播放/暂停/前后切歌/显示/安全重启/真正退出 | 同左 | 已实现；重启入口待两端真机点击复验 |
 | 真正退出 | 设置关闭即退出、文件菜单或托盘退出 | 设置关闭即退出、Cmd+Q 或菜单栏退出 | 已实现；交互需分平台人工复验 |
 
 当前关闭隐藏不会重建窗口或 AudioEngine；只有真正退出才销毁宿主。若窗口因崩溃被销毁，应用不会声称仍可继续播放。

@@ -77,7 +77,7 @@ P01 的上述验收项已经完成。P02 已实现公共 Subsonic/OpenSubsonic �
 ## P09 验收范围
 
 - 默认关闭动作在两端均为隐藏同一个 BrowserWindow 并继续播放，设置可改为真正退出；最小化始终保留播放宿主。
-- Windows 托盘与 macOS 菜单栏共用“显示、播放/暂停、上一首、下一首、真正退出”能力；Dock/应用重新激活显示既有窗口，不重建 AudioEngine。
+- Windows 托盘与 macOS 菜单栏共用“显示、播放/暂停、上一首、下一首、安全重启、真正退出”能力；Dock/应用重新激活显示既有窗口，不重建 AudioEngine。
 - 系统媒体键只走 Chromium Media Session，不同时注册 Electron 全局媒体快捷键；设置快捷键按 Windows `Ctrl+,` / macOS `Cmd+,` 区分，且它与空格播放键都不截获编辑控件。
 - 锁屏/睡眠会暂停；恢复/解锁关闭旧网络连接、撤销旧媒体句柄并刷新数据，但不会绕过用户意图自动续播。
 - Electron `userData` 保存主题、音量、关闭动作、窗口状态和非敏感暂停队列元数据；队列按 main 计算的账号哈希隔离，恢复时重新生成媒体句柄并保持暂停。
@@ -105,7 +105,7 @@ UI 技术路线保留原始开发提示中的 `shadcn-vue + Tailwind CSS`，并�
 - 快捷键提示由受限平台信息驱动：Windows 为 Ctrl，macOS 为 Cmd。
 - 字体依次覆盖 Segoe UI、Microsoft YaHei UI、PingFang SC、Hiragino Sans GB、Noto Sans SC/CJK 与 system-ui。
 - 播放器使用公共协议返回的媒体类型展示当前歌曲源格式；原始播放显示“源格式 · 原始音频”，兼容转码显示“源格式 → MP3 · 兼容转码”。缺失或无法识别的类型显示“未知格式”，不得从媒体 URL、文件路径或响应正文推断。
-- 设置页提供二次确认的“重启 Sonavi”：由受限、无参数 IPC 请求 main 安排新进程，并复用真正退出前的暂停队列保存与最长 5 秒超时。该功能只在设置页和 main 仍能响应时有效，不冒充操作系统级进程看门狗。
+- 设置页提供二次确认的“重启 Sonavi”；Windows 托盘和 macOS 菜单栏提供直接的“重启 Sonavi”。两个入口均只由 main 调用同一个幂等安全重启流程，复用真正退出前的暂停队列保存与最长 5 秒超时。renderer 的设置入口仍是受限、无参数 IPC，托盘入口不经 renderer；两者都不冒充操作系统级进程看门狗。
 - P09 起两端默认关闭窗口均隐藏同一个播放宿主；Windows 从托盘、macOS 从菜单栏或 Dock 重新显示。用户可在设置中改为关闭即真正退出。
 - 最小化与隐藏不会销毁 renderer；“真正退出 Sonavi”、Windows 应用退出菜单及 macOS Cmd+Q 才终止进程与播放。
 

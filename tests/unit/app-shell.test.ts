@@ -409,12 +409,12 @@ describe('共享应用外壳', () => {
     expect(navigation('艺术家').classes()).not.toContain('active')
     expect(navigation('专辑').classes()).not.toContain('active')
     const libraryPanel = wrapper.getComponent({ name: 'LibraryPanel' })
-    expect(libraryPanel.props('backLabel')).toBe('返回艺术家详情')
+    expect(libraryPanel.props('backLabel')).toBe('返回艺术家专辑')
     expect(libraryPanel.props('albumListEnabled')).toBe(false)
     expect(libraryPanel.text()).toContain('艺术家来源专辑')
     expect(api.library.listAlbums).not.toHaveBeenCalled()
 
-    const back = wrapper.findAll('button').find((button) => button.text() === '返回艺术家详情')
+    const back = wrapper.findAll('button').find((button) => button.text() === '返回艺术家专辑')
     await back?.trigger('click')
     await flushPromises()
     expect(wrapper.getComponent({ name: 'ArtistsPanel' }).props('selectedArtistId')).toBe('artist-1')
@@ -552,7 +552,7 @@ describe('共享应用外壳', () => {
     await navigation('艺术家').trigger('click')
     await flushPromises()
     expect(wrapper.getComponent({ name: 'LibraryPanel' }).props('selectedAlbumId')).toBe('artist-album-1')
-    expect(wrapper.getComponent({ name: 'LibraryPanel' }).props('backLabel')).toBe('返回艺术家详情')
+    expect(wrapper.getComponent({ name: 'LibraryPanel' }).props('backLabel')).toBe('返回艺术家专辑')
   })
 
   it('清空缓存和断开连接均在 AlertDialog 确认后才执行', async () => {

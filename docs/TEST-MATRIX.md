@@ -109,7 +109,7 @@
 
 ## 当前工作区平台结论
 
-- Windows：修复后的源码与未签名 x64 打包应用自动化可进入人工真机矩阵；NSIS 安装、真实服务器复验、真实格式、托盘/媒体键/睡眠/长时性能仍未验证。
+- Windows：修复后的源码与未签名 x64 打包应用自动化可进入人工真机矩阵；`PLAY-12` 当前人工会话已通过，但 NSIS 安装、其他真实服务器复验、托盘/媒体键/睡眠/长时性能仍未验证。
 - macOS：当前工作区没有本轮构建或运行证据；Intel x64 与 arm64 均须在对应机器重新构建并执行同一矩阵。
 
 ---
@@ -163,7 +163,7 @@
 | B-08 | 英文元数据 | BLOCKED | BLOCKED | BLOCKED | 需真实样本 |
 | B-09 | 长标题布局 | BLOCKED | BLOCKED | BLOCKED | 需真实样本 |
 | B-10 | 无封面回退 | BLOCKED | BLOCKED | BLOCKED | 需真实样本 |
-| B-11 | 专辑详情仅滚动歌曲列表 | FAIL | BLOCKED | BLOCKED | Windows 专辑详情原为整个 workspace 滚动；已固定详情页外层并将滚动限制到可聚焦的歌曲列表，等待下一统一包真机复验 |
+| B-11 | 专辑详情仅滚动歌曲列表 | PASS | BLOCKED | BLOCKED | Windows 当前构建 `LIB-02` 复验通过；macOS 仍待实机 |
 
 ## C. 播放
 
@@ -188,7 +188,7 @@
 | C-17 | 点击播放器其他区域关闭队列 | FAIL | BLOCKED | BLOCKED | Windows 当前队列打开后点击播放器其余区域仍保持展开；已补充播放器内点击关闭规则，等待本批问题统一完成后真机复验 |
 | C-18 | 播放记录 scrobble 同步 | FAIL | BLOCKED | BLOCKED | Windows 真实服务器播放时出现“播放记录暂时未同步”；说明至少一次 now-playing 或 submission 请求失败，待读取脱敏 scrobble 诊断定位 |
 | C-19 | 播放栏显示当前歌曲封面 | FAIL | BLOCKED | BLOCKED | Windows 当前播放栏只显示音乐符号；已复用当前歌曲受限封面 URL，无封面时保留占位符，等待本批问题统一完成后真机复验 |
-| C-20 | 专辑详情返回恢复列表位置 | FAIL | BLOCKED | BLOCKED | Windows 从专辑详情返回后列表回到顶部；已保存进入详情前的 workspace 滚动位置并在返回后恢复，等待下一统一包真机复验 |
+| C-20 | 专辑详情返回恢复列表位置 | PASS | BLOCKED | BLOCKED | Windows 当前构建 `LIB-02` 复验通过；返回后恢复原页码与滚动位置 |
 
 ## D. 网络
 
@@ -222,19 +222,19 @@
 | F-04 | 关闭窗口 | NOT TESTED | BLOCKED | BLOCKED | 可先验证未连接状态的窗口策略；播放中仍依赖 C-01 |
 | F-05 | 重新打开同一宿主 | NOT TESTED | BLOCKED | BLOCKED | 可先验证未连接状态；播放中依赖 F-03/F-04 |
 | F-06 | 应用退出 | NOT TESTED | BLOCKED | BLOCKED | 可检查未连接退出与残留进程；播放停止依赖 C-01 |
-| F-07 | 重启 | NOT TESTED | BLOCKED | BLOCKED | 凭据与暂停队列恢复依赖 A-01/C-01 |
+| F-07 | 重启 | PASS | BLOCKED | BLOCKED | Windows 设置页取消/确认分支与托盘重启均通过；重启后主界面和操作恢复、真实播放正常，且只检测到一个 Sonavi 主进程；macOS 仍待实机 |
 | F-08 | 系统锁屏 | BLOCKED | BLOCKED | BLOCKED | 需用户手动锁屏并重新解锁；不自动操作认证界面 |
 | F-09 | 睡眠/唤醒 | BLOCKED | BLOCKED | BLOCKED | 需用户手动执行并恢复会话 |
-| F-10 | 页面切换恢复各自滚动位置 | FAIL | BLOCKED | BLOCKED | Windows 切到其他栏目再返回专辑等长页面后位置丢失；源码已让设置以外的页面与详情分别恢复位置，艺术家内部列表单独保持，设置每次回顶部；当前运行包不含修复，等待下一统一包真机复验 |
-| F-11 | 艺术家详情进入专辑后保留导航上下文 | FAIL | BLOCKED | BLOCKED | Windows 搜索进入艺术家详情再打开专辑时错误激活“专辑”，返回也进入专辑列表；已保留艺术家上下文并返回原艺术家详情，等待下一统一包真机复验 |
-| F-12 | 页面切换不自动重取并支持当前视图刷新 | FAIL | BLOCKED | BLOCKED | 源码已保留首页/专辑/艺术家/搜索/收藏/歌单实例和当前会话查询缓存；切换栏目不自动重取，刷新按钮只重取当前列表、分页或详情。当前运行包不含修复，等待真实服务器观察请求增量 |
+| F-10 | 页面切换恢复各自滚动位置 | PASS | BLOCKED | BLOCKED | Windows 当前构建 `LIB-07` 复验通过；六个数据页分别恢复位置，设置页回顶部 |
+| F-11 | 艺术家详情进入专辑后保留导航上下文 | PASS | BLOCKED | BLOCKED | Windows 当前构建 `LIB-06` 已通过；专辑详情按钮明确为“返回艺术家专辑”，导航目标不变；macOS 仍待实机 |
+| F-12 | 页面切换不自动重取并支持当前视图刷新 | PASS | BLOCKED | BLOCKED | Windows 当前构建 `LIB-07` 复验通过；切换栏目复用当前会话查询，刷新限于当前视图 |
 
 ## G. 平台
 
 | ID | 用例 | Windows 11 | macOS x64 | macOS arm64 | 证据/阻断原因 |
 | --- | --- | --- | --- | --- | --- |
 | G-W01 | Ctrl 快捷键 | NOT TESTED | — | — | Ctrl+, 与播放器空格键 |
-| G-W02 | 托盘 | NOT TESTED | — | — | 显示、播放/暂停、前后切歌、退出 |
+| G-W02 | 托盘 | PASS | — | — | 显示、播放/暂停、前后切歌、重启和退出；本轮重启后恢复正常 |
 | G-W03 | 任务栏 | NOT TESTED | — | — | 图标、最小化、恢复与窗口聚焦 |
 | G-W04 | 物理媒体键 | BLOCKED | — | — | 需用户按物理媒体键或提供等价硬件输入 |
 | G-W05 | 窗口状态恢复 | NOT TESTED | — | — | normal/maximized 与重新启动 |
