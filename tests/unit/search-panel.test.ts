@@ -83,4 +83,62 @@ describe('搜索面板', () => {
       expect.any(AbortSignal)
     )
   })
+
+  it('使用分页按钮请求下一页，并只展示当前页结果', async () => {
+    vi.mocked(searchLibrary).mockImplementation(async (_sessionId, _query, offset) => ({
+      artists: [],
+      albums: [],
+      tracks: [{
+        id: `track-${offset}`,
+        title: offset === 0 ? '第一页歌曲' : '第二页歌曲',
+        artist: 'Sonavi Artist',
+        album: '分页专辑',
+        duration: 180,
+        streamUrl: `sonavi-media://media/${offset === 0
+          ? '11111111-1111-4111-8111-111111111111'
+          : '22222222-2222-4222-8222-222222222222'}`,
+        playback: {
+          streamMode: 'original',
+          seekMode: 'native',
+          reason: '测试原始音频。'
+        },
+        starred: false
+      }],
+      nextOffset: offset + 25,
+      hasMore: offset === 0
+    }))
+    const wrapper = mount(SearchPanel, {
+      props: {
+        sessionId: SESSION_ID,
+        serverId: 'https://music.example.com'
+      },
+      global: {
+        plugins: [
+          createPinia(),
+          [VueQueryPlugin, {
+            queryClient: new QueryClient({ defaultOptions: { queries: { retry: false } } })
+          }]
+        ]
+      }
+    })
+
+    await wrapper.get('input[type="search"]').setValue('分页')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.text()).toContain('第一页歌曲')
+
+    await wrapper.get('[data-slot="pagination-next"]').trigger('click')
+    await flushPromises()
+
+    expect(searchLibrary).toHaveBeenLastCalledWith(
+      SESSION_ID,
+      '分页',
+      25,
+      25,
+      expect.any(AbortSignal)
+    )
+    expect(wrapper.text()).toContain('第二页歌曲')
+    expect(wrapper.text()).not.toContain('第一页歌曲')
+    expect(wrapper.text()).toContain('第 2 页')
+  })
 })

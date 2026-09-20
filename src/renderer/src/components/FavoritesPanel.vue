@@ -106,7 +106,10 @@ function appendTrack(track: TrackSummary): void {
           <article v-for="album in starredQuery.data.value.albums" :key="album.id" class="entity-row">
             <button type="button" class="entity-main" @click="emit('openAlbum', album.id)">
               <strong>{{ album.name }}</strong>
-              <small>{{ album.artist }}</small>
+              <small class="album-card-meta">
+                <span class="album-card-meta-name">{{ album.artist }}</span>
+                <span class="album-card-song-count">{{ album.songCount }} 首歌曲</span>
+              </small>
             </button>
             <Button
               variant="ghost"

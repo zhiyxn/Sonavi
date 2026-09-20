@@ -295,7 +295,7 @@ function appendTrack(track: TrackSummary): void {
           v-for="album in albums"
           :key="album.id"
           type="button"
-          class="group min-w-0 rounded-2xl border border-sonavi-border bg-sonavi-raised p-3 text-left transition hover:-translate-y-0.5 hover:border-sonavi-accent"
+          class="album-card group"
           @click="openAlbum(album)"
         >
           <img
@@ -309,7 +309,10 @@ function appendTrack(track: TrackSummary): void {
           />
           <div v-else class="aspect-square rounded-xl bg-sonavi-border" aria-hidden="true" />
           <strong class="mt-3 block truncate">{{ album.name }}</strong>
-          <span class="block truncate text-xs text-sonavi-muted">{{ album.artist }}</span>
+          <small class="album-card-meta">
+            <span class="album-card-meta-name">{{ album.artist }}</span>
+            <span class="album-card-song-count">{{ album.songCount }} 首歌曲</span>
+          </small>
         </button>
       </div>
       <div v-if="albums.length > 0" class="mt-8 space-y-3">

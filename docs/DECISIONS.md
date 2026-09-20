@@ -355,3 +355,12 @@ API 诊断升级为 schema v4。若请求已收到响应头但正文读取超时
 renderer 只获得无参数 `restartApplication()`，不能指定可执行文件、命令行参数、工作目录、环境变量、延迟或目标进程。main IPC 先执行既有可信 BrowserWindow/main frame/origin 校验，再由 `DesktopIntegrationController` 幂等安排一次 Electron `app.relaunch()` 并调用 `app.quit()`。
 
 重启不建立第二套清理逻辑。`app.quit()` 继续触发现有 `before-quit`：renderer 刷新暂停队列并回执，main 最长等待 5 秒后结束旧进程；媒体协议、媒体句柄和桌面集成仍在 `will-quit` 释放。这样 renderer 正常时保留最新暂停队列，renderer 异常时也不会无限等待。此入口依赖设置页和 main 尚能响应，不是操作系统级 watchdog；main 完全卡死时仍需由用户通过系统强制退出。
+
+## D031：搜索结果使用显式分页并优先暴露歌曲区
+
+- 日期：2026-09-20
+- 状态：已接受
+
+搜索不再通过 IntersectionObserver 累积历史页。`search3` 继续让艺术家、专辑和歌曲共享同一受限 offset/size，每页最多 25 条同类结果；renderer 使用项目持有的 shadcn-vue Pagination，查询 key 加入当前页，翻页只替换当前页数据。公共响应没有总数，因此分页器与专辑列表一样只展示已确认页和下一可用页，不猜测总页数。
+
+桌面宽度下歌曲区与艺术家/专辑发现区从同一垂直起点并排，窄屏时歌曲区优先显示，避免大量专辑把歌曲推到长页面底部。所有专辑列表直接展示既有、受校验的 `AlbumSummary.songCount`；不为数量另发请求，也不新增 IPC、权限或私有 Navidrome API。

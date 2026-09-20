@@ -163,7 +163,10 @@ function refreshCurrentView(): void {
             />
             <span v-else class="album-cover-placeholder" aria-hidden="true" />
             <strong>{{ album.name }}</strong>
-            <small>{{ album.year ?? '年份未知' }}</small>
+            <small class="album-card-meta">
+              <span class="album-card-meta-name">{{ album.year ?? '年份未知' }}</span>
+              <span class="album-card-song-count">{{ album.songCount }} 首歌曲</span>
+            </small>
           </button>
         </div>
       </div>

@@ -796,10 +796,40 @@ try {
   await window.getByRole('button', { name: /石与琥珀/ }).first().click()
   await window.getByRole('heading', { name: '专辑详情' }).waitFor()
   await window.getByRole('button', { name: '搜索', exact: true }).click()
-  await window.getByPlaceholder('搜索艺术家、专辑或歌曲').fill('跨平台')
-  await window.locator('.search-form').getByRole('button', { name: '搜索', exact: true }).click()
+  const searchInput = window.getByPlaceholder('搜索艺术家、专辑或歌曲')
+  const searchSubmit = window.locator('.search-form').getByRole('button', { name: '搜索', exact: true })
+  await searchInput.fill('跨平台')
+  const [searchInputBox, searchSubmitBox] = await Promise.all([
+    searchInput.boundingBox(),
+    searchSubmit.boundingBox()
+  ])
+  if (
+    !searchInputBox ||
+    !searchSubmitBox ||
+    Math.abs(searchInputBox.y - searchSubmitBox.y) > 1 ||
+    Math.abs(searchInputBox.height - searchSubmitBox.height) > 1
+  ) {
+    throw new Error('搜索框与搜索按钮未对齐')
+  }
+  await searchSubmit.click()
+  await window.getByText('“跨平台”的搜索结果', { exact: true }).waitFor()
+  await window.getByText('第 1 页 · 1 位艺术家 · 1 张专辑 · 1 首歌曲', { exact: true }).waitFor()
+  const albumResults = window.getByRole('region', { name: '专辑' })
+  await albumResults
+    .getByText('Sonavi Fixture · 3 首歌曲', { exact: true })
+    .waitFor()
   const songResults = window.getByRole('region', { name: '歌曲' })
   await songResults.getByText('跨平台试音', { exact: true }).waitFor()
+  const [discoveryResultsBox, songResultsBox] = await Promise.all([
+    window.locator('.search-discovery-column').boundingBox(),
+    songResults.boundingBox()
+  ])
+  if (!discoveryResultsBox || !songResultsBox || Math.abs(discoveryResultsBox.y - songResultsBox.y) > 1) {
+    throw new Error('桌面宽度下歌曲结果未与艺术家/专辑结果并排展示')
+  }
+  if (!(await window.getByRole('button', { name: '下一页', exact: true }).isDisabled())) {
+    throw new Error('单页搜索结果的下一页按钮没有禁用')
+  }
   await electronApplication.evaluate(({ BrowserWindow }) => {
     BrowserWindow.getAllWindows()[0]?.setSize(960, 640)
   })
