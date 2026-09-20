@@ -132,10 +132,10 @@
 ## P12 当前环境
 
 - Windows：Windows NT 10.0.26200 x64（Windows 11 25H2 内核版本）；当前本地桌面可用于 Windows 真机测试。
-- macOS Intel x64：`BLOCKED`——当前没有可控制的 macOS Intel 实机。
+- macOS Intel x64：可用；当前版本实机烟测、菜单栏安全重启及 x64 DMG 安装/播放已由用户确认未发现问题，未逐项执行的用例仍分别保留原状态。
 - macOS Apple Silicon arm64：`BLOCKED`——当前没有可控制的 Apple Silicon 实机。
-- 真实 Navidrome：等待用户在 Sonavi UI 内输入凭据；文档不记录地址、账号或密码。
-- 安装包：P12 将区分源码应用与未签名 Windows 测试包；未经用户授权不发布、上传或修改 Release。
+- 真实 Navidrome：Windows 与 macOS Intel 已用于人工播放验证；文档不记录地址、账号或密码。
+- 安装包：用户已确认 Windows EXE 与 macOS x64 DMG 能正常安装、播放和卸载，卸载后的账号/设置数据保留也未发现问题；未提供本轮文件哈希或构建提交，因此不将该证据外推为最新源码安装包验证。未经用户授权不发布、上传或修改 Release。
 
 ## A. 登录
 
@@ -222,7 +222,7 @@
 | F-04 | 关闭窗口 | NOT TESTED | BLOCKED | BLOCKED | 可先验证未连接状态的窗口策略；播放中仍依赖 C-01 |
 | F-05 | 重新打开同一宿主 | NOT TESTED | BLOCKED | BLOCKED | 可先验证未连接状态；播放中依赖 F-03/F-04 |
 | F-06 | 应用退出 | NOT TESTED | BLOCKED | BLOCKED | 可检查未连接退出与残留进程；播放停止依赖 C-01 |
-| F-07 | 重启 | PASS | BLOCKED | BLOCKED | Windows 设置页取消/确认分支与托盘重启均通过；重启后主界面和操作恢复、真实播放正常，且只检测到一个 Sonavi 主进程；macOS 仍待实机 |
+| F-07 | 重启 | PASS | PASS | BLOCKED | Windows 设置页/托盘与 macOS Intel 菜单栏安全重启均由真机确认；账号、暂停队列、单实例及主界面恢复未发现问题。macOS arm64 无实机，保持未验证 |
 | F-08 | 系统锁屏 | BLOCKED | BLOCKED | BLOCKED | 需用户手动锁屏并重新解锁；不自动操作认证界面 |
 | F-09 | 睡眠/唤醒 | BLOCKED | BLOCKED | BLOCKED | 需用户手动执行并恢复会话 |
 | F-10 | 页面切换恢复各自滚动位置 | PASS | BLOCKED | BLOCKED | Windows 当前构建 `LIB-07` 复验通过；六个数据页分别恢复位置，设置页回顶部 |
@@ -238,13 +238,13 @@
 | G-W03 | 任务栏 | NOT TESTED | — | — | 图标、最小化、恢复与窗口聚焦 |
 | G-W04 | 物理媒体键 | BLOCKED | — | — | 需用户按物理媒体键或提供等价硬件输入 |
 | G-W05 | 窗口状态恢复 | NOT TESTED | — | — | normal/maximized 与重新启动 |
-| G-W06 | 未签名测试包 | BLOCKED | — | — | `fe5b07a` 本机构建/包验证通过并启动进程；等待人工确认窗口、图标和真实 UI，不绕过 SmartScreen |
+| G-W06 | 未签名测试包 | PASS | — | — | 用户确认 Windows EXE 能正常安装、启动、真实播放和卸载，账号/设置数据保留未发现问题；未记录凭据，未外推签名或最新提交打包结论 |
 | G-M01 | Cmd 快捷键 | — | BLOCKED | BLOCKED | 当前无 macOS 实机 |
 | G-M02 | Dock | — | BLOCKED | BLOCKED | 当前无 macOS 实机 |
 | G-M03 | 系统菜单 | — | BLOCKED | BLOCKED | 当前无 macOS 实机 |
 | G-M04 | 媒体控制 | — | BLOCKED | BLOCKED | 当前无 macOS 实机 |
 | G-M05 | 窗口隐藏/恢复 | — | BLOCKED | BLOCKED | 当前无 macOS 实机 |
-| G-M06 | x64 原生运行 | — | BLOCKED | — | 当前无 Intel Mac |
+| G-M06 | x64 原生运行 | — | PASS | — | 用户确认 macOS Intel 真机安装 x64 DMG 后可正常启动、真实播放和卸载，账号/设置数据保留未发现问题；未外推签名、公证或最新提交打包结论 |
 | G-M07 | arm64 原生运行（可用时） | — | — | BLOCKED | 当前无 Apple Silicon Mac |
 | G-C01 | 页面栏目标题无重复伪序号 | FAIL | BLOCKED | BLOCKED | Windows 确认多个页面重复显示 03/05/06 且无功能含义；已统一移除所有页面编号，等待本批问题统一完成后真机复验 |
 | G-C02 | 可用按钮显示点击光标 | FAIL | BLOCKED | BLOCKED | Windows 可点击按钮未统一显示小手；已增加全局可用/禁用按钮光标规则，等待本批问题统一完成后真机复验 |
