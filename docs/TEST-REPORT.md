@@ -640,3 +640,14 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - macOS Intel 重启复验：用户明确确认菜单栏“重启 Sonavi”未发现问题；单实例、加密账号、暂停队列与主界面恢复通过，`LIFE-06` / F-07 记为 `PASS`。
 - 安装包人工验证：用户确认 Windows EXE（NSIS 安装程序）与 macOS x64 DMG 均能正常安装、启动、真实播放并卸载，账号/设置数据保留未发现问题，对应 G-W06 / G-M06 记为 `PASS`。本轮没有取得安装包文件名、哈希或构建提交，因此不能证明它们包含最新 `main`，也不外推签名/公证、图标或完整桌面集成。
 - 未验证：macOS arm64 真机仍需验证。用户没有 Apple Silicon 实机，因此 arm64 保持“未验证”；本轮未生成或发布新安装包。
+
+## v0.1.0-rc.5 发布前验证（2026-09-20）
+
+- 版本与发布输入：`package.json` / lockfile 为 `0.1.0-rc.5`；`SONAVI_RELEASE_TAG=v0.1.0-rc.5 node scripts/prepare-release.mjs validate-tag` 通过。
+- `npm run lint`：通过，0 warning。
+- `npm run typecheck`：node、web、test 三组通过。
+- `npm test`：32 文件/194 项通过。
+- `npm run build`：通过；只有既有 Zod PURE 注释位置提示。
+- 本机源码 E2E：清理并重新下载官方 Electron 44.3.0 Windows 运行时后，当前桌面会话仍在 renderer 启动阶段出现 Playwright `Target crashed`，因此本地结果记为失败，不以此前通过记录覆盖。该现象没有在用户已完成的 Windows EXE 与 macOS x64 DMG 安装、启动、播放、重启和卸载人工验证中复现。
+- 发布闸门：`v0.1.0-rc.5` 标签将由 GitHub Windows x64、macOS Intel x64 与 macOS arm64 原生 runner 重新执行 lint、typecheck、测试、依赖审计、源码 E2E、安装包构建、包验证和打包应用 E2E；任一 job 失败则不会创建 Pre-release。
+- 当前结论：允许把提交推入受门禁保护的候选发布流程，但在 release workflow 全部通过且附件核对完成前，不宣称 `v0.1.0-rc.5` 已发布或三个目标自动验证通过。macOS arm64 实机继续标为未验证。

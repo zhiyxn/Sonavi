@@ -245,3 +245,12 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 - macOS Intel 菜单栏安全重启已由用户明确确认未发现问题：单实例、加密账号、暂停队列与主界面恢复通过，`LIFE-06` / F-07 在 macOS Intel 记为 `PASS`。
 - 用户确认 Windows EXE（NSIS 安装程序）与 macOS x64 DMG 均能正常安装、启动、真实播放并卸载，账号/设置数据保留未发现问题。未提供本轮文件哈希或构建提交，因此该证据不外推为最新 `main` 安装包、签名/公证或完整桌面集成通过。
 - 下一入口可补齐 Windows 安装/卸载细项与 macOS x64 图标/Dock 细项；P19 的搜索/收藏失败单请求证据可在慢服务再次复现时补取。arm64 继续依赖 CI 构建证据并等待未来实机运行验收。
+
+## v0.1.0-rc.5 发布准备（2026-09-20）
+
+- 用户明确授权发布 GitHub Pre-release；既有标签保持不变，新候选使用 `v0.1.0-rc.5`。
+- `README.md` 已改为下载、功能、未签名安装提示、平台验证状态和文档入口；内部开发阶段与命令保留在 `docs/`，不再占据下载页主体。
+- 新增标准 MIT `LICENSE`，`package.json` 与 lockfile 的 license 字段同步为 `MIT`。
+- 候选说明位于 `docs/RELEASE-NOTES-v0.1.0-rc.5.md`，明确三种目标安装包、人工证据、arm64 实机未验证及未签名/未公证风险。
+- Node.js 22.19.0 下 lint、typecheck、32 文件/194 项测试、生产构建与 `validate-tag` 通过。本机重新安装 Electron 44.3.0 后，源码 E2E 仍在当前 Windows 桌面会话出现 renderer `Target crashed`；真实 Windows/macOS Intel 安装播放证据未发现对应问题。标签触发后由三个干净原生 runner 重新执行完整源码与打包应用 E2E，任一失败都会阻止创建 Release。
+- 下一入口：提交并推送发布准备，再推送 `v0.1.0-rc.5`；等待 release workflow 完成后核对 Pre-release 状态和七个附件，并把实际 run 与 Release 地址回写文档。
