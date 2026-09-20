@@ -59,7 +59,8 @@ export async function getArtist(sessionId: string, artistId: string): Promise<Ar
 export async function searchLibrary(
   sessionId: string,
   query: string,
-  offset: number,
+  albumOffset: number,
+  trackOffset: number,
   size: number,
   signal?: AbortSignal
 ): Promise<SearchResultPage> {
@@ -72,7 +73,14 @@ export async function searchLibrary(
   try {
     if (signal?.aborted) throw new DOMException('Search cancelled', 'AbortError')
     const result = SearchResultSchema.parse(
-      await window.sonavi.library.search({ sessionId, requestId, query, offset, size })
+      await window.sonavi.library.search({
+        sessionId,
+        requestId,
+        query,
+        albumOffset,
+        trackOffset,
+        size
+      })
     )
     if (signal?.aborted) throw new DOMException('Search cancelled', 'AbortError')
     return unwrap(result)

@@ -176,6 +176,7 @@ export class MediaProtocolService {
 
     const abortController = new AbortController()
     const startedAt = performance.now()
+    let upstreamStartedAt: number | undefined
     const diagnosticStage =
       handle.kind === 'cover'
         ? 'cover'
@@ -198,6 +199,14 @@ export class MediaProtocolService {
         ...(status ? { status } : {}),
         ...(contentType ? { contentType } : {}),
         ...(error !== undefined ? { error } : {}),
+        ...(handle.kind === 'cover'
+          ? {
+              queueMs: Math.max(0, Math.round((upstreamStartedAt ?? performance.now()) - startedAt)),
+              ...(upstreamStartedAt !== undefined
+                ? { upstreamMs: Math.max(0, Math.round(performance.now() - upstreamStartedAt)) }
+                : {})
+            }
+          : {}),
         errorCategory
       })
     const sessionRequests = this.activeRequests.get(handle.sessionId) ?? new Set<AbortController>()
@@ -251,6 +260,7 @@ export class MediaProtocolService {
         settle('cancelled')
         return errorResponse(502, 'Upstream cover request cancelled')
       }
+      upstreamStartedAt = performance.now()
     }
 
     let upstream: Response

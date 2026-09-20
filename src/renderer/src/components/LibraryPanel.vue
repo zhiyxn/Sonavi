@@ -7,6 +7,7 @@ import { useErrorToast } from '../lib/notifications'
 import { getAlbum, listAlbums } from '../services/library'
 import { usePlayerStore } from '../stores/player'
 import { Button } from './ui/button'
+import DeferredCoverImage from './DeferredCoverImage.vue'
 import {
   Pagination,
   PaginationContent,
@@ -298,14 +299,12 @@ function appendTrack(track: TrackSummary): void {
           class="album-card group"
           @click="openAlbum(album)"
         >
-          <img
+          <DeferredCoverImage
             v-if="album.coverUrl"
             :src="album.coverUrl"
             :alt="`${album.name} 封面`"
-            loading="lazy"
-            decoding="async"
-            fetchpriority="low"
-            class="aspect-square w-full rounded-xl bg-sonavi-border object-cover"
+            image-class="aspect-square w-full rounded-xl bg-sonavi-border object-cover"
+            placeholder-class="aspect-square rounded-xl bg-sonavi-border"
           />
           <div v-else class="aspect-square rounded-xl bg-sonavi-border" aria-hidden="true" />
           <strong class="mt-3 block truncate">{{ album.name }}</strong>

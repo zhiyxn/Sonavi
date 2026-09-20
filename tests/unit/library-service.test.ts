@@ -15,7 +15,7 @@ describe('LibraryService 搜索生命周期', () => {
     const search3 = vi.fn(
       (...parameters: Parameters<OpenSubsonicClient['search3']>) =>
         new Promise<Awaited<ReturnType<OpenSubsonicClient['search3']>>>((_resolve, reject) => {
-          const signal = parameters[6]
+          const signal = parameters[7]
           signal?.addEventListener(
             'abort',
             () => reject(new DOMException('Search cancelled', 'AbortError')),
@@ -43,7 +43,7 @@ describe('LibraryService 搜索生命周期', () => {
       new MediaHandleRegistry()
     )
     const requestId = '813489b6-8df7-4708-98ae-8dc3b7b14d22'
-    const pending = service.search(SESSION_ID, requestId, '跨平台', 0, 25)
+    const pending = service.search(SESSION_ID, requestId, '跨平台', 0, 0, 25)
 
     await started
     expect(service.cancelSearch('c6593ec1-803d-4a66-98a4-71730047c6f4', requestId)).toBe(false)
@@ -54,6 +54,63 @@ describe('LibraryService 搜索生命周期', () => {
       error: { code: 'network', retryable: true }
     })
     expect(service.cancelSearch(SESSION_ID, requestId)).toBe(false)
+  })
+
+  it('分别传递专辑与歌曲偏移量并返回各自的下一页状态', async () => {
+    const search3 = vi.fn().mockResolvedValue({
+      artists: [],
+      albums: [
+        { id: 'album-1', name: '专辑一', artist: 'Sonavi', songCount: 1, duration: 60, starred: false },
+        { id: 'album-2', name: '专辑二', artist: 'Sonavi', songCount: 1, duration: 60, starred: false }
+      ],
+      tracks: [
+        { id: 'track-1', title: '歌曲一', artist: 'Sonavi', album: '专辑一', duration: 60, starred: false }
+      ]
+    })
+    const connectionService = {
+      getSession: (sessionId: string) => sessionId === SESSION_ID
+        ? {
+            sessionId,
+            credential: {
+              serverUrl: 'https://music.example.com',
+              username: 'listener',
+              password: 'secret'
+            }
+          }
+        : null
+    } as unknown as ConnectionService
+    const service = new LibraryService(
+      connectionService,
+      { search3 } as unknown as OpenSubsonicClient,
+      new MediaHandleRegistry()
+    )
+
+    await expect(service.search(
+      SESSION_ID,
+      '813489b6-8df7-4708-98ae-8dc3b7b14d22',
+      '分页',
+      25,
+      50,
+      2
+    )).resolves.toMatchObject({
+      ok: true,
+      value: {
+        albumNextOffset: 27,
+        trackNextOffset: 52,
+        albumHasMore: true,
+        trackHasMore: false
+      }
+    })
+    expect(search3).toHaveBeenCalledWith(
+      'https://music.example.com',
+      'listener',
+      'secret',
+      '分页',
+      25,
+      50,
+      2,
+      expect.any(AbortSignal)
+    )
   })
 })
 

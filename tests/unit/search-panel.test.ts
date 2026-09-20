@@ -21,8 +21,10 @@ describe('搜索面板', () => {
       artists: [],
       albums: [],
       tracks: [],
-      nextOffset: 25,
-      hasMore: false
+      albumNextOffset: 25,
+      trackNextOffset: 25,
+      albumHasMore: false,
+      trackHasMore: false
     })
     const wrapper = mount(SearchPanel, {
       props: {
@@ -52,6 +54,7 @@ describe('搜索面板', () => {
       SESSION_ID,
       '第一首歌',
       0,
+      0,
       25,
       expect.any(AbortSignal)
     )
@@ -67,6 +70,7 @@ describe('搜索面板', () => {
       SESSION_ID,
       '第二首歌',
       0,
+      0,
       25,
       expect.any(AbortSignal)
     )
@@ -79,22 +83,35 @@ describe('搜索面板', () => {
       SESSION_ID,
       '第二首歌',
       0,
+      0,
       25,
       expect.any(AbortSignal)
     )
   })
 
-  it('使用分页按钮请求下一页，并只展示当前页结果', async () => {
-    vi.mocked(searchLibrary).mockImplementation(async (_sessionId, _query, offset) => ({
+  it('纵向排列结果，并用两个分页分别控制专辑与歌曲', async () => {
+    vi.mocked(searchLibrary).mockImplementation(async (
+      _sessionId,
+      _query,
+      albumOffset,
+      trackOffset
+    ) => ({
       artists: [],
-      albums: [],
+      albums: [{
+        id: `album-${albumOffset}`,
+        name: albumOffset === 0 ? '第一页专辑' : '第二页专辑',
+        artist: 'Sonavi Artist',
+        songCount: 1,
+        duration: 180,
+        starred: false
+      }],
       tracks: [{
-        id: `track-${offset}`,
-        title: offset === 0 ? '第一页歌曲' : '第二页歌曲',
+        id: `track-${trackOffset}`,
+        title: trackOffset === 0 ? '第一页歌曲' : '第二页歌曲',
         artist: 'Sonavi Artist',
         album: '分页专辑',
         duration: 180,
-        streamUrl: `sonavi-media://media/${offset === 0
+        streamUrl: `sonavi-media://media/${trackOffset === 0
           ? '11111111-1111-4111-8111-111111111111'
           : '22222222-2222-4222-8222-222222222222'}`,
         playback: {
@@ -104,8 +121,10 @@ describe('搜索面板', () => {
         },
         starred: false
       }],
-      nextOffset: offset + 25,
-      hasMore: offset === 0
+      albumNextOffset: albumOffset + 25,
+      trackNextOffset: trackOffset + 25,
+      albumHasMore: albumOffset === 0,
+      trackHasMore: trackOffset === 0
     }))
     const wrapper = mount(SearchPanel, {
       props: {
@@ -125,9 +144,32 @@ describe('搜索面板', () => {
     await wrapper.get('input[type="search"]').setValue('分页')
     await wrapper.get('form').trigger('submit')
     await flushPromises()
+    expect(wrapper.text()).toContain('第一页专辑')
+    expect(wrapper.text()).toContain('第一页歌曲')
+    expect(wrapper.findAll('[data-testid="search-albums"], [data-testid="search-tracks"]')
+      .map((section) => section.attributes('data-testid'))).toEqual([
+      'search-albums',
+      'search-tracks'
+    ])
+
+    await wrapper.get('[data-testid="search-albums-pagination"] [data-slot="pagination-next"]')
+      .trigger('click')
+    await flushPromises()
+
+    expect(searchLibrary).toHaveBeenLastCalledWith(
+      SESSION_ID,
+      '分页',
+      25,
+      0,
+      25,
+      expect.any(AbortSignal)
+    )
+    expect(wrapper.text()).toContain('第二页专辑')
+    expect(wrapper.text()).not.toContain('第一页专辑')
     expect(wrapper.text()).toContain('第一页歌曲')
 
-    await wrapper.get('[data-slot="pagination-next"]').trigger('click')
+    await wrapper.get('[data-testid="search-tracks-pagination"] [data-slot="pagination-next"]')
+      .trigger('click')
     await flushPromises()
 
     expect(searchLibrary).toHaveBeenLastCalledWith(
@@ -135,10 +177,38 @@ describe('搜索面板', () => {
       '分页',
       25,
       25,
+      25,
       expect.any(AbortSignal)
     )
     expect(wrapper.text()).toContain('第二页歌曲')
     expect(wrapper.text()).not.toContain('第一页歌曲')
-    expect(wrapper.text()).toContain('第 2 页')
+    expect(wrapper.text()).toContain('专辑第 2 页')
+    expect(wrapper.text()).toContain('歌曲第 2 页')
+  })
+
+  it('搜索失败时不执行默认自动重试，只保留用户重试入口', async () => {
+    vi.mocked(searchLibrary).mockRejectedValue(new Error('正文读取超时'))
+    const wrapper = mount(SearchPanel, {
+      props: {
+        sessionId: SESSION_ID,
+        serverId: 'https://music.example.com'
+      },
+      global: {
+        plugins: [
+          createPinia(),
+          [VueQueryPlugin, {
+            queryClient: new QueryClient({
+              defaultOptions: { queries: { retry: 3, retryDelay: 0 } }
+            })
+          }]
+        ]
+      }
+    })
+
+    await wrapper.get('input[type="search"]').setValue('超时测试')
+    await wrapper.get('form').trigger('submit')
+    await vi.waitFor(() => expect(wrapper.find('[role="alert"]').exists()).toBe(true))
+
+    expect(searchLibrary).toHaveBeenCalledTimes(1)
   })
 })

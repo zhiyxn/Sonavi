@@ -95,6 +95,8 @@ onBeforeUnmount(() => resizeObserver?.disconnect())
           :src="row.artist.coverUrl"
           :alt="`${row.artist.name} 封面`"
           loading="lazy"
+          decoding="async"
+          fetchpriority="low"
         />
         <span v-else class="artist-monogram" aria-hidden="true">
           {{ row.artist.name.trim().slice(0, 1).toLocaleUpperCase() || '·' }}

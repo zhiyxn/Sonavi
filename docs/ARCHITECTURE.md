@@ -51,7 +51,7 @@ P02 的连接客户端位于 `src/main/services/opensubsonic/`，使用 Electron
 
 统一 `CredentialStore` 位于 `src/main/services/credentials/`，只在 app ready 后调用 Electron 44 的异步 safeStorage。持久化文件放在 `app.getPath('userData')`，通过同目录临时密文文件替换保存；密码字段只写入系统加密密文。加密或写入失败时保留 main 进程会话凭据并明确返回 `session-only`，不回退明文。启动时可解密恢复，safeStorage 请求密钥轮换时先重加密；“退出并忘记账号”显式删除持久化文件。
 
-P03 的 `MediaHandleRegistry` 只向 renderer 返回不透明的 `sonavi-media://media/<token>`。token 由进程内随机 AES-256-GCM 密钥认证加密，携带媒体类型、会话、资源 ID、原始/转码策略、码率、可选时间偏移和会话 epoch；renderer 仍看不到上游地址或认证参数。该无状态设计不会因大库浏览淘汰队列句柄，也不为每个句柄保留 Map 项；断开、忘记账号、代理切换与退出通过递增 epoch 或轮换密钥使旧 token 整体失效。自定义 scheme 在 app ready 前注册为 standard/secure/fetch/stream，但不启用 bypassCSP；处理器在 default Session 上注册。main 根据当前会话解析句柄并重新生成认证 URL，拒绝超长/篡改 token、重定向、非法/多段 Range、非媒体内容类型与非 200/206/416 响应。音频响应体始终以保留背压的 Web Stream 传递，不调用 `arrayBuffer()`、不做 Base64 IPC；P09 只有带已知 Content-Length 且不超过 5 MiB 的图片响应可被有界缓冲并写入封面缓存。
+P03 的 `MediaHandleRegistry` 只向 renderer 返回不透明的 `sonavi-media://media/<token>`。token 由进程内随机 AES-256-GCM 密钥认证加密，携带媒体类型、会话、资源 ID、原始/转码策略、码率、可选时间偏移和会话 epoch；renderer 仍看不到上游地址或认证参数。音频句柄继续无状态，不会因大库浏览淘汰队列句柄；封面为减少同一资源在多个列表中的重复浏览器请求，按会话最多复用 10,000 个 token，超过上限只淘汰复用索引而不使已签发 token 失效。断开、忘记账号、代理切换与退出清空复用索引，并通过递增 epoch 或轮换密钥使旧 token 整体失效。自定义 scheme 在 app ready 前注册为 standard/secure/fetch/stream，但不启用 bypassCSP；处理器在 default Session 上注册。main 根据当前会话解析句柄并重新生成认证 URL，拒绝超长/篡改 token、重定向、非法/多段 Range、非媒体内容类型与非 200/206/416 响应。音频响应体始终以保留背压的 Web Stream 传递，不调用 `arrayBuffer()`、不做 Base64 IPC；P09 只有带已知 Content-Length 且不超过 5 MiB 的图片响应可被有界缓冲并写入封面缓存。
 
 ## P04 播放核心
 
@@ -65,7 +65,7 @@ P09 将非敏感队列元数据保存到 main 的 `desktop-state.v1.json`，不�
 
 首页与全部专辑共用 `LibraryPanel.vue`，仅以受限的 `AlbumListType` 区分 `newest` 和 `alphabeticalByName`；查询 key 包含 session、类型与页码，每页请求 30 张。renderer 使用项目持有的 shadcn-vue Pagination 源码显示页码、上一页和下一页；由于公共响应只有 `hasMore` 而没有总数，控件只公布已知页和下一可用页，不猜测远端总量。首页与专辑页分别在应用外壳保存当前页。艺术家列表使用 `getArtists` 的协议索引，但 renderer 只挂载固定行高可见窗口和 overscan；艺术家详情通过 `getArtist` 复用同一专辑卡片语义。首页、全部专辑、艺术家详情、搜索和收藏直接显示共享 `AlbumSummary.songCount`，该值沿用既有 main 解析与共享 schema 校验，不增加 renderer 侧请求或协议旁路。
 
-搜索只调用公共 `search3`，艺术家、专辑和歌曲使用相同 offset/size，每页最多 25 条同类结果。`SearchPanel` 的查询 key 包含 session、已提交关键词和页码；shadcn-vue Pagination 根据公共响应的 `hasMore` 只公布已知页和下一可用页，翻页替换当前结果而不在 DOM 中累积历史页。输入与已提交关键词分离，只有按 Enter 或点击搜索按钮才更新查询；TanStack Query 为每个查询提供 AbortSignal。renderer 生成随机 requestId，通过固定 `cancel-search` preload 方法请求 main 中止对应 AbortController。main 同时校验 sessionId/requestId，断开或轮换账号时取消该会话的全部活动搜索。宽屏布局将歌曲区与艺术家/专辑发现区并排，窄屏把歌曲区置前；搜索结果只返回纯文本元数据及随机媒体句柄，不允许 renderer 访问任意 URL。
+搜索只调用公共 `search3`。请求结构分别携带受限的 `albumOffset` 与 `trackOffset`，main 映射为协议的 `albumOffset` / `songOffset`；艺术家固定使用 offset 0，三类 count 均最多 25。`SearchPanel` 的查询 key 包含 session、已提交关键词、专辑页和歌曲页；两个 shadcn-vue Pagination 分别依据 `albumHasMore` / `trackHasMore` 只公布已知页和下一可用页，翻页替换对应当前页而不在 DOM 中累积历史页。结果按艺术家、专辑、歌曲上下排列。输入与已提交关键词分离，只有按 Enter 或点击搜索按钮才更新查询；TanStack Query 为每个查询提供 AbortSignal，并对搜索与收藏读取明确设置 `retry: false`，避免一次 12 秒超时被默认放大为四次请求。renderer 生成随机 requestId，通过固定 `cancel-search` preload 方法请求 main 中止对应 AbortController。main 同时校验 sessionId/requestId 和两个偏移量，断开或轮换账号时取消该会话的全部活动搜索。搜索结果只返回纯文本元数据及随机媒体句柄，不允许 renderer 访问任意 URL。
 
 完整艺术家索引仍使用公共 `getArtists` 和独立 16 MiB 上限，但真实大库按端点使用一次 45 秒有界超时；renderer 关闭该查询的自动重试，仅由用户明确刷新。其他 API 保持 12 秒超时，避免慢艺术家端点扩大所有请求的等待边界。
 
@@ -103,7 +103,9 @@ API、封面和音频都使用 `session.defaultSession`，由 `NetworkPolicyServ
 
 `NetworkDiagnosticRecorder` 在 main 内维护最多 200 条结构化记录，阶段限定为 API、封面、原始音频、转码音频和播放缓冲。AudioEngine 的 `waiting` / `stalled` 状态经独立控制器收敛为一次 `buffer-start` 与一次 `buffer-end`；结束记录包含持续毫秒数，重复事件不产生重复开始。缓冲 IPC 不传 queueEntryId、trackId、URL、会话或任意文本。其余记录只含代理模式、HTTP 状态、内容类型、错误分类、耗时和建议；URL、账号、token/salt、代理地址、资源 ID 与响应正文从不进入记录。导出由 main 的保存对话框完成并限制在 256 KiB。证书错误只给出解释和建议，不关闭 TLS 校验。
 
-schema v4 进一步区分响应头与正文阶段：正文中途超时时仍可保留状态码、内容类型、响应头耗时和已读字节数。AudioEngine 连续缓冲 30 秒会释放旧宿主；player 仅对可保持时间线的网络流错误或缓冲超时自动恢复一次，第二次失败回到显式手动重试。
+schema v4 进一步区分响应头与正文阶段：正文中途超时时仍可保留状态码、内容类型、响应头耗时和已读字节数。schema v5 为封面增加 `queueMs` 与 `upstreamMs`，从总耗时中分别识别六并发调度等待与实际上游读取；字段仅为受限毫秒数，不含资源身份。已收到响应头后的 API 正文超时会返回专门的用户提示与诊断建议，不再误报为完全未收到服务器响应。AudioEngine 连续缓冲 30 秒会释放旧宿主；player 仅对可保持时间线的网络流错误或缓冲超时自动恢复一次，第二次失败回到显式手动重试。
+
+列表中的 `DeferredCoverImage.vue` 只在元素进入视口外 240px 预加载区时才挂载真实 `<img>`；组件停用或卸载时断开观察并移除图片节点，使 Chromium 能取消尚未完成的等待请求。可见请求继续受 main 的全局六并发槽位和封面缓存约束；播放器及详情主封面不延迟，避免影响当前播放身份与详情首屏。
 
 ## P09 桌面宿主、状态与缓存
 

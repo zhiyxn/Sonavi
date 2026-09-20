@@ -316,7 +316,8 @@ export class LibraryService {
     sessionId: string,
     requestId: string,
     query: string,
-    offset: number,
+    albumOffset: number,
+    trackOffset: number,
     size: number
   ): Promise<LibraryResult<SearchResultPage>> {
     const session = this.connectionService.getSession(sessionId)
@@ -333,7 +334,8 @@ export class LibraryService {
         username,
         password,
         query,
-        offset,
+        albumOffset,
+        trackOffset,
         size,
         controller.signal
       )
@@ -343,11 +345,10 @@ export class LibraryService {
           artists: result.artists.map((artist) => this.withArtistCover(sessionId, artist)),
           albums: result.albums.map((album) => this.withAlbumCover(sessionId, album)),
           tracks: result.tracks.map((track) => this.withTrackHandles(sessionId, track)),
-          nextOffset: offset + size,
-          hasMore:
-            result.artists.length === size ||
-            result.albums.length === size ||
-            result.tracks.length === size
+          albumNextOffset: albumOffset + size,
+          trackNextOffset: trackOffset + size,
+          albumHasMore: result.albums.length === size,
+          trackHasMore: result.tracks.length === size
         }
       }
     } catch (error) {

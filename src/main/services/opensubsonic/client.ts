@@ -24,6 +24,7 @@ import {
   type EndpointParameters
 } from './request-url'
 import {
+  ResponseBodyTimeoutError,
   ResponseLimitError,
   type ApiRequestOptions,
   type ApiTransport,
@@ -189,6 +190,13 @@ function errorText(error: unknown): string {
 }
 
 function classifyNetworkError(error: unknown, didTimeout: boolean): ConnectionFailure {
+  if (error instanceof ResponseBodyTimeoutError) {
+    return new ConnectionFailure(
+      'timeout',
+      '服务器已返回响应头，但正文读取超时；请检查服务器负载与反向代理响应缓冲。',
+      true
+    )
+  }
   if (didTimeout || errorText(error).includes('abort')) {
     return new ConnectionFailure('timeout', '服务器响应超时，请检查地址与网络。', true)
   }
@@ -515,10 +523,11 @@ export class OpenSubsonicClient {
     username: string,
     password: string,
     query: string,
-    offset: number,
+    albumOffset: number,
+    trackOffset: number,
     size: number,
     signal?: AbortSignal
-  ): Promise<Omit<SearchResultPage, 'nextOffset' | 'hasMore' | 'artists' | 'albums' | 'tracks'> & {
+  ): Promise<Omit<SearchResultPage, 'albumNextOffset' | 'trackNextOffset' | 'albumHasMore' | 'trackHasMore' | 'artists' | 'albums' | 'tracks'> & {
     artists: ArtistWithCover[]
     albums: AlbumWithCover[]
     tracks: TrackWithCover[]
@@ -531,11 +540,11 @@ export class OpenSubsonicClient {
       {
         query,
         artistCount: size,
-        artistOffset: offset,
+        artistOffset: 0,
         albumCount: size,
-        albumOffset: offset,
+        albumOffset,
         songCount: size,
-        songOffset: offset
+        songOffset: trackOffset
       },
       signal
     )

@@ -50,6 +50,8 @@ export const NetworkDiagnosticEntrySchema = z.object({
   contentType: z.string().max(200).optional(),
   responseHeadersMs: z.number().int().min(0).max(3_600_000).optional(),
   responseBytes: z.number().int().min(0).max(32 * 1024 * 1024).optional(),
+  queueMs: z.number().int().min(0).max(3_600_000).optional(),
+  upstreamMs: z.number().int().min(0).max(3_600_000).optional(),
   errorCategory: z.enum([
     'none',
     'network',

@@ -38,6 +38,13 @@ export class ResponseLimitError extends Error {
   }
 }
 
+export class ResponseBodyTimeoutError extends Error {
+  constructor(cause: unknown) {
+    super('response headers received but body read timed out', { cause })
+    this.name = 'ResponseBodyTimeoutError'
+  }
+}
+
 async function readLimitedBody(
   response: Response,
   maxResponseBytes: number,
@@ -139,6 +146,11 @@ export class ElectronSessionTransport implements ApiTransport {
         body
       }
     } catch (error) {
+      const abort = options.describeAbort?.()
+      const errorCategory =
+        error instanceof ResponseLimitError
+          ? 'unexpected-content'
+          : classifyNetworkError(error, abort)
       this.diagnostics?.record({
         stage: 'api',
         proxyMode: this.getProxyMode(),
@@ -151,11 +163,11 @@ export class ElectronSessionTransport implements ApiTransport {
         ...(responseHeadersMs !== undefined ? { responseHeadersMs } : {}),
         responseBytes,
         error,
-        errorCategory:
-          error instanceof ResponseLimitError
-            ? 'unexpected-content'
-            : classifyNetworkError(error, options.describeAbort?.())
+        errorCategory
       })
+      if (errorCategory === 'timeout' && responseHeadersMs !== undefined) {
+        throw new ResponseBodyTimeoutError(error)
+      }
       throw error
     }
   }

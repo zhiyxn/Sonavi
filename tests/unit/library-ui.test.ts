@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SonaviApi } from '../../src/shared/application'
 import type { ArtistSummary, CancelSearchRequest } from '../../src/shared/library'
 import ArtistsPanel from '../../src/renderer/src/components/ArtistsPanel.vue'
+import DeferredCoverImage from '../../src/renderer/src/components/DeferredCoverImage.vue'
 import LibraryPanel from '../../src/renderer/src/components/LibraryPanel.vue'
 import VirtualArtistList from '../../src/renderer/src/components/VirtualArtistList.vue'
 import { searchLibrary } from '../../src/renderer/src/services/library'
@@ -232,10 +233,9 @@ describe('P05 音乐库界面', () => {
     await flushPromises()
     workspace.scrollTop = 640
 
-    expect(wrapper.get('img').attributes()).toMatchObject({
-      loading: 'lazy',
-      decoding: 'async',
-      fetchpriority: 'low'
+    expect(wrapper.getComponent(DeferredCoverImage).props()).toMatchObject({
+      imageClass: 'aspect-square w-full rounded-xl bg-sonavi-border object-cover',
+      placeholderClass: 'aspect-square rounded-xl bg-sonavi-border'
     })
 
     const album = wrapper.findAll('button').find((button) => button.text().includes('恢复位置专辑'))
@@ -437,7 +437,15 @@ describe('P05 音乐库界面', () => {
           finishSearch = () =>
             resolve({
               ok: true,
-              value: { artists: [], albums: [], tracks: [], nextOffset: 25, hasMore: false }
+              value: {
+                artists: [],
+                albums: [],
+                tracks: [],
+                albumNextOffset: 25,
+                trackNextOffset: 25,
+                albumHasMore: false,
+                trackHasMore: false
+              }
             })
         })
     )
@@ -454,6 +462,7 @@ describe('P05 音乐库界面', () => {
     const pending = searchLibrary(
       SESSION_ID,
       '跨平台',
+      0,
       0,
       25,
       controller.signal

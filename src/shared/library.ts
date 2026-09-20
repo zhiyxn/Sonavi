@@ -89,7 +89,8 @@ export interface SearchRequest {
   sessionId: string
   requestId: string
   query: string
-  offset: number
+  albumOffset: number
+  trackOffset: number
   size: number
 }
 
@@ -102,8 +103,10 @@ export interface SearchResultPage {
   artists: ArtistSummary[]
   albums: AlbumSummary[]
   tracks: TrackSummary[]
-  nextOffset: number
-  hasMore: boolean
+  albumNextOffset: number
+  trackNextOffset: number
+  albumHasMore: boolean
+  trackHasMore: boolean
 }
 
 export type StarTargetType = 'track' | 'album' | 'artist'

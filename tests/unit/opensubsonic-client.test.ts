@@ -166,7 +166,10 @@ describe('OpenSubsonicClient', () => {
       .then(() => null, (error: unknown) => error)
 
     await vi.advanceTimersByTimeAsync(45_000)
-    await expect(request).resolves.toMatchObject({ code: 'timeout' })
+    await expect(request).resolves.toMatchObject({
+      code: 'timeout',
+      message: expect.stringContaining('正文读取超时')
+    })
     expect(recorder.list()[0]).toMatchObject({
       operation: 'getArtists',
       status: 200,
@@ -401,7 +404,7 @@ describe('OpenSubsonicClient', () => {
       client.getArtist('https://music.example.com', 'listener', 'secret', '9')
     ).resolves.toMatchObject({ id: '9', albums: [{ id: '10', name: '跨平台' }] })
     await expect(
-      client.search3('https://music.example.com', 'listener', 'secret', '声波', 25, 25)
+      client.search3('https://music.example.com', 'listener', 'secret', '声波', 25, 50, 25)
     ).resolves.toMatchObject({
       artists: [{ id: '9' }],
       albums: [{ id: '10' }],
@@ -410,9 +413,10 @@ describe('OpenSubsonicClient', () => {
 
     const searchUrl = new URL(transport.requestedUrls[2] ?? '')
     expect(searchUrl.searchParams.get('query')).toBe('声波')
-    expect(searchUrl.searchParams.get('artistOffset')).toBe('25')
+    expect(searchUrl.searchParams.get('artistOffset')).toBe('0')
+    expect(searchUrl.searchParams.get('albumOffset')).toBe('25')
     expect(searchUrl.searchParams.get('albumCount')).toBe('25')
-    expect(searchUrl.searchParams.get('songOffset')).toBe('25')
+    expect(searchUrl.searchParams.get('songOffset')).toBe('50')
   })
 
   it('读取结构化与旧版歌词，并按协议发送播放上报', async () => {
@@ -770,6 +774,7 @@ describe('OpenSubsonicClient', () => {
       'listener',
       'secret',
       'sonavi',
+      0,
       0,
       10,
       controller.signal

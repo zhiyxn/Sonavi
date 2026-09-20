@@ -95,7 +95,7 @@ describe('P08 连接诊断', () => {
     expect(redactDiagnosticText('plain message')).toBe('plain message')
   })
 
-  it('白名单化查询上下文与响应阶段数字，并导出第四版结构', () => {
+  it('白名单化查询上下文与响应阶段数字，并导出第五版结构', () => {
     const recorder = new NetworkDiagnosticRecorder()
     recorder.record({
       stage: 'api',
@@ -108,6 +108,8 @@ describe('P08 连接诊断', () => {
       contentType: 'application/json',
       responseHeadersMs: 245,
       responseBytes: 8_192,
+      queueMs: 120,
+      upstreamMs: 340,
       errorCategory: 'none'
     })
     recorder.record({
@@ -123,13 +125,15 @@ describe('P08 连接诊断', () => {
     expect(recorder.list()[1]).toMatchObject({
       requestContext: 'listType=newest,page=1,size=30',
       responseHeadersMs: 245,
-      responseBytes: 8_192
+      responseBytes: 8_192,
+      queueMs: 120,
+      upstreamMs: 340
     })
     expect(recorder.exportText()).not.toContain('do-not-record')
-    expect(JSON.parse(recorder.exportText())).toMatchObject({ schemaVersion: 4 })
+    expect(JSON.parse(recorder.exportText())).toMatchObject({ schemaVersion: 5 })
   })
 
-  it('裁剪超大诊断导出时仍保持第四版结构', () => {
+  it('裁剪超大诊断导出时仍保持第五版结构', () => {
     const recorder = new NetworkDiagnosticRecorder()
     for (let index = 0; index < 200; index += 1) {
       recorder.record({
@@ -145,9 +149,25 @@ describe('P08 连接诊断', () => {
 
     const exported = recorder.exportText()
     const parsed = JSON.parse(exported) as { schemaVersion: number; entries: unknown[] }
-    expect(parsed.schemaVersion).toBe(4)
+    expect(parsed.schemaVersion).toBe(5)
     expect(parsed.entries).toHaveLength(100)
     expect(Buffer.byteLength(exported, 'utf8')).toBeLessThanOrEqual(256 * 1024)
+  })
+
+  it('收到响应头后的正文超时给出准确建议', () => {
+    const recorder = new NetworkDiagnosticRecorder()
+    recorder.record({
+      stage: 'api',
+      proxyMode: 'system',
+      startedAt: performance.now() - 12_000,
+      status: 200,
+      responseHeadersMs: 2_000,
+      responseBytes: 0,
+      errorCategory: 'timeout'
+    })
+
+    expect(recorder.list()[0]?.recommendation).toContain('已收到响应头')
+    expect(recorder.list()[0]?.recommendation).toContain('正文读取超时')
   })
 
   it('缓冲事件只记录事件类型与持续时间，并拒绝身份字段', () => {

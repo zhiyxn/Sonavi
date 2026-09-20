@@ -116,6 +116,8 @@ export interface DiagnosticRecordInput {
   contentType?: string | undefined
   responseHeadersMs?: number | undefined
   responseBytes?: number | undefined
+  queueMs?: number | undefined
+  upstreamMs?: number | undefined
   errorCategory: DiagnosticErrorCategory
   error?: unknown
   durationMs?: number | undefined
@@ -145,6 +147,12 @@ export class NetworkDiagnosticRecorder {
       ...(input.responseBytes !== undefined
         ? { responseBytes: Math.min(32 * 1024 * 1024, Math.max(0, Math.round(input.responseBytes))) }
         : {}),
+      ...(input.queueMs !== undefined
+        ? { queueMs: Math.min(3_600_000, Math.max(0, Math.round(input.queueMs))) }
+        : {}),
+      ...(input.upstreamMs !== undefined
+        ? { upstreamMs: Math.min(3_600_000, Math.max(0, Math.round(input.upstreamMs))) }
+        : {}),
       errorCategory: input.errorCategory,
       ...describeError(input.error),
       durationMs:
@@ -152,7 +160,9 @@ export class NetworkDiagnosticRecorder {
           ? Math.max(0, Math.round(performance.now() - input.startedAt))
           : Math.min(3_600_000, Math.max(0, Math.round(input.durationMs))),
       recommendation:
-        input.event === 'buffer-start'
+        input.errorCategory === 'timeout' && input.responseHeadersMs !== undefined
+          ? '已收到响应头，但正文读取超时；请检查反向代理响应缓冲、上游读取与服务器负载。'
+          : input.event === 'buffer-start'
           ? '播放器进入缓冲；等待对应的 buffer-end 记录持续时间。'
           : input.event === 'buffer-end'
             ? '播放器已退出缓冲；请结合持续时间与相邻音频流记录判断链路稳定性。'
@@ -169,7 +179,7 @@ export class NetworkDiagnosticRecorder {
   exportText(): string {
     const payload = JSON.stringify(
       {
-        schemaVersion: 4,
+        schemaVersion: 5,
         generatedAt: new Date().toISOString(),
         redaction:
           'URL、账号、凭据、token、资源 ID 与响应正文未被记录；缓冲日志只包含事件、持续时间，端点名、白名单查询上下文与错误文本在写入前已脱敏。',
@@ -182,7 +192,7 @@ export class NetworkDiagnosticRecorder {
       ? payload
       : JSON.stringify(
           {
-            schemaVersion: 4,
+            schemaVersion: 5,
             generatedAt: new Date().toISOString(),
             redaction:
               'URL、账号、凭据、token、资源 ID 与响应正文未被记录；缓冲日志只包含事件、持续时间，端点名、白名单查询上下文与错误文本在写入前已脱敏。',

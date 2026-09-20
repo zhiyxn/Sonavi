@@ -70,6 +70,18 @@ describe('sonavi-media 协议', () => {
     expect(registry.resolve(`sonavi-media://media/${'a'.repeat(4_097)}`)).toBeNull()
   })
 
+  it('同一会话与资源复用封面句柄，避免重复浏览器请求', () => {
+    const registry = new MediaHandleRegistry()
+    const sessionId = '9f73bd9a-acde-4f0f-a3f6-3ddff7d09342'
+
+    const first = registry.create({ sessionId, kind: 'cover', resourceId: 'shared-cover' })
+    const second = registry.create({ sessionId, kind: 'cover', resourceId: 'shared-cover' })
+
+    expect(second).toBe(first)
+    expect(registry.revokeSession(sessionId)).toBe(1)
+    expect(registry.resolve(first)).toBeNull()
+  })
+
   it('转码跳转接受加密句柄并保留流参数', () => {
     const registry = new MediaHandleRegistry()
     const streamUrl = registry.create({
@@ -233,6 +245,38 @@ describe('sonavi-media 协议', () => {
 
     await expect(Promise.all(requests)).resolves.toHaveLength(12)
     expect(peakActive).toBe(MAX_CONCURRENT_COVER_FETCHES)
+  })
+
+  it('封面诊断分别记录排队与上游耗时', async () => {
+    const { service, sessionId } = await connectedService()
+    const registry = new MediaHandleRegistry()
+    const diagnostics = new NetworkDiagnosticRecorder()
+    const mediaUrl = registry.create({ sessionId, kind: 'cover', resourceId: 'timed-cover' })
+    const coverCache = {
+      get: async () => null,
+      canStore: () => true,
+      getMaxItemBytes: () => 1024,
+      put: async () => undefined
+    } as unknown as CoverCacheService
+    const protocol = new MediaProtocolService(
+      service,
+      registry,
+      async () => new Response(new Uint8Array([1]), {
+        headers: { 'content-type': 'image/png', 'content-length': '1' }
+      }),
+      diagnostics,
+      undefined,
+      coverCache
+    )
+
+    await protocol.handle(new Request(mediaUrl))
+
+    expect(diagnostics.list()[0]).toMatchObject({
+      stage: 'cover',
+      queueMs: expect.any(Number),
+      upstreamMs: expect.any(Number),
+      errorCategory: 'none'
+    })
   })
 
   it.each([

@@ -304,8 +304,10 @@ describe('共享应用外壳', () => {
         artists: [],
         albums: [],
         tracks: [],
-        nextOffset: 25,
-        hasMore: false
+        albumNextOffset: 25,
+        trackNextOffset: 25,
+        albumHasMore: false,
+        trackHasMore: false
       }
     })
     const pinia = createPinia()

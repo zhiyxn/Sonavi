@@ -813,22 +813,47 @@ try {
   }
   await searchSubmit.click()
   await window.getByText('“跨平台”的搜索结果', { exact: true }).waitFor()
-  await window.getByText('第 1 页 · 1 位艺术家 · 1 张专辑 · 1 首歌曲', { exact: true }).waitFor()
-  const albumResults = window.getByRole('region', { name: '专辑' })
-  await albumResults
-    .getByText('Sonavi Fixture · 3 首歌曲', { exact: true })
+  await window
+    .getByText('1 位艺术家 · 专辑第 1 页（1 张） · 歌曲第 1 页（1 首）', { exact: true })
     .waitFor()
+  const albumResults = window.getByRole('region', { name: '专辑' })
+  await albumResults.getByText('Sonavi Fixture', { exact: true }).waitFor()
+  await albumResults.getByText('3 首歌曲', { exact: true }).waitFor()
   const songResults = window.getByRole('region', { name: '歌曲' })
   await songResults.getByText('跨平台试音', { exact: true }).waitFor()
   const [discoveryResultsBox, songResultsBox] = await Promise.all([
     window.locator('.search-discovery-column').boundingBox(),
     songResults.boundingBox()
   ])
-  if (!discoveryResultsBox || !songResultsBox || Math.abs(discoveryResultsBox.y - songResultsBox.y) > 1) {
-    throw new Error('桌面宽度下歌曲结果未与艺术家/专辑结果并排展示')
+  if (
+    !discoveryResultsBox ||
+    !songResultsBox ||
+    songResultsBox.y < discoveryResultsBox.y + discoveryResultsBox.height - 1
+  ) {
+    throw new Error('搜索结果未按艺术家、专辑、歌曲上下排列')
   }
-  if (!(await window.getByRole('button', { name: '下一页', exact: true }).isDisabled())) {
-    throw new Error('单页搜索结果的下一页按钮没有禁用')
+  const [albumNextDisabled, trackNextDisabled] = await Promise.all([
+    window.getByRole('button', { name: '专辑下一页', exact: true }).isDisabled(),
+    window.getByRole('button', { name: '歌曲下一页', exact: true }).isDisabled()
+  ])
+  if (!albumNextDisabled || !trackNextDisabled) {
+    throw new Error('单页搜索结果的独立下一页按钮没有禁用')
+  }
+  const [albumGridBox, albumPaginationBox, trackListBox, trackPaginationBox] = await Promise.all([
+    albumResults.locator('.search-album-grid').boundingBox(),
+    albumResults.locator('[data-testid="search-albums-pagination"]').boundingBox(),
+    songResults.locator('.track-results').boundingBox(),
+    songResults.locator('[data-testid="search-tracks-pagination"]').boundingBox()
+  ])
+  if (
+    !albumGridBox ||
+    !albumPaginationBox ||
+    !trackListBox ||
+    !trackPaginationBox ||
+    albumPaginationBox.y - (albumGridBox.y + albumGridBox.height) < 19 ||
+    trackPaginationBox.y - (trackListBox.y + trackListBox.height) < 19
+  ) {
+    throw new Error('搜索结果内容与独立分页器的垂直间距不足 20px')
   }
   await electronApplication.evaluate(({ BrowserWindow }) => {
     BrowserWindow.getAllWindows()[0]?.setSize(960, 640)
@@ -956,6 +981,20 @@ try {
     .getByText(/getAlbumList2 · listType=newest,page=1,size=30 · 第 1 次/)
     .first()
     .waitFor()
+  const coverTimingDiagnostic = await window.evaluate(async () => {
+    const entries = await window.sonavi.network.listDiagnostics()
+    const cover = entries.find((entry) => entry.operation === 'getCoverArt')
+    return cover
+      ? { queueMs: cover.queueMs, upstreamMs: cover.upstreamMs }
+      : null
+  })
+  if (
+    !coverTimingDiagnostic ||
+    typeof coverTimingDiagnostic.queueMs !== 'number' ||
+    typeof coverTimingDiagnostic.upstreamMs !== 'number'
+  ) {
+    throw new Error('封面诊断未分别记录排队与上游耗时')
+  }
   await window.getByText(/scrobble ·/).first().waitFor()
   await chooseSelectOption(window, '关闭窗口时', '隐藏窗口并继续播放（默认）')
   await chooseSelectOption(window, '外观', '深色')

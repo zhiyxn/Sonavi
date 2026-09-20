@@ -70,6 +70,10 @@ export interface NetworkDiagnosticEntry {
   responseHeadersMs?: number | undefined
   /** 已读取的响应正文字节数；不保存正文内容。 */
   responseBytes?: number | undefined
+  /** 进入封面调度器到取得并发槽位的毫秒数。 */
+  queueMs?: number | undefined
+  /** 取得调度槽位后等待并读取上游响应的毫秒数。 */
+  upstreamMs?: number | undefined
   errorCategory: DiagnosticErrorCategory
   errorName?: string | undefined
   errorDetail?: string | undefined

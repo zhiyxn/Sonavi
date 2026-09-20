@@ -162,8 +162,10 @@ describe('专辑列表元数据与搜索布局', () => {
         },
         starred: false
       }],
-      nextOffset: 25,
-      hasMore: false
+      albumNextOffset: 25,
+      trackNextOffset: 25,
+      albumHasMore: false,
+      trackHasMore: false
     })
 
     const wrapper = mount(SearchPanel, {
@@ -175,8 +177,8 @@ describe('专辑列表元数据与搜索布局', () => {
     await flushPromises()
 
     expect(wrapper.get('[data-testid="search-result-summary"]').text()).toContain('1 位艺术家')
-    expect(wrapper.get('[data-testid="search-result-summary"]').text()).toContain('1 张专辑')
-    expect(wrapper.get('[data-testid="search-result-summary"]').text()).toContain('1 首歌曲')
+    expect(wrapper.get('[data-testid="search-result-summary"]').text()).toContain('专辑第 1 页（1 张）')
+    expect(wrapper.get('[data-testid="search-result-summary"]').text()).toContain('歌曲第 1 页（1 首）')
     expect(wrapper.find('.search-results-layout').exists()).toBe(true)
     expect(wrapper.find('[data-slot="pagination-next"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="search-albums"] .album-card').text()).toContain('9 首歌曲')

@@ -20,7 +20,8 @@ const starredQuery = useQuery({
   staleTime: Number.POSITIVE_INFINITY,
   gcTime: Number.POSITIVE_INFINITY,
   refetchOnMount: false,
-  refetchOnWindowFocus: false
+  refetchOnWindowFocus: false,
+  retry: false
 })
 const { pendingKey, toggleStarred } = useStarredMutation(() => props.sessionId)
 

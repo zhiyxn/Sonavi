@@ -6,6 +6,7 @@ import { useStarredMutation } from '../composables/use-starred-mutation'
 import { useErrorToast } from '../lib/notifications'
 import { getArtist, listArtists } from '../services/library'
 import { Button } from './ui/button'
+import DeferredCoverImage from './DeferredCoverImage.vue'
 import VirtualArtistList from './VirtualArtistList.vue'
 
 const props = withDefaults(defineProps<{
@@ -155,11 +156,12 @@ function refreshCurrentView(): void {
             class="album-card"
             @click="emit('openAlbum', album.id)"
           >
-            <img
+            <DeferredCoverImage
               v-if="album.coverUrl"
               :src="album.coverUrl"
               :alt="`${album.name} 封面`"
-              loading="lazy"
+              image-class="album-cover-image"
+              placeholder-class="album-cover-placeholder"
             />
             <span v-else class="album-cover-placeholder" aria-hidden="true" />
             <strong>{{ album.name }}</strong>

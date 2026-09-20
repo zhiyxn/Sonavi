@@ -99,6 +99,34 @@ describe('P06 收藏与歌单界面', () => {
     })
   })
 
+  it('收藏读取失败时不执行默认自动重试，只保留用户重试入口', async () => {
+    const listStarred = vi.fn<SonaviApi['library']['listStarred']>().mockResolvedValue({
+      ok: false,
+      error: { code: 'network', message: '收藏正文读取超时', retryable: true }
+    })
+    Object.defineProperty(window, 'sonavi', {
+      configurable: true,
+      value: { library: { listStarred } } as unknown as SonaviApi
+    })
+    const wrapper = mount(FavoritesPanel, {
+      props: { sessionId: SESSION_ID, serverId: 'https://music.example.com' },
+      global: {
+        plugins: [
+          createPinia(),
+          [VueQueryPlugin, {
+            queryClient: new QueryClient({
+              defaultOptions: { queries: { retry: 3, retryDelay: 0 } }
+            })
+          }]
+        ]
+      }
+    })
+
+    await vi.waitFor(() => expect(wrapper.text()).toContain('收藏正文读取超时'))
+
+    expect(listStarred).toHaveBeenCalledTimes(1)
+  })
+
   it('创建空歌单并等待服务器列表刷新', async () => {
     const listPlaylists = vi.fn<SonaviApi['library']['listPlaylists']>().mockResolvedValue({
       ok: true,

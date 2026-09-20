@@ -39,7 +39,8 @@ export const SearchRequestSchema = z.object({
   sessionId: SessionIdSchema,
   requestId: RequestIdSchema,
   query: z.string().trim().min(1).max(200),
-  offset: z.number().int().min(0).max(10_000_000),
+  albumOffset: z.number().int().min(0).max(10_000_000),
+  trackOffset: z.number().int().min(0).max(10_000_000),
   size: z.number().int().min(1).max(50)
 }) satisfies z.ZodType<SearchRequest>
 
@@ -110,8 +111,10 @@ export const SearchResultPageSchema = z.object({
   artists: z.array(ArtistSummarySchema),
   albums: z.array(AlbumSummarySchema),
   tracks: AlbumDetailSchema.shape.tracks,
-  nextOffset: z.number().int().nonnegative(),
-  hasMore: z.boolean()
+  albumNextOffset: z.number().int().nonnegative(),
+  trackNextOffset: z.number().int().nonnegative(),
+  albumHasMore: z.boolean(),
+  trackHasMore: z.boolean()
 }) satisfies z.ZodType<SearchResultPage>
 
 export const SetStarredRequestSchema = z.object({

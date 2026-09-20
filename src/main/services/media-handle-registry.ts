@@ -24,6 +24,7 @@ type EncryptedMediaHandle = MediaHandle & { epoch: number }
 const IV_BYTES = 12
 const AUTH_TAG_BYTES = 16
 const MAX_TOKEN_CHARACTERS = 4_096
+const MAX_REUSED_COVER_HANDLES_PER_SESSION = 10_000
 
 function isMediaHandle(value: unknown): value is EncryptedMediaHandle {
   if (!value || typeof value !== 'object') return false
@@ -57,8 +58,13 @@ export class MediaHandleRegistry {
   private encryptionKey = randomBytes(32)
   private readonly sessionEpochs = new Map<string, number>()
   private readonly issuedCounts = new Map<string, number>()
+  private readonly coverUrls = new Map<string, Map<string, string>>()
 
   create(handle: MediaHandle): string {
+    if (handle.kind === 'cover') {
+      const existing = this.coverUrls.get(handle.sessionId)?.get(handle.resourceId)
+      if (existing) return existing
+    }
     const epoch = this.sessionEpochs.get(handle.sessionId) ?? 0
     const iv = randomBytes(IV_BYTES)
     const cipher = createCipheriv('aes-256-gcm', this.encryptionKey, iv)
@@ -68,7 +74,17 @@ export class MediaHandleRegistry {
     ])
     const token = Buffer.concat([iv, cipher.getAuthTag(), encrypted]).toString('base64url')
     this.issuedCounts.set(handle.sessionId, (this.issuedCounts.get(handle.sessionId) ?? 0) + 1)
-    return `sonavi-media://media/${token}`
+    const url = `sonavi-media://media/${token}`
+    if (handle.kind === 'cover') {
+      const sessionCovers = this.coverUrls.get(handle.sessionId) ?? new Map<string, string>()
+      sessionCovers.set(handle.resourceId, url)
+      if (sessionCovers.size > MAX_REUSED_COVER_HANDLES_PER_SESSION) {
+        const oldestResourceId = sessionCovers.keys().next().value
+        if (oldestResourceId !== undefined) sessionCovers.delete(oldestResourceId)
+      }
+      this.coverUrls.set(handle.sessionId, sessionCovers)
+    }
+    return url
   }
 
   resolve(rawUrl: string): MediaHandle | null {
@@ -121,6 +137,7 @@ export class MediaHandleRegistry {
   revokeSession(sessionId: string): number {
     const revoked = this.issuedCounts.get(sessionId) ?? 0
     this.issuedCounts.delete(sessionId)
+    this.coverUrls.delete(sessionId)
     this.sessionEpochs.set(sessionId, (this.sessionEpochs.get(sessionId) ?? 0) + 1)
     return revoked
   }
@@ -129,5 +146,6 @@ export class MediaHandleRegistry {
     this.encryptionKey = randomBytes(32)
     this.sessionEpochs.clear()
     this.issuedCounts.clear()
+    this.coverUrls.clear()
   }
 }
