@@ -650,4 +650,7 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - `npm run build`：通过；只有既有 Zod PURE 注释位置提示。
 - 本机源码 E2E：清理并重新下载官方 Electron 44.3.0 Windows 运行时后，当前桌面会话仍在 renderer 启动阶段出现 Playwright `Target crashed`，因此本地结果记为失败，不以此前通过记录覆盖。该现象没有在用户已完成的 Windows EXE 与 macOS x64 DMG 安装、启动、播放、重启和卸载人工验证中复现。
 - 发布闸门：`v0.1.0-rc.5` 标签将由 GitHub Windows x64、macOS Intel x64 与 macOS arm64 原生 runner 重新执行 lint、typecheck、测试、依赖审计、源码 E2E、安装包构建、包验证和打包应用 E2E；任一 job 失败则不会创建 Pre-release。
-- 当前结论：允许把提交推入受门禁保护的候选发布流程，但在 release workflow 全部通过且附件核对完成前，不宣称 `v0.1.0-rc.5` 已发布或三个目标自动验证通过。macOS arm64 实机继续标为未验证。
+- Release 结果：run `35517541553` 的三个原生 release gate 与发布 job 全部通过；`v0.1.0-rc.5` 已创建为非草稿、非 Latest 的 Pre-release，共七个附件：三个安装包、三个 manifest 与 610 字节的 `SHA256SUMS.txt`。地址：`https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.5`。
+- 同提交 main run `35517517625`：Windows x64 与 macOS arm64 通过，macOS Intel 打包应用冒烟失败。失败文件显示测试预期“跨平台试音”，持久化索引已正确前进到“队列下一首”；原因是 4 秒 fixture 在预期标题读取与断开确认之间自然结束，旧断言比较了两个不同时间点的状态，而非队列保存错误。
+- 稳定性修复：断开恢复段先点击暂停并等待“继续播放”，再读取预期标题、确认断开并检查持久化文件。既有单元测试已独立验证断开处理本身会调用暂停、保存队列、随后撤销会话，因此该修改不删除产品断言，也不改变播放器逻辑。
+- 当前结论：`v0.1.0-rc.5` 已发布为明确标注未签名/未公证的候选测试版；自动门禁不等于 macOS arm64 实机验收，arm64 继续标为未验证。

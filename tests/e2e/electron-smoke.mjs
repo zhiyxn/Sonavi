@@ -1064,6 +1064,11 @@ try {
 
   await window.getByRole('button', { name: '设置', exact: true }).click()
   await window.getByRole('heading', { name: '设置', exact: true }).waitFor()
+  // Freeze the short fixture before taking the expected queue snapshot. Otherwise it can
+  // naturally advance while the disconnect confirmation is open, making the pre-action UI
+  // title older than the correctly persisted queue index.
+  await window.getByRole('button', { name: '暂停', exact: true }).click()
+  await window.getByRole('button', { name: '继续播放', exact: true }).waitFor()
   const expectedPausedTitle = (await window
     .locator('footer[aria-label="播放器"] .player-track-details > strong')
     .textContent())?.trim()

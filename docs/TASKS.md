@@ -365,11 +365,13 @@ P01 已达到验收条件，P02～P10 已按序达到当时可用环境的代码
 - [x] 用户确认 Windows EXE 与 macOS x64 DMG 均能正常安装、启动、播放并卸载，账号/设置数据保留未发现问题；由于未提供文件哈希或构建提交，只记本次安装包实机证据，不冒充最新 `main` 的重新打包结果。
 - [ ] Apple Silicon arm64 因用户没有实机保持“未验证”；不得用 Intel 结果或 CI 产物代替运行验收。
 
-## v0.1.0-rc.5 候选发布（准备中，2026-09-20）
+## v0.1.0-rc.5 候选发布（完成，2026-09-20）
 
 - [x] 版本推进到 `0.1.0-rc.5`，新增按标签读取的候选版说明。
 - [x] README 改为面向下载与使用者，移除内部阶段、开发命令和历史流水线细节。
+- [x] README 增加浅色歌单与深色专辑详情截图；图片使用受控 fixture 数据，不包含真实账号或服务器信息。
 - [x] 项目采用 MIT License，并同步更新 npm 包元数据。
 - [x] Node.js 22.19.0 下 lint、三组 typecheck、32 文件/194 项测试、生产构建与候选标签校验通过。
-- [ ] 推送 `v0.1.0-rc.5` 标签，等待 Windows x64、macOS Intel x64 与 macOS arm64 原生 release gate 全部通过后创建 Pre-release。
-- [ ] 核对 Pre-release 非 Latest，并确认三个安装包、三个 manifest 与 `SHA256SUMS.txt` 共七个附件齐全。
+- [x] 推送 `v0.1.0-rc.5` 标签；release run `35517541553` 的 Windows x64、macOS Intel x64 与 macOS arm64 原生 release gate 及发布 job 全部通过。
+- [x] Pre-release 已创建且不是 Latest；三个安装包、三个 manifest 与 `SHA256SUMS.txt` 共七个附件齐全。
+- [x] main run `35517517625` 的 macOS Intel 打包冒烟暴露测试时间竞态：4 秒 fixture 在断开确认期间自然前进，旧断言比较了动作前标题与动作时最新索引。测试现先暂停并等待稳定状态；产品持久化逻辑未修改。

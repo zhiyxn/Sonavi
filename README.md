@@ -4,6 +4,14 @@ Sonavi 是一款简洁、跨平台的 Navidrome、Subsonic 与 OpenSubsonic 桌�
 
 支持 Windows 11 x64、macOS 13+ Intel x64 和 macOS 13+ Apple Silicon arm64。
 
+## 界面预览
+
+以下截图使用本地测试数据，不包含真实账号或服务器信息。
+
+| 浅色歌单 | 深色专辑详情 |
+| --- | --- |
+| ![Sonavi 浅色模式歌单页面](docs/images/app-playlists-light.png) | ![Sonavi 深色模式专辑详情页面](docs/images/app-album-dark.png) |
+
 ## 下载
 
 前往 [GitHub Releases](https://github.com/zhiyxn/Sonavi/releases) 下载最新 Pre-release：
