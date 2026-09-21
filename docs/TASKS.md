@@ -382,3 +382,4 @@ P01 已达到验收条件，P02～P10 已按序达到当时可用环境的代码
 - [x] 已有实例收到 `second-instance` 时只恢复、显示并聚焦原窗口；初始化期间的重复启动在窗口就绪后补执行一次唤醒。
 - [x] failure-first 单元测试覆盖主/次实例、初始化竞态与监听器释放；lint、typecheck、33 文件/198 项全量测试和生产构建通过。
 - [x] Windows 源码 Electron 完整冒烟实际启动第二进程，确认后续进程退出、原 BrowserWindow/webContents 唯一且重新可见；macOS Intel/arm64 与新安装包仍未验证。
+- [x] 修复提交 `7a67f01` 已推送到 `main`；`v0.1.0-rc.5` 更新到该提交后，release run `35553393327` 与 main run `35553362610` 三平台全部通过，rc.5 七个附件已替换。

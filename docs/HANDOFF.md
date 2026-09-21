@@ -265,4 +265,5 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 - 初始化期间的重复启动会合并为一次待处理唤醒；`will-quit` 移除监听器。未新增 preload/renderer API、命令行处理、服务端写入或凭据路径。
 - failure-first 定向测试因模块不存在按预期失败；实现后 4 项通过。Node.js 22.19.0 下 lint、三组 typecheck、33 文件/198 项全量测试与生产构建通过。
 - Windows 源码 Electron 完整冒烟通过：先隐藏原窗口，再从真实 Electron 可执行文件以相同 userData 启动第二进程；后续进程正常退出，主实例仍只有一个 BrowserWindow，且窗口 ID、webContents ID 与隐藏前一致并重新可见。启动样本 614 ms，20 轮切页内存增量 30,956 KiB、媒体请求增量 0。
-- macOS Intel x64、macOS arm64 和新安装包未执行本轮重复启动验证，保持“未验证”。未打包、发布、推送或创建提交。
+- 修复提交为 `7a67f01`，已推送到 `main`；`v0.1.0-rc.5` 标签已更新到同一提交。release run `35553393327` 的 Windows x64、macOS Intel x64、macOS arm64 release gate 与发布 job 全部通过，main run `35553362610` 也三平台通过。
+- 既有 rc.5 Pre-release 已在 2026-09-21 10:20（Asia/Shanghai）完成附件替换：三个安装包、三个 manifest 与 `SHA256SUMS.txt` 共七个。自动包内冒烟通过不等于 macOS 重复启动实机验证；Windows/macOS 新包人工安装与双启动仍未执行。

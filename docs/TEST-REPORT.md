@@ -665,4 +665,6 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - `npm run build`：通过；只有既有 Zod PURE 注释位置提示。
 - `npm run test:e2e`：Windows 源码 Electron 完整通过。冒烟隐藏当前窗口后，以运行中应用报告的真实 Electron 可执行文件和同一隔离 userData 启动第二进程；第二进程正常退出，主实例 BrowserWindow 数量为 1，窗口 ID/webContents ID 未变化且恢复可见，证明没有创建第二个 renderer 或 AudioEngine。其余连接、播放、收藏歌单、诊断、队列/凭据跨重启恢复和 safeStorage 往返继续通过；启动样本 614 ms，20 轮切页内存增量 30,956 KiB、媒体请求增量 0。
 - 冒烟编写过程中的两次失败不属于产品回归：首次在第二进程退出后过早读取可见性；加入等待后仍失败，进一步确认 Windows Playwright 主进程的 `spawnfile` 是 `cmd.exe` 外壳而非 Electron。改为通过 `app.getPath('exe')` 获取真实可执行文件后，双启动检查通过。
-- 未验证：macOS Intel x64、macOS arm64、新安装包及用户真实安装入口的重复启动。本轮未生成安装包、未发布、未推送、未创建提交。
+- 远端结果：修复提交 `7a67f01` 已推送；`v0.1.0-rc.5` 标签更新到同一提交。release run `35553393327` 与 main run `35553362610` 的 Windows x64、macOS Intel x64、macOS arm64 均通过；release gate 包含 lint、typecheck、198 项测试、依赖审计、源码 Electron 冒烟、对应原生安装包构建/校验和打包应用冒烟。
+- Release 核验：rc.5 仍为非草稿、非 Latest 的 Pre-release；三个安装包、三个 manifest 与 610 字节 `SHA256SUMS.txt` 共七个附件均在 2026-09-21 10:19～10:20（Asia/Shanghai）替换完成。
+- 未验证：macOS Intel x64、macOS arm64 的真实重复启动，以及 Windows/macOS 新包人工安装入口的双启动。自动 runner 与包内冒烟不替代对应真机人工结论。
