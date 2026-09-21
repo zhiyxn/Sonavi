@@ -375,3 +375,10 @@ P01 已达到验收条件，P02～P10 已按序达到当时可用环境的代码
 - [x] 推送 `v0.1.0-rc.5` 标签；release run `35517541553` 的 Windows x64、macOS Intel x64 与 macOS arm64 原生 release gate 及发布 job 全部通过。
 - [x] Pre-release 已创建且不是 Latest；三个安装包、三个 manifest 与 `SHA256SUMS.txt` 共七个附件齐全。
 - [x] main run `35517517625` 的 macOS Intel 打包冒烟暴露测试时间竞态：4 秒 fixture 在断开确认期间自然前进，旧断言比较了动作前标题与动作时最新索引。测试现先暂停并等待稳定状态；产品持久化逻辑未修改。
+
+## P22：应用单实例与重复启动唤醒（代码完成，2026-09-21）
+
+- [x] 为 Electron 主进程建立跨平台单实例锁；锁获取失败的后续进程不初始化窗口、服务或 IPC。
+- [x] 已有实例收到 `second-instance` 时只恢复、显示并聚焦原窗口；初始化期间的重复启动在窗口就绪后补执行一次唤醒。
+- [x] failure-first 单元测试覆盖主/次实例、初始化竞态与监听器释放；lint、typecheck、33 文件/198 项全量测试和生产构建通过。
+- [x] Windows 源码 Electron 完整冒烟实际启动第二进程，确认后续进程退出、原 BrowserWindow/webContents 唯一且重新可见；macOS Intel/arm64 与新安装包仍未验证。

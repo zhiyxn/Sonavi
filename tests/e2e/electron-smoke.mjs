@@ -1,5 +1,6 @@
 import { _electron as electron } from 'playwright-core'
 import { createHash } from 'node:crypto'
+import { spawn } from 'node:child_process'
 import { appendFile, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
@@ -105,6 +106,35 @@ async function waitForCondition(condition, message, timeoutMs = 10_000) {
     await new Promise((resolveWait) => setTimeout(resolveWait, 50))
   }
   throw new Error(message)
+}
+
+async function launchDuplicateInstance() {
+  const duplicateExecutable =
+    executablePath ?? (await electronApplication.evaluate(({ app }) => app.getPath('exe')))
+  const duplicateArguments = executablePath
+    ? [`--user-data-dir=${userDataPath}`]
+    : ['.', `--user-data-dir=${userDataPath}`]
+
+  await new Promise((resolveDuplicate, rejectDuplicate) => {
+    const duplicate = spawn(duplicateExecutable, duplicateArguments, {
+      cwd: resolve('.'),
+      stdio: 'ignore',
+      windowsHide: true
+    })
+    const timeout = setTimeout(() => {
+      duplicate.kill()
+      rejectDuplicate(new Error('重复启动的后续进程没有在单实例锁检查后退出'))
+    }, 10_000)
+    duplicate.once('error', (error) => {
+      clearTimeout(timeout)
+      rejectDuplicate(error)
+    })
+    duplicate.once('exit', (code, signal) => {
+      clearTimeout(timeout)
+      if (code === 0 && signal === null) resolveDuplicate()
+      else rejectDuplicate(new Error(`重复启动进程异常退出：code=${code}, signal=${signal}`))
+    })
+  })
 }
 
 async function chooseSelectOption(page, label, option) {
@@ -1035,12 +1065,37 @@ try {
   ) {
     throw new Error(`关闭到后台破坏了播放宿主：${JSON.stringify(hiddenWindowState)}`)
   }
-  await electronApplication.evaluate(({ app }) => app.emit('activate'))
+  await launchDuplicateInstance()
+  await waitForCondition(
+    () => electronApplication.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.isVisible() === true),
+    '重复启动没有唤醒主实例窗口'
+  )
   await window.getByRole('heading', { name: '专辑详情' }).waitFor()
   await window.getByText('跨平台试音', { exact: true }).first().waitFor()
+  const windowStateAfterDuplicateLaunch = await electronApplication.evaluate(({ BrowserWindow }) => {
+    const windows = BrowserWindow.getAllWindows()
+    const activeWindow = windows[0]
+    return activeWindow
+      ? {
+          count: windows.length,
+          id: activeWindow.id,
+          webContentsId: activeWindow.webContents.id,
+          visible: activeWindow.isVisible()
+        }
+      : null
+  })
+  if (
+    !windowStateAfterDuplicateLaunch ||
+    windowStateAfterDuplicateLaunch.count !== 1 ||
+    !windowStateAfterDuplicateLaunch.visible ||
+    windowStateAfterDuplicateLaunch.id !== windowIdentityBeforeClose?.id ||
+    windowStateAfterDuplicateLaunch.webContentsId !== windowIdentityBeforeClose.webContentsId
+  ) {
+    throw new Error(`重复启动没有只唤醒原窗口：${JSON.stringify(windowStateAfterDuplicateLaunch)}`)
+  }
   await mkdir(dirname(desktopScreenshotPath), { recursive: true })
   await window.screenshot({ path: desktopScreenshotPath, fullPage: true })
-  console.log('P09 lifecycle passed: close hides and Dock/app activation restores the same AudioEngine host')
+  console.log('P09/P22 lifecycle passed: close hides and duplicate launch restores the same AudioEngine host')
 
   const memoryBefore = await electronApplication.evaluate(({ app }) =>
     app.getAppMetrics().reduce((total, metric) => total + metric.memory.workingSetSize, 0)

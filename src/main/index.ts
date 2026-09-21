@@ -143,16 +143,16 @@ import {
   type PersistedWindowState
 } from './services/desktop-state-service'
 import { DesktopIntegrationController } from './platform/desktop-integration'
+import { SingleInstanceController } from './platform/single-instance'
 
 const platformAdapter = getPlatformAdapter(process.platform)
 let mainWindow: BrowserWindow | null = null
-
-protocol.registerSchemesAsPrivileged([
-  {
-    scheme: 'sonavi-media',
-    privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true }
-  }
-])
+const singleInstance = new SingleInstanceController({
+  requestLock: () => app.requestSingleInstanceLock(),
+  quit: () => app.quit(),
+  onSecondInstance: (listener) => app.on('second-instance', listener),
+  removeSecondInstanceListener: (listener) => app.removeListener('second-instance', listener)
+})
 
 function registerApplicationIpc(): void {
   ipcMain.handle(APPLICATION_INFO_CHANNEL, (event) => {
@@ -771,99 +771,110 @@ function createMainWindow(
   return window
 }
 
-registerApplicationIpc()
-
-void app.whenReady().then(async () => {
-  installSecurityPolicies()
-  const diagnostics = new NetworkDiagnosticRecorder()
-  const networkPolicy = new NetworkPolicyService(app.getPath('userData'), session.defaultSession)
-  await networkPolicy.initialize()
-  const desktopState = new DesktopStateService(app.getPath('userData'))
-  await desktopState.initialize()
-  const client = new OpenSubsonicClient(
-    new ElectronSessionTransport(diagnostics, () => networkPolicy.getProxyMode())
-  )
-  const connectionService = new ConnectionService(
-    client,
-    new FileCredentialStore(app.getPath('userData'), new SafeStorageEncryptionProvider())
-  )
-  const mediaHandles = new MediaHandleRegistry()
-  const libraryService = new LibraryService(connectionService, client, mediaHandles, networkPolicy)
-  const playbackService = new PlaybackService(connectionService, client)
-  const coverCache = new CoverCacheService(app.getPath('userData'))
-  const mediaProtocol = new MediaProtocolService(
-    connectionService,
-    mediaHandles,
-    (url, init) => session.defaultSession.fetch(url, init),
-    diagnostics,
-    () => networkPolicy.getProxyMode(),
-    coverCache
-  )
-  const sendDesktopCommand = (command: DesktopCommand): void => {
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send(DESKTOP_COMMAND_CHANNEL, command)
+if (singleInstance.acquire()) {
+  protocol.registerSchemesAsPrivileged([
+    {
+      scheme: 'sonavi-media',
+      privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true }
     }
-  }
-  const desktopIntegration = new DesktopIntegrationController({
-    getWindow: () => mainWindow,
-    getPreferences: () => desktopState.getPreferences(),
-    saveWindowState: (state) => desktopState.saveWindowState(state),
-    sendCommand: sendDesktopCommand,
-    relaunchApplication: () => app.relaunch(),
-    quitApplication: () => app.quit(),
-    recoverNetwork: async () => {
-      const sessionId = connectionService.getCurrentSessionId()
-      if (sessionId) {
-        libraryService.cancelSessionSearches(sessionId)
-        mediaProtocol.revokeSession(sessionId)
-        mediaHandles.revokeSession(sessionId)
+  ])
+
+  registerApplicationIpc()
+
+  void app.whenReady().then(async () => {
+    installSecurityPolicies()
+    const diagnostics = new NetworkDiagnosticRecorder()
+    const networkPolicy = new NetworkPolicyService(app.getPath('userData'), session.defaultSession)
+    await networkPolicy.initialize()
+    const desktopState = new DesktopStateService(app.getPath('userData'))
+    await desktopState.initialize()
+    const client = new OpenSubsonicClient(
+      new ElectronSessionTransport(diagnostics, () => networkPolicy.getProxyMode())
+    )
+    const connectionService = new ConnectionService(
+      client,
+      new FileCredentialStore(app.getPath('userData'), new SafeStorageEncryptionProvider())
+    )
+    const mediaHandles = new MediaHandleRegistry()
+    const libraryService = new LibraryService(connectionService, client, mediaHandles, networkPolicy)
+    const playbackService = new PlaybackService(connectionService, client)
+    const coverCache = new CoverCacheService(app.getPath('userData'))
+    const mediaProtocol = new MediaProtocolService(
+      connectionService,
+      mediaHandles,
+      (url, init) => session.defaultSession.fetch(url, init),
+      diagnostics,
+      () => networkPolicy.getProxyMode(),
+      coverCache
+    )
+    const sendDesktopCommand = (command: DesktopCommand): void => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(DESKTOP_COMMAND_CHANNEL, command)
       }
-      await session.defaultSession.closeAllConnections()
     }
+    const desktopIntegration = new DesktopIntegrationController({
+      getWindow: () => mainWindow,
+      getPreferences: () => desktopState.getPreferences(),
+      saveWindowState: (state) => desktopState.saveWindowState(state),
+      sendCommand: sendDesktopCommand,
+      relaunchApplication: () => app.relaunch(),
+      quitApplication: () => app.quit(),
+      recoverNetwork: async () => {
+        const sessionId = connectionService.getCurrentSessionId()
+        if (sessionId) {
+          libraryService.cancelSessionSearches(sessionId)
+          mediaProtocol.revokeSession(sessionId)
+          mediaHandles.revokeSession(sessionId)
+        }
+        await session.defaultSession.closeAllConnections()
+      }
+    })
+
+    protocol.handle('sonavi-media', (request) => mediaProtocol.handle(request))
+    registerConnectionIpc(
+      connectionService,
+      mediaHandles,
+      mediaProtocol,
+      libraryService,
+      desktopState,
+      coverCache
+    )
+    registerLibraryIpc(libraryService)
+    registerPlaybackIpc(playbackService)
+    registerNetworkIpc(
+      networkPolicy,
+      diagnostics,
+      connectionService,
+      mediaHandles,
+      mediaProtocol,
+      libraryService
+    )
+    registerDesktopIpc(
+      desktopState,
+      desktopIntegration,
+      connectionService,
+      libraryService,
+      coverCache
+    )
+    Menu.setApplicationMenu(Menu.buildFromTemplate(platformAdapter.createMenuTemplate(app.name)))
+    desktopIntegration.initialize()
+    createMainWindow(desktopState, desktopIntegration)
+    singleInstance.setShowPrimaryWindow(() => desktopIntegration.showWindow())
+
+    app.on('activate', () => {
+      if (!mainWindow || mainWindow.isDestroyed()) createMainWindow(desktopState, desktopIntegration)
+      else desktopIntegration.showWindow()
+    })
+
+    app.once('will-quit', () => {
+      mediaProtocol.dispose()
+      mediaHandles.clear()
+      desktopIntegration.dispose()
+      singleInstance.dispose()
+    })
   })
 
-  protocol.handle('sonavi-media', (request) => mediaProtocol.handle(request))
-  registerConnectionIpc(
-    connectionService,
-    mediaHandles,
-    mediaProtocol,
-    libraryService,
-    desktopState,
-    coverCache
-  )
-  registerLibraryIpc(libraryService)
-  registerPlaybackIpc(playbackService)
-  registerNetworkIpc(
-    networkPolicy,
-    diagnostics,
-    connectionService,
-    mediaHandles,
-    mediaProtocol,
-    libraryService
-  )
-  registerDesktopIpc(
-    desktopState,
-    desktopIntegration,
-    connectionService,
-    libraryService,
-    coverCache
-  )
-  Menu.setApplicationMenu(Menu.buildFromTemplate(platformAdapter.createMenuTemplate(app.name)))
-  desktopIntegration.initialize()
-  createMainWindow(desktopState, desktopIntegration)
-
-  app.on('activate', () => {
-    if (!mainWindow || mainWindow.isDestroyed()) createMainWindow(desktopState, desktopIntegration)
-    else desktopIntegration.showWindow()
+  app.on('window-all-closed', () => {
+    if (platformAdapter.quitWhenAllWindowsClosed) app.quit()
   })
-
-  app.once('will-quit', () => {
-    mediaProtocol.dispose()
-    mediaHandles.clear()
-    desktopIntegration.dispose()
-  })
-})
-
-app.on('window-all-closed', () => {
-  if (platformAdapter.quitWhenAllWindowsClosed) app.quit()
-})
+}

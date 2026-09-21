@@ -393,3 +393,16 @@ renderer 只获得无参数 `restartApplication()`，不能指定可执行文件
 Windows 托盘与 macOS 菜单栏在共享菜单模板中增加“重启 Sonavi”。该入口不通过 renderer 或 preload，也不新增任何 IPC；点击后只调用 `DesktopIntegrationController.requestRestart()`。
 
 控制器继续以 `restartRequested` 防止重复安排，调用固定的 `app.relaunch()` 后进入既有 `app.quit()` / `before-quit` 路径。因此暂停队列刷新、5 秒超时、媒体句柄释放和新进程恢复与设置页重启保持同一套逻辑。托盘菜单不接受命令、路径、参数或环境变量，不扩大进程控制权限。
+
+## D035：main 初始化前持有单实例锁，重复启动只唤醒原宿主
+
+- 日期：2026-09-21
+- 状态：已接受
+
+Sonavi 在注册自定义协议、IPC、网络服务和 BrowserWindow 前调用 Electron `app.requestSingleInstanceLock()`。未取得锁的后续进程立即调用 `app.quit()`，不会创建第二个 renderer、AudioEngine、托盘或服务集合；锁持有者监听 `second-instance` 并只恢复、显示、聚焦既有主窗口。
+
+单实例协调封装在 `src/main/platform/single-instance.ts`，但行为在 Windows 与 macOS 间共享，不复制平台实现。初始化阶段的多次重复启动合并为一次待处理窗口唤醒；主实例退出时移除监听器，Electron 随进程结束释放锁。该边界不接受第二实例参数、不引入深链或任意命令执行能力，也不改变安全重启的 `app.relaunch()` / 安全退出流程。
+
+来源：
+
+- https://www.electronjs.org/docs/latest/api/app#apprequestsingleinstancelockadditionaldata

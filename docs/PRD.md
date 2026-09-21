@@ -78,6 +78,7 @@ P01 的上述验收项已经完成。P02 已实现公共 Subsonic/OpenSubsonic �
 
 - 默认关闭动作在两端均为隐藏同一个 BrowserWindow 并继续播放，设置可改为真正退出；最小化始终保留播放宿主。
 - Windows 托盘与 macOS 菜单栏共用“显示、播放/暂停、上一首、下一首、安全重启、真正退出”能力；Dock/应用重新激活显示既有窗口，不重建 AudioEngine。
+- 同一用户重复启动 Sonavi 时，后续进程立即退出并唤醒既有窗口，不创建第二个 renderer、播放窗口或 AudioEngine。
 - 系统媒体键只走 Chromium Media Session，不同时注册 Electron 全局媒体快捷键；设置快捷键按 Windows `Ctrl+,` / macOS `Cmd+,` 区分，且它与空格播放键都不截获编辑控件。
 - 锁屏/睡眠会暂停；恢复/解锁关闭旧网络连接、撤销旧媒体句柄并刷新数据，但不会绕过用户意图自动续播。
 - Electron `userData` 保存主题、音量、关闭动作、窗口状态和非敏感暂停队列元数据；队列按 main 计算的账号哈希隔离，恢复时重新生成媒体句柄并保持暂停。

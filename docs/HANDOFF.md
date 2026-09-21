@@ -257,3 +257,12 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 - 标签 `v0.1.0-rc.5` 的 release run `35517541553` 在三个原生目标完整通过，并创建非草稿、非 Latest 的 Pre-release：`https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.5`。附件为三个安装包、三个 manifest 与 610 字节的 `SHA256SUMS.txt`，共七个。
 - 同提交的 main run `35517517625` 中 Windows 与 macOS arm64 通过，macOS Intel 打包冒烟因测试时间竞态失败：测试在播放中的 4 秒 fixture 上读取预期标题后，曲目在断开确认期间自然前进；持久化文件正确记录动作发生时的最新索引。E2E 现先暂停并等待“继续播放”状态后再取快照；既有单元测试继续验证断开处理会暂停、保存且保存先于会话撤销，产品代码不变。
 - 下一入口：等待测试稳定性修复的普通 CI；rc.5 已可作为明确标注未签名/未公证的测试版下载。macOS arm64 实机仍保持未验证。
+
+## P22 应用单实例与重复启动唤醒（2026-09-21）
+
+- 用户反馈 Windows 每次打开都会新建播放窗口。代码核对确认 main 未调用 `app.requestSingleInstanceLock()`，每次启动都会独立注册服务并创建 BrowserWindow/AudioEngine。
+- 新增 `SingleInstanceController`：主实例在协议、IPC、服务和窗口初始化前持锁；后续进程取锁失败立即退出。`second-instance` 只调用既有 `DesktopIntegrationController.showWindow()`，因此最小化/隐藏窗口会被恢复并聚焦，不创建新窗口。
+- 初始化期间的重复启动会合并为一次待处理唤醒；`will-quit` 移除监听器。未新增 preload/renderer API、命令行处理、服务端写入或凭据路径。
+- failure-first 定向测试因模块不存在按预期失败；实现后 4 项通过。Node.js 22.19.0 下 lint、三组 typecheck、33 文件/198 项全量测试与生产构建通过。
+- Windows 源码 Electron 完整冒烟通过：先隐藏原窗口，再从真实 Electron 可执行文件以相同 userData 启动第二进程；后续进程正常退出，主实例仍只有一个 BrowserWindow，且窗口 ID、webContents ID 与隐藏前一致并重新可见。启动样本 614 ms，20 轮切页内存增量 30,956 KiB、媒体请求增量 0。
+- macOS Intel x64、macOS arm64 和新安装包未执行本轮重复启动验证，保持“未验证”。未打包、发布、推送或创建提交。

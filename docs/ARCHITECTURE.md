@@ -111,6 +111,8 @@ schema v4 进一步区分响应头与正文阶段：正文中途超时时仍可�
 
 `DesktopIntegrationController` 保持一个强引用 BrowserWindow 和 Tray。默认关闭事件被拦截并隐藏既有窗口，因此 renderer 内唯一 AudioEngine 不会被销毁；设置为 `quit`、托盘“真正退出”或系统退出角色会进入 `app.quit()`，`before-quit` 再允许窗口关闭并释放媒体请求/句柄。托盘“重启 Sonavi”则直接复用控制器的幂等 `requestRestart()`，不经 renderer，不接受命令、路径或参数。最小化使用系统原生行为。macOS Dock/应用激活与托盘点击均显示并聚焦同一窗口；不存在 Windows/Mac 页面副本。
 
+main 在注册协议、IPC、服务和 BrowserWindow 前先通过 `SingleInstanceController` 申请 Electron 单实例锁。无法取得锁的后续进程立即退出，不进入应用初始化；主实例收到 `second-instance` 后恢复、显示并聚焦既有窗口，复用原 renderer 与唯一 AudioEngine。若重复启动发生在窗口处理器接入前，只合并为一次待处理唤醒，避免额外创建窗口或播放宿主。
+
 设置页重启使用独立的无参数 preload 方法。main 在校验可信发送者后让 `DesktopIntegrationController` 只安排一次 `app.relaunch()`，随后调用 `app.quit()` 进入同一 `before-quit` 路径：renderer 刷新暂停队列并回执，若 renderer 已异常则最长 5 秒后继续退出。新进程按既有加密凭据和暂停队列恢复规则启动。renderer 不能传入可执行文件、参数、路径或环境变量；若 main 自身完全无响应，该入口无法替代操作系统强制退出。
 
 播放状态由 renderer 通过固定 IPC 同步给 main，仅用于更新托盘菜单；main 到 preload 的命令事件只接受固定枚举。系统媒体键与媒体信息使用 Chromium Media Session，项目不注册 `globalShortcut` 的媒体键，避免同一次按键被执行两次。设置按 preload 提供的平台修饰键匹配 `Ctrl+,` 或 `Cmd+,`，空格播放键与设置键都只在非编辑目标上生效。`powerMonitor` 的 suspend/lock 只发暂停，resume/unlock 会关闭旧连接、撤销媒体句柄并刷新队列句柄，但保持暂停。
@@ -126,6 +128,7 @@ schema v4 进一步区分响应头与正文阶段：正文中途超时时仍可�
 | 快捷键提示 | Ctrl | Cmd | 已通过 preload 集中提供 |
 | 关闭窗口（默认） | 隐藏同一窗口到托盘 | 隐藏同一窗口到菜单栏/Dock | P09 已实现；Windows 待实机 |
 | 重新激活 | 托盘点击显示既有窗口 | 菜单栏/Dock 激活显示既有窗口 | macOS Intel 已实测 |
+| 重复启动 | 后续进程退出并显示既有窗口 | 后续进程退出并显示既有窗口 | Windows 源码自动冒烟通过；macOS/安装包待验证 |
 | 最小化 | 保留 AudioEngine | 保留 AudioEngine | 共享原生行为；需分平台人工复验 |
 | 托盘/菜单栏控制 | 播放/暂停/前后切歌/显示/安全重启/真正退出 | 同左 | 已实现；重启入口待两端真机点击复验 |
 | 真正退出 | 设置关闭即退出、文件菜单或托盘退出 | 设置关闭即退出、Cmd+Q 或菜单栏退出 | 已实现；交互需分平台人工复验 |
