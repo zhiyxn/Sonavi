@@ -33,6 +33,7 @@ describe('ConnectPanel', () => {
       },
       credentialPersistence: 'encrypted'
     })
+    const profileId = '82c3080c-82dc-4d4d-b7da-a610f9efffb4'
     const restore = vi.fn<SonaviApi['connection']['restore']>().mockResolvedValue({
       ok: true,
       sessionId: '18ae8abe-3827-4ed0-a1e4-07d3f37883ca',
@@ -47,12 +48,38 @@ describe('ConnectPanel', () => {
       },
       credentialPersistence: 'encrypted'
     })
+    const listSaved = vi.fn<SonaviApi['connection']['listSaved']>().mockResolvedValue([
+      {
+        id: profileId,
+        serverUrl: 'https://saved.example.com',
+        username: 'saved-listener',
+        isDefault: true
+      }
+    ])
+    const connectSaved = vi.fn<SonaviApi['connection']['connectSaved']>().mockResolvedValue({
+      ok: true,
+      sessionId: '18ae8abe-3827-4ed0-a1e4-07d3f37883ca',
+      server: {
+        baseUrl: 'https://saved.example.com',
+        protocolVersion: '1.16.1',
+        serverType: 'navidrome',
+        openSubsonic: true,
+        capabilityStatus: 'available',
+        extensions: [],
+        musicFolders: [{ id: '1', name: 'Music' }]
+      },
+      credentialPersistence: 'encrypted',
+      profileId
+    })
     Object.defineProperty(window, 'sonavi', {
       value: {
         application: { getInfo: vi.fn(), openProjectHomepage: vi.fn() },
         connection: {
           test,
           restore,
+          listSaved,
+          connectSaved,
+          deleteSaved: vi.fn(async () => true),
           disconnect: vi.fn(),
           forget: vi.fn()
         },
@@ -102,8 +129,9 @@ describe('ConnectPanel', () => {
     })
 
     const wrapper = mount(ConnectPanel, {
-      props: { applicationInfo, savedConnectionAvailable: true }
+      props: { applicationInfo }
     })
+    await flushPromises()
     expect(wrapper.findAll('[data-slot="input"]')).toHaveLength(3)
     expect(wrapper.findAll('[data-slot="checkbox"]')).toHaveLength(2)
     expect(wrapper.get('button[type="submit"]').attributes('data-slot')).toBe('button')
@@ -124,9 +152,10 @@ describe('ConnectPanel', () => {
     expect((wrapper.get('#password').element as HTMLInputElement).value).toBe('')
     expect(wrapper.text()).toContain('凭据已使用系统加密保存')
 
-    await wrapper.get('button[type="button"]').trigger('click')
+    await wrapper.get('[aria-label="连接 https://saved.example.com · saved-listener"]').trigger('click')
     await flushPromises()
-    expect(restore).toHaveBeenCalledOnce()
+    expect(restore).not.toHaveBeenCalled()
+    expect(connectSaved).toHaveBeenCalledWith(profileId)
     expect(wrapper.emitted('connected')?.at(-1)?.[0]).toMatchObject({
       sessionId: '18ae8abe-3827-4ed0-a1e4-07d3f37883ca',
       credentialPersistence: 'encrypted'

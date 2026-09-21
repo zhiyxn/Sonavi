@@ -32,25 +32,34 @@ describe('FileCredentialStore', () => {
     }
     const store = new FileCredentialStore(directory, encryptionProvider)
 
-    await expect(
-      store.save({
+    const saved = await store.save({
         serverUrl: 'https://music.example.com',
         username: 'listener',
         password: 'never-write-plaintext'
       })
-    ).resolves.toBe(true)
-
-    const storedFile = await readFile(join(directory, 'credentials.v1.json'), 'utf8')
-    expect(storedFile).not.toContain('never-write-plaintext')
-    expect(JSON.parse(storedFile)).toMatchObject({
-      version: 1,
-      serverUrl: 'https://music.example.com',
-      username: 'listener'
-    })
-    await expect(store.load()).resolves.toEqual({
+    expect(saved).toMatchObject({
       serverUrl: 'https://music.example.com',
       username: 'listener',
-      password: 'never-write-plaintext'
+      isDefault: true
+    })
+
+    const storedFile = await readFile(join(directory, 'credentials.v2.json'), 'utf8')
+    expect(storedFile).not.toContain('never-write-plaintext')
+    expect(JSON.parse(storedFile)).toMatchObject({
+      version: 2,
+      defaultProfileId: saved?.id,
+      profiles: [{
+        id: saved?.id,
+        serverUrl: 'https://music.example.com',
+        username: 'listener'
+      }]
+    })
+    await expect(store.load()).resolves.toMatchObject({
+      id: saved?.id,
+      serverUrl: 'https://music.example.com',
+      username: 'listener',
+      password: 'never-write-plaintext',
+      isDefault: true
     })
   })
 
@@ -73,9 +82,9 @@ describe('FileCredentialStore', () => {
         username: 'listener',
         password: 'secret'
       })
-    ).resolves.toBe(false)
+    ).resolves.toBeNull()
 
-    await expect(readFile(join(directory, 'credentials.v1.json'))).rejects.toMatchObject({
+    await expect(readFile(join(directory, 'credentials.v2.json'))).rejects.toMatchObject({
       code: 'ENOENT'
     })
   })
@@ -90,15 +99,14 @@ describe('FileCredentialStore', () => {
       }
     }
     const store = new FileCredentialStore(directory, encryptionProvider)
-    await expect(
-      store.save({
+    const saved = await store.save({
         serverUrl: 'https://music.example.com',
         username: 'listener',
         password: 'secret'
       })
-    ).resolves.toBe(true)
+    expect(saved).not.toBeNull()
     await expect(store.load()).resolves.toBeNull()
-    await expect(store.delete()).resolves.toBe(true)
-    await expect(store.delete()).resolves.toBe(true)
+    await expect(store.delete(saved!.id)).resolves.toBe(true)
+    await expect(store.delete(saved!.id)).resolves.toBe(true)
   })
 })

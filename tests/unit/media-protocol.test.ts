@@ -14,8 +14,10 @@ import type { CoverCacheService } from '../../src/main/services/cover-cache-serv
 import { TranscodeSeekResultSchema } from '../../src/shared/network-schema'
 
 const credentialStore: CredentialStore = {
-  save: async () => true,
+  save: async () => null,
+  list: async () => [],
   load: async () => null,
+  setDefault: async () => true,
   delete: async () => true
 }
 

@@ -49,7 +49,9 @@ BrowserWindow 固定 `contextIsolation=true`、`sandbox=true`、`nodeIntegration
 
 P02 的连接客户端位于 `src/main/services/opensubsonic/`，使用 Electron Session 的 Chromium 网络栈并禁止自动重定向。JSON 默认响应上限为 1 MiB；必须一次返回完整索引的 `getArtists` 单独使用 16 MiB 有界上限，其他端点不随之放宽。认证按每次请求独立 salt 生成 token，明文密码不进入 URL、日志、renderer store 或持久化文件。`ping` 成功后探测 OpenSubsonic 扩展与音乐文件夹；旧服务器缺少扩展端点时可降级，认证和音乐库权限失败不能伪装成功。
 
-统一 `CredentialStore` 位于 `src/main/services/credentials/`，只在 app ready 后调用 Electron 44 的异步 safeStorage。持久化文件放在 `app.getPath('userData')`，通过同目录临时密文文件替换保存；密码字段只写入系统加密密文。加密或写入失败时保留 main 进程会话凭据并明确返回 `session-only`，不回退明文。启动时可解密恢复，safeStorage 请求密钥轮换时先重加密；“退出并忘记账号”显式删除持久化文件。
+统一 `CredentialStore` 位于 `src/main/services/credentials/`，只在 app ready 后调用 Electron 44 的异步 safeStorage。`credentials.v2.json` 在 `app.getPath('userData')` 中保存最多 20 个 profile，每个 profile 只包含 UUID、服务器地址、用户名和独立系统加密密文；单账号 `credentials.v1.json` 首次读取时先原子写入 v2，成功后才删除旧密文。所有写入继续通过同目录临时文件替换；加密、迁移或写入失败时不回退明文。启动恢复默认 profile，safeStorage 请求密钥轮换时只重加密目标密文。
+
+renderer 通过三个固定连接方法列出摘要、按 UUID 连接和删除非当前 profile，不能读取密文、密码或选择文件路径。成功切换后 main 才把新 profile 设为默认，并撤销旧会话的搜索、媒体请求和媒体句柄；连接失败时原会话保持有效。renderer 随后清理旧查询和播放器状态，继续复用唯一 AudioEngine。“断开连接”只结束当前会话，“退出并忘记账号”只删除当前 profile；删除其他 profile 不修改服务器端数据。
 
 P03 的 `MediaHandleRegistry` 只向 renderer 返回不透明的 `sonavi-media://media/<token>`。token 由进程内随机 AES-256-GCM 密钥认证加密，携带媒体类型、会话、资源 ID、原始/转码策略、码率、可选时间偏移和会话 epoch；renderer 仍看不到上游地址或认证参数。音频句柄继续无状态，不会因大库浏览淘汰队列句柄；封面为减少同一资源在多个列表中的重复浏览器请求，按会话最多复用 10,000 个 token，超过上限只淘汰复用索引而不使已签发 token 失效。断开、忘记账号、代理切换与退出清空复用索引，并通过递增 epoch 或轮换密钥使旧 token 整体失效。自定义 scheme 在 app ready 前注册为 standard/secure/fetch/stream，但不启用 bypassCSP；处理器在 default Session 上注册。main 根据当前会话解析句柄并重新生成认证 URL，拒绝超长/篡改 token、重定向、非法/多段 Range、非媒体内容类型与非 200/206/416 响应。音频响应体始终以保留背压的 Web Stream 传递，不调用 `arrayBuffer()`、不做 Base64 IPC；P09 只有带已知 Content-Length 且不超过 5 MiB 的图片响应可被有界缓冲并写入封面缓存。
 

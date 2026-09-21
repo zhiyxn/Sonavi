@@ -534,7 +534,7 @@ async function startFixtureServer() {
     const salt = requestUrl.searchParams.get('s') ?? ''
     const expectedToken = createHash('md5').update(`fixture-password${salt}`, 'utf8').digest('hex')
     const validAuthentication =
-      requestUrl.searchParams.get('u') === 'fixture-user' &&
+      ['fixture-user', 'fixture-user-two'].includes(requestUrl.searchParams.get('u')) &&
       requestUrl.searchParams.get('t') === expectedToken &&
       !requestUrl.searchParams.has('p')
     if (endpoint === 'stream' && validAuthentication) {
@@ -644,6 +644,9 @@ try {
     getInfo: typeof window.sonavi?.application?.getInfo,
     testConnection: typeof window.sonavi?.connection?.test,
     restoreConnection: typeof window.sonavi?.connection?.restore,
+    listSavedConnections: typeof window.sonavi?.connection?.listSaved,
+    connectSavedConnection: typeof window.sonavi?.connection?.connectSaved,
+    deleteSavedConnection: typeof window.sonavi?.connection?.deleteSaved,
     disconnectConnection: typeof window.sonavi?.connection?.disconnect,
     forgetConnection: typeof window.sonavi?.connection?.forget,
     listAlbums: typeof window.sonavi?.library?.listAlbums,
@@ -675,6 +678,9 @@ try {
     bridgeShape.getInfo !== 'function' ||
     bridgeShape.testConnection !== 'function' ||
     bridgeShape.restoreConnection !== 'function' ||
+    bridgeShape.listSavedConnections !== 'function' ||
+    bridgeShape.connectSavedConnection !== 'function' ||
+    bridgeShape.deleteSavedConnection !== 'function' ||
     bridgeShape.disconnectConnection !== 'function' ||
     bridgeShape.forgetConnection !== 'function' ||
     bridgeShape.listAlbums !== 'function' ||
@@ -732,6 +738,35 @@ try {
   await window.locator('#allow-insecure-http').click()
   await window.getByRole('button', { name: '测试连接' }).click()
   await window.getByRole('heading', { name: '最近添加' }).waitFor()
+  await window.getByRole('button', { name: '服务器', exact: true }).click()
+  await window.getByRole('heading', { name: '服务器管理', exact: true }).waitFor()
+  await window.getByText('fixture-user', { exact: true }).waitFor()
+  await window.getByRole('button', { name: '添加服务器', exact: true }).click()
+  await window.getByRole('heading', { name: '添加服务器', exact: true }).waitFor()
+  await window.locator('#server-url').fill(`http://127.0.0.1:${fixtureAddress.port}/sonavi-fixture`)
+  await window.locator('#username').fill('fixture-user-two')
+  await window.locator('#password').fill('fixture-password')
+  await window.locator('#remember-me').click()
+  await window.locator('#allow-insecure-http').click()
+  await window.getByRole('button', { name: '测试连接', exact: true }).click()
+  await window.getByRole('heading', { name: '最近添加' }).waitFor()
+  await window.getByRole('button', { name: '服务器', exact: true }).click()
+  await window.getByRole('heading', { name: '服务器管理', exact: true }).waitFor()
+  await window.getByText('fixture-user-two', { exact: true }).waitFor()
+  await window.getByRole('button', {
+    name: `切换到 http://127.0.0.1:${fixtureAddress.port}/sonavi-fixture · fixture-user`,
+    exact: true
+  }).click()
+  await window.getByRole('button', { name: '确认切换', exact: true }).click()
+  await window.getByRole('heading', { name: '最近添加' }).waitFor()
+  await window.getByRole('button', { name: '服务器', exact: true }).click()
+  await window.getByRole('button', {
+    name: `删除 http://127.0.0.1:${fixtureAddress.port}/sonavi-fixture · fixture-user-two`,
+    exact: true
+  }).click()
+  await window.getByRole('button', { name: '删除服务器', exact: true }).click()
+  await window.getByText('fixture-user-two', { exact: true }).waitFor({ state: 'detached' })
+  console.log('Server management passed: add + switch + delete encrypted profiles')
   await window.keyboard.press(platformText.includes('macOS') ? 'Meta+Comma' : 'Control+Comma')
   await window.getByRole('heading', { name: '设置', exact: true }).waitFor()
   await window.getByRole('button', { name: '首页', exact: true }).click()

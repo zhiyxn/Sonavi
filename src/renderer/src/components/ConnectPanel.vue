@@ -1,23 +1,37 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import type { ApplicationInfo } from '../../../shared/application'
-import type { ConnectionSuccessResult } from '../../../shared/connection'
+import type {
+  ConnectionSuccessResult,
+  SavedConnectionProfile
+} from '../../../shared/connection'
 import { showErrorToast } from '../lib/notifications'
-import { restoreConnection, testConnection } from '../services/connection'
+import {
+  connectSavedConnection,
+  deleteSavedConnection,
+  listSavedConnections,
+  testConnection
+} from '../services/connection'
 import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
+import ConfirmationDialog from './ConfirmationDialog.vue'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 
 const props = withDefaults(defineProps<{
   applicationInfo: ApplicationInfo
-  savedConnectionAvailable?: boolean
+  initialProfile?: SavedConnectionProfile | null
+  managementMode?: boolean
+  beforeConnect?: (() => Promise<void>) | undefined
 }>(), {
-  savedConnectionAvailable: false
+  initialProfile: null,
+  managementMode: false,
+  beforeConnect: undefined
 })
 
 const emit = defineEmits<{
   connected: [result: ConnectionSuccessResult]
+  cancel: []
 }>()
 
 const serverUrl = ref('')
@@ -29,17 +43,36 @@ const statusMessage = ref('请输入服务器连接信息。')
 const statusKind = ref<'idle' | 'success' | 'error'>('idle')
 const isSubmitting = ref(false)
 const isRestoring = ref(false)
+const savedProfiles = ref<SavedConnectionProfile[]>([])
+const profilesLoading = ref(true)
+const profileActionId = ref<string | null>(null)
+const deleteCandidate = ref<SavedConnectionProfile | null>(null)
 
-async function restoreSavedConnection(): Promise<void> {
+async function refreshProfiles(): Promise<void> {
+  profilesLoading.value = true
+  try {
+    savedProfiles.value = await listSavedConnections()
+  } catch {
+    showErrorToast('无法读取已保存服务器，请重新启动 Sonavi。', {
+      title: '服务器列表读取失败',
+      id: 'saved-connections-list-error'
+    })
+  } finally {
+    profilesLoading.value = false
+  }
+}
+
+async function connectProfile(profile: SavedConnectionProfile): Promise<void> {
   if (isSubmitting.value || isRestoring.value) return
   isRestoring.value = true
+  profileActionId.value = profile.id
   statusKind.value = 'idle'
-  statusMessage.value = '正在使用系统加密保存的账号重新连接…'
+  statusMessage.value = '正在使用系统加密保存的账号连接…'
   try {
-    const result = await restoreConnection()
-    if (!result) {
-      showErrorToast('已保存账号暂时无法连接；可检查网络后重试或填写其他账号。', {
-        title: '重新连接失败',
+    const result = await connectSavedConnection(profile.id)
+    if (!result.ok) {
+      showErrorToast(result.error.message, {
+        title: '已保存服务器连接失败',
         id: 'connection-restore-error'
       })
       statusMessage.value = '已保存账号连接失败。'
@@ -56,6 +89,26 @@ async function restoreSavedConnection(): Promise<void> {
     statusMessage.value = '已保存账号连接失败。'
   } finally {
     isRestoring.value = false
+    profileActionId.value = null
+  }
+}
+
+async function confirmDeleteProfile(): Promise<void> {
+  const profile = deleteCandidate.value
+  if (!profile || profileActionId.value) return
+  profileActionId.value = profile.id
+  try {
+    if (!(await deleteSavedConnection(profile.id))) throw new Error('delete rejected')
+    deleteCandidate.value = null
+    await refreshProfiles()
+    statusMessage.value = '已删除保存的服务器。'
+  } catch {
+    showErrorToast('无法删除已保存服务器，请重试。', {
+      title: '删除失败',
+      id: 'saved-connection-delete-error'
+    })
+  } finally {
+    profileActionId.value = null
   }
 }
 
@@ -67,12 +120,14 @@ async function submitConnection(): Promise<void> {
   statusMessage.value = '正在安全地检查服务器…'
 
   try {
+    await props.beforeConnect?.()
     const result = await testConnection({
       serverUrl: serverUrl.value,
       username: username.value,
       password: password.value,
       rememberMe: rememberMe.value,
-      allowInsecureHttp: allowInsecureHttp.value
+      allowInsecureHttp: allowInsecureHttp.value,
+      ...(props.initialProfile ? { profileId: props.initialProfile.id } : {})
     })
 
     if (!result.ok) {
@@ -108,27 +163,74 @@ async function submitConnection(): Promise<void> {
     isSubmitting.value = false
   }
 }
+
+watch(
+  () => props.initialProfile,
+  (profile) => {
+    if (!profile) return
+    serverUrl.value = profile.serverUrl
+    username.value = profile.username
+    rememberMe.value = true
+    statusMessage.value = '请输入密码以更新这个服务器账号。'
+  },
+  { immediate: true }
+)
+
+onMounted(() => {
+  if (!props.managementMode) void refreshProfiles()
+})
 </script>
 
 <template>
   <section class="connect-panel" aria-labelledby="connect-title">
     <p class="eyebrow">CONNECT</p>
-    <h1 id="connect-title">连接你的音乐空间</h1>
-    <p class="intro">添加 Navidrome、Subsonic 或 OpenSubsonic 服务器。Windows 与 macOS 共用此连接流程。</p>
+    <h1 id="connect-title">
+      {{ props.initialProfile ? '更新服务器账号' : props.managementMode ? '添加服务器' : '连接你的音乐空间' }}
+    </h1>
+    <p class="intro">添加 Navidrome、Subsonic 或 OpenSubsonic 服务器。已保存账号可直接切换，密码不会回填到 renderer。</p>
+
+    <section
+      v-if="!props.managementMode && (profilesLoading || savedProfiles.length)"
+      class="saved-connections"
+      aria-labelledby="saved-connections-title"
+    >
+      <div class="saved-connections-heading">
+        <h2 id="saved-connections-title">已保存服务器</h2>
+        <span>{{ savedProfiles.length }} / 20</span>
+      </div>
+      <p v-if="profilesLoading" class="field-note">正在读取系统加密保存的账号…</p>
+      <ul v-else class="saved-connections-list">
+        <li v-for="profile in savedProfiles" :key="profile.id">
+          <div class="saved-connection-copy">
+            <strong>{{ profile.serverUrl }}</strong>
+            <span>{{ profile.username }}<template v-if="profile.isDefault"> · 默认</template></span>
+          </div>
+          <div class="saved-connection-actions">
+            <Button
+              type="button"
+              size="sm"
+              :disabled="isSubmitting || isRestoring"
+              :aria-label="`连接 ${profile.serverUrl} · ${profile.username}`"
+              @click="connectProfile(profile)"
+            >
+              {{ profileActionId === profile.id && isRestoring ? '正在连接…' : '连接' }}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              :disabled="isSubmitting || isRestoring || profileActionId !== null"
+              :aria-label="`删除 ${profile.serverUrl} · ${profile.username}`"
+              @click="deleteCandidate = profile"
+            >
+              删除
+            </Button>
+          </div>
+        </li>
+      </ul>
+    </section>
 
     <form class="connection-form" novalidate @submit.prevent="submitConnection">
-      <template v-if="props.savedConnectionAvailable">
-        <Button
-          type="button"
-          variant="outline"
-          :disabled="isSubmitting || isRestoring"
-          @click="restoreSavedConnection"
-        >
-          {{ isRestoring ? '正在重新连接…' : '使用已保存账号重新连接' }}
-        </Button>
-        <p class="field-note">服务器、账号和密码由 main 使用系统加密存储读取，不会回填到 renderer。</p>
-      </template>
-
       <Label for="server-url">服务器地址</Label>
       <Input
         id="server-url"
@@ -167,9 +269,20 @@ async function submitConnection(): Promise<void> {
         <Label for="allow-insecure-http">允许不加密的 HTTP（仅限我了解风险的局域网测试）</Label>
       </div>
 
-      <Button type="submit" :disabled="isSubmitting || isRestoring">
-        {{ isSubmitting ? '正在测试…' : '测试连接' }}
-      </Button>
+      <div class="connection-actions">
+        <Button type="submit" :disabled="isSubmitting || isRestoring">
+          {{ isSubmitting ? '正在测试…' : props.initialProfile ? '更新并连接' : '测试连接' }}
+        </Button>
+        <Button
+          v-if="props.managementMode"
+          type="button"
+          variant="outline"
+          :disabled="isSubmitting || isRestoring"
+          @click="emit('cancel')"
+        >
+          取消
+        </Button>
+      </div>
       <p class="form-status" :class="`is-${statusKind}`" role="status">{{ statusMessage }}</p>
     </form>
 
@@ -177,5 +290,93 @@ async function submitConnection(): Promise<void> {
       <span aria-hidden="true">◇</span>
       renderer 不直接访问 Node.js；密码不会进入 localStorage、Pinia 或日志。
     </footer>
+    <ConfirmationDialog
+      :open="deleteCandidate !== null"
+      title="删除已保存服务器？"
+      :description="deleteCandidate ? `将删除 ${deleteCandidate.serverUrl} 的系统加密凭据，不会修改服务器数据。` : ''"
+      confirm-label="删除服务器"
+      :busy="profileActionId !== null"
+      @update:open="(open) => { if (!open) deleteCandidate = null }"
+      @confirm="confirmDeleteProfile"
+    />
   </section>
 </template>
+
+<style scoped>
+.saved-connections {
+  display: grid;
+  gap: var(--sonavi-space-3);
+  margin: var(--sonavi-space-6) 0;
+  padding: var(--sonavi-space-4);
+  border: 1px solid var(--sonavi-border);
+  border-radius: var(--sonavi-card-radius);
+  background: var(--sonavi-subtle);
+}
+
+.saved-connections-heading,
+.saved-connections-list li,
+.saved-connection-actions,
+.connection-actions {
+  display: flex;
+  align-items: center;
+}
+
+.saved-connections-heading,
+.saved-connections-list li {
+  justify-content: space-between;
+  gap: var(--sonavi-space-4);
+}
+
+.saved-connections-heading h2 {
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.saved-connections-heading span,
+.saved-connection-copy span {
+  color: var(--sonavi-text-secondary);
+  font-size: 0.82rem;
+}
+
+.saved-connections-list {
+  display: grid;
+  gap: var(--sonavi-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.saved-connections-list li {
+  padding: var(--sonavi-space-3);
+  border: 1px solid var(--sonavi-border);
+  border-radius: var(--sonavi-control-radius);
+  background: var(--sonavi-raised);
+}
+
+.saved-connection-copy {
+  display: grid;
+  min-width: 0;
+}
+
+.saved-connection-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.saved-connection-actions {
+  flex: 0 0 auto;
+  gap: var(--sonavi-space-2);
+}
+
+.connection-actions {
+  gap: var(--sonavi-space-2);
+}
+
+@media (max-width: 720px) {
+  .saved-connections-list li {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+</style>

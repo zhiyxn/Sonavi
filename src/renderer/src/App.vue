@@ -10,12 +10,21 @@ import LibraryPanel from './components/LibraryPanel.vue'
 import PlayerBar from './components/PlayerBar.vue'
 import PlaylistsPanel from './components/PlaylistsPanel.vue'
 import SearchPanel from './components/SearchPanel.vue'
+import ServerManagementPanel from './components/ServerManagementPanel.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
 import ConfirmationDialog from './components/ConfirmationDialog.vue'
 import { loadApplicationInfo } from './services/application-info'
-import { disconnectConnection, forgetConnection, restoreConnection } from './services/connection'
+import {
+  connectSavedConnection,
+  disconnectConnection,
+  forgetConnection,
+  restoreConnection
+} from './services/connection'
 import type { ApplicationInfo } from '../../shared/application'
-import type { ConnectionSuccessResult } from '../../shared/connection'
+import type {
+  ConnectionSuccessResult,
+  SavedConnectionProfile
+} from '../../shared/connection'
 import { useSessionStore } from './stores/session'
 import { usePlayerStore } from './stores/player'
 import { usePlaybackReporting } from './composables/use-playback-reporting'
@@ -29,13 +38,14 @@ const loadingError = ref('')
 const projectHomepageError = ref('')
 const startupPending = ref(true)
 const sessionActionError = ref('')
-const savedConnectionAvailable = ref(false)
+const connectionDraft = ref<SavedConnectionProfile | null>(null)
+const serverActionPending = ref(false)
 const session = useSessionStore()
 const player = usePlayerStore()
 const { errorMessage: playbackReportError } = usePlaybackReporting()
 usePlaybackBufferDiagnostics()
 const queryClient = useQueryClient()
-type ApplicationView = 'home' | 'albums' | 'artists' | 'search' | 'favorites' | 'playlists' | 'settings'
+type ApplicationView = 'home' | 'albums' | 'artists' | 'search' | 'favorites' | 'playlists' | 'servers' | 'server-form' | 'settings'
 const activeView = ref<ApplicationView>('home')
 const homeSelectedAlbumId = ref<string | null>(null)
 const albumsSelectedAlbumId = ref<string | null>(null)
@@ -105,7 +115,6 @@ onMounted(async () => {
     applicationInfo.value = await loadApplicationInfo()
     const restored = await restoreConnection()
     if (restored) {
-      savedConnectionAvailable.value = true
       session.establish(restored)
     }
   } catch {
@@ -126,7 +135,7 @@ async function openProjectHomepage(): Promise<void> {
 
 function handleConnected(result: ConnectionSuccessResult): void {
   resetWorkspaceScrollPositions()
-  savedConnectionAvailable.value = result.credentialPersistence === 'encrypted'
+  connectionDraft.value = null
   session.establish(result)
   activeView.value = 'home'
 }
@@ -285,9 +294,9 @@ function resetSelections(): void {
   favoritesSelectedArtistId.value = null
 }
 
-async function handleDisconnect(): Promise<void> {
+async function disconnectCurrent(nextDraft: SavedConnectionProfile | null): Promise<boolean> {
   const current = session.connection
-  if (!current) return
+  if (!current) return false
 
   sessionActionError.value = ''
   player.pause()
@@ -295,14 +304,64 @@ async function handleDisconnect(): Promise<void> {
   try {
     if (!(await disconnectConnection(current.sessionId))) throw new Error('session rejected')
     queryClient.clear()
-    savedConnectionAvailable.value = current.credentialPersistence === 'encrypted'
+    connectionDraft.value = nextDraft
     session.disconnect()
     player.stop()
     resetSelections()
     activeView.value = 'home'
     resetWorkspaceScrollPositions()
+    return true
   } catch {
     sessionActionError.value = '无法安全断开当前会话，请重新启动 Sonavi。'
+    return false
+  }
+}
+
+async function handleDisconnect(): Promise<void> {
+  await disconnectCurrent(null)
+}
+
+async function handleAddServer(): Promise<void> {
+  connectionDraft.value = null
+  await navigate('server-form')
+}
+
+async function handleEditServer(profile: SavedConnectionProfile): Promise<void> {
+  connectionDraft.value = profile
+  await navigate('server-form')
+}
+
+async function prepareServerReplacement(): Promise<void> {
+  await flushPausedQueue()
+}
+
+function handleServerConnected(result: ConnectionSuccessResult): void {
+  queryClient.clear()
+  player.stop()
+  resetSelections()
+  resetWorkspaceScrollPositions()
+  viewCacheRevision.value += 1
+  connectionDraft.value = null
+  session.establish(result)
+  activeView.value = 'home'
+}
+
+async function handleSwitchServer(profileId: string): Promise<void> {
+  if (serverActionPending.value || !session.connection) return
+  serverActionPending.value = true
+  sessionActionError.value = ''
+  await flushPausedQueue()
+  try {
+    const result = await connectSavedConnection(profileId)
+    if (!result.ok) {
+      sessionActionError.value = result.error.message
+      return
+    }
+    handleServerConnected(result)
+  } catch {
+    sessionActionError.value = '无法验证服务器切换结果，请重新启动 Sonavi。'
+  } finally {
+    serverActionPending.value = false
   }
 }
 
@@ -323,7 +382,7 @@ async function confirmForget(): Promise<void> {
   try {
     if (!(await forgetConnection(current.sessionId))) throw new Error('session rejected')
     queryClient.clear()
-    savedConnectionAvailable.value = false
+    connectionDraft.value = null
     session.disconnect()
     resetSelections()
     activeView.value = 'home'
@@ -379,6 +438,9 @@ async function confirmForget(): Promise<void> {
           </button>
           <button class="nav-item" :class="{ active: activeView === 'playlists' }" @click="navigate('playlists')">
             歌单
+          </button>
+          <button class="nav-item" :class="{ active: activeView === 'servers' || activeView === 'server-form' }" @click="navigate('servers')">
+            服务器
           </button>
           <button class="nav-item" :class="{ active: activeView === 'settings' }" @click="navigate('settings')">
             设置
@@ -453,6 +515,23 @@ async function confirmForget(): Promise<void> {
               :session-id="session.connection.sessionId"
               :server-id="session.connection.server.baseUrl"
             />
+            <ServerManagementPanel
+              v-else-if="activeView === 'servers'"
+              :connection="session.connection"
+              :busy="serverActionPending"
+              @add="handleAddServer"
+              @edit="handleEditServer"
+              @switch="handleSwitchServer"
+            />
+            <ConnectPanel
+              v-else-if="activeView === 'server-form'"
+              :application-info="applicationInfo"
+              :initial-profile="connectionDraft"
+              management-mode
+              :before-connect="prepareServerReplacement"
+              @cancel="navigate('servers')"
+              @connected="handleServerConnected"
+            />
           </KeepAlive>
           <SettingsPanel
             v-if="activeView === 'settings'"
@@ -466,7 +545,7 @@ async function confirmForget(): Promise<void> {
         <ConnectPanel
           v-else-if="applicationInfo && !startupPending"
           :application-info="applicationInfo"
-          :saved-connection-available="savedConnectionAvailable"
+          :initial-profile="connectionDraft"
           @connected="handleConnected"
         />
         <p v-else-if="loadingError" class="startup-error" role="alert">{{ loadingError }}</p>

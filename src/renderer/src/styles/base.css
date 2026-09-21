@@ -619,7 +619,7 @@ button.nav-item {
 }
 
 .lyrics-lines.synced li.active {
-  color: var(--sonavi-accent-subtle);
+  color: var(--sonavi-accent);
   font-weight: 650;
 }
 

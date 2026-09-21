@@ -406,3 +406,12 @@ Sonavi 在注册自定义协议、IPC、网络服务和 BrowserWindow 前调用 
 来源：
 
 - https://www.electronjs.org/docs/latest/api/app#apprequestsingleinstancelockadditionaldata
+
+## D036：多服务器只暴露非敏感 profile 摘要，切换成功后再轮换会话
+
+- 日期：2026-09-21
+- 状态：已接受
+
+凭据存储升级为 `credentials.v2.json`，最多保存 20 个 profile。每个密码分别由 Electron `safeStorage` 加密；renderer 只获得随机 UUID、服务器地址、用户名和默认标记，不获得密码、密文、认证参数或任意文件能力。旧 `credentials.v1.json` 只有在 v2 原子写入成功后才删除，任何失败都不回退明文。
+
+按已保存 profile 切换时，main 先用目标密文完成真实连接探测；失败则保留原会话和播放宿主，成功才更新默认 profile，并撤销旧会话的搜索、媒体请求和句柄。当前 profile 不允许从管理页直接删除；“退出并忘记账号”仍是删除当前 profile 的显式二次确认入口。这样多服务器管理复用同一个协议客户端、renderer 与 AudioEngine，不引入平台分叉或第二播放窗口。

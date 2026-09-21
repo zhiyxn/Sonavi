@@ -668,3 +668,34 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - 远端结果：修复提交 `7a67f01` 已推送；`v0.1.0-rc.5` 标签更新到同一提交。release run `35553393327` 与 main run `35553362610` 的 Windows x64、macOS Intel x64、macOS arm64 均通过；release gate 包含 lint、typecheck、198 项测试、依赖审计、源码 Electron 冒烟、对应原生安装包构建/校验和打包应用冒烟。
 - Release 核验：rc.5 仍为非草稿、非 Latest 的 Pre-release；三个安装包、三个 manifest 与 610 字节 `SHA256SUMS.txt` 共七个附件均在 2026-09-21 10:19～10:20（Asia/Shanghai）替换完成。
 - 未验证：macOS Intel x64、macOS arm64 的真实重复启动，以及 Windows/macOS 新包人工安装入口的双启动。自动 runner 与包内冒烟不替代对应真机人工结论。
+
+## P23 服务器管理（2026-09-21）
+
+- 范围：本机多 profile 加密凭据、受限 IPC、连接页快速连接与“服务器”管理页；不新增协议端点、私有 Navidrome API、服务端写入、原生模块或第二 AudioEngine。
+- failure-first：新增多 profile 存储与 v1 迁移用例后，旧 `CredentialStore` 因只支持单文件布尔保存且没有列表方法而按预期失败。
+- 安全验证：`credentials.v2.json` 最多包含 20 个 UUID profile，每个密码单独加密；列表 schema 只允许 UUID、服务器地址、用户名和默认标记。safeStorage 不可用、解密失败或写入失败时不写明文；v1 只有在 v2 原子写入成功后才移除。
+- 行为验证：服务测试覆盖成功切换后更新默认 profile、拒绝删除当前 profile，以及目标缺失/连接失败时保留原会话；组件测试覆盖添加、更新、切换、删除和密码不回填。
+- `npm run lint`：通过，0 warning。
+- `npm run typecheck`：node、web、test 三组通过。
+- `npm test -- --run`：35 文件、204 项通过；新增外壳用例验证添加表单保留当前会话且可取消返回。
+- `npm run build`：通过；只有既有 Zod PURE 注释位置提示。
+- `npm run test:e2e` 的构建与脚本分步执行：受限沙箱内 Electron GPU/renderer 子进程无法启动；获准在本机桌面环境执行同一构建产物后完整通过。新增流程在不先断开当前会话的情况下保存同地址不同用户名的第二账号、切换回首账号并删除非当前账号；完整旧流程继续通过。最终启动样本 569 ms，20 轮切页内存增量 38,860 KiB、媒体请求增量 0。
+- 缺陷回收：首次管理流程发现 AlertDialog 自动关闭先于父组件普通 click 监听，导致候选 profile 被清空而未删除。确认事件改为 capture 阶段后，4 个确认相关测试与完整 Electron 冒烟通过；未放宽二次确认要求。
+- 未验证：真实多服务器、真实账号密码更新、Windows 新安装包、macOS Intel x64、macOS arm64。本轮未生成安装包、未发布、未上传、未创建提交。
+
+## P24 深色模式歌词高亮对比度（2026-09-21）
+
+- 复现与根因：同步歌词高亮使用 `--sonavi-accent-subtle`；深色 token `#4a3622` 与歌词面板 `#272a24` 的计算对比度约 1.28:1，符合用户“显示不清晰”的反馈。
+- failure-first：新增样式断言期望跨主题强调色，旧实现稳定收到 `var(--sonavi-accent-subtle)` 并失败。
+- 修复：只把高亮前景改为 `--sonavi-accent`，深色对比度约 5.15:1，达到普通文字 4.5:1 门槛；字重 650、时间同步、seek 定位和自动滚动保持不变。
+- 定向验证：`interaction-style` 与 `lyrics-panel` 共 2 文件/11 项通过；新增测试同时校验 CSS 变量、字重和深色 token 对比度。
+- 完整验证：`npm run lint`、三组 typecheck、35 文件/205 项测试与 `npm run build` 通过；构建只有既有 Zod PURE 注释位置提示。
+- 未验证：用户当前 Windows 真实歌词目视复验、macOS Intel x64、macOS arm64 与新安装包。本轮未提交、推送、打包或发布。
+
+## P25 服务器切换二次确认（2026-09-21）
+
+- failure-first：组件用例点击“切换”后期望尚未 emit，旧实现立即发出目标 profile ID，测试按预期失败。
+- 实现：按钮改为打开项目持有的 AlertDialog；取消和关闭不执行切换，点击“确认切换”才 emit 严格 UUID。确认文案说明当前播放和失败保留语义，不新增 IPC 或凭据暴露。
+- 定向验证：`server-management` 与 `app-shell` 共 2 文件/13 项通过，覆盖取消、确认、删除确认以及应用外壳既有行为。
+- 完整验证：lint、三组 typecheck、35 文件/205 项测试和生产构建通过；Windows Electron 冒烟实际点击确认后完成添加、切换、删除及全部既有流程。启动样本 546 ms，20 轮切页内存增量 37,040 KiB、媒体请求增量 0。
+- 未验证：Windows 真实服务器目视交互、macOS Intel x64、macOS arm64 与新安装包。本轮未提交、推送、打包或发布。

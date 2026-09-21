@@ -5,8 +5,11 @@ import {
   type SonaviApi
 } from '../shared/application'
 import {
+  CONNECT_SAVED_CONNECTION_CHANNEL,
+  DELETE_SAVED_CONNECTION_CHANNEL,
   DISCONNECT_CONNECTION_CHANNEL,
   FORGET_CONNECTION_CHANNEL,
+  LIST_SAVED_CONNECTIONS_CHANNEL,
   RESTORE_CONNECTION_CHANNEL,
   TEST_CONNECTION_CHANNEL,
   type ConnectionTestInput
@@ -87,6 +90,11 @@ const sonaviApi: SonaviApi = Object.freeze({
   connection: Object.freeze({
     test: (input: ConnectionTestInput) => ipcRenderer.invoke(TEST_CONNECTION_CHANNEL, input),
     restore: () => ipcRenderer.invoke(RESTORE_CONNECTION_CHANNEL),
+    listSaved: () => ipcRenderer.invoke(LIST_SAVED_CONNECTIONS_CHANNEL),
+    connectSaved: (profileId: string) =>
+      ipcRenderer.invoke(CONNECT_SAVED_CONNECTION_CHANNEL, profileId),
+    deleteSaved: (profileId: string) =>
+      ipcRenderer.invoke(DELETE_SAVED_CONNECTION_CHANNEL, profileId),
     disconnect: (sessionId: string) =>
       ipcRenderer.invoke(DISCONNECT_CONNECTION_CHANNEL, sessionId),
     forget: (sessionId: string) => ipcRenderer.invoke(FORGET_CONNECTION_CHANNEL, sessionId)

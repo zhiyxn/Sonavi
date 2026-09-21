@@ -28,6 +28,12 @@ function installPlatformApi(platform: 'windows' | 'macos'): SonaviApi {
         error: { code: 'network', message: 'not used in app shell tests', retryable: true }
       }),
       restore: async () => null,
+      listSaved: async () => [],
+      connectSaved: async () => ({
+        ok: false,
+        error: { code: 'network', message: 'not used in app shell tests', retryable: true }
+      }),
+      deleteSaved: async () => true,
       disconnect: async () => true,
       forget: async () => true
     },
@@ -152,6 +158,44 @@ describe('共享应用外壳', () => {
     expect(wrapper.findComponent({ name: 'ConnectPanel' }).exists()).toBe(true)
     expect(wrapper.text()).toContain('设置快捷键 Cmd+,')
     expect(wrapper.text()).toContain('在这台 macOS 设备上记住我')
+  })
+
+  it('从服务器管理添加账号时保留当前会话，并可取消返回', async () => {
+    const api = installPlatformApi('windows')
+    api.connection.disconnect = vi.fn(async () => true)
+    const pinia = createPinia()
+    const wrapper = mount(App, { global: { plugins: [pinia, VueQueryPlugin] } })
+    await flushPromises()
+    const session = useSessionStore(pinia)
+    session.establish({
+      ok: true,
+      sessionId: '1e2d7353-9554-46a5-84fe-89b53008f01d',
+      server: {
+        baseUrl: 'https://music.example.com',
+        protocolVersion: '1.16.1',
+        openSubsonic: true,
+        capabilityStatus: 'available',
+        extensions: [],
+        musicFolders: []
+      },
+      credentialPersistence: 'encrypted',
+      profileId: '82c3080c-82dc-4d4d-b7da-a610f9efffb4'
+    })
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text() === '服务器')?.trigger('click')
+    await flushPromises()
+    await wrapper.findAll('button').find((button) => button.text() === '添加服务器')?.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('添加服务器')
+    expect(session.connection?.sessionId).toBe('1e2d7353-9554-46a5-84fe-89b53008f01d')
+    expect(api.connection.disconnect).not.toHaveBeenCalled()
+
+    await wrapper.findAll('button').find((button) => button.text() === '取消')?.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('服务器管理')
+    expect(session.connection).not.toBeNull()
   })
 
   it('页面眉题只显示栏目名称，不保留无意义的重复编号', async () => {
@@ -557,6 +601,13 @@ describe('共享应用外壳', () => {
 
   it('清空缓存和断开连接均在 AlertDialog 确认后才执行', async () => {
     const api = installPlatformApi('windows')
+    const profileId = '82c3080c-82dc-4d4d-b7da-a610f9efffb4'
+    api.connection.listSaved = vi.fn(async () => [{
+      id: profileId,
+      serverUrl: 'https://music.example.com',
+      username: 'listener',
+      isDefault: true
+    }])
     api.desktop.clearCoverCache = vi.fn(async () => ({
       itemCount: 0,
       totalBytes: 0,
@@ -586,7 +637,8 @@ describe('共享应用外壳', () => {
         extensions: [],
         musicFolders: []
       },
-      credentialPersistence: 'encrypted'
+      credentialPersistence: 'encrypted',
+      profileId
     })
     await flushPromises()
 
@@ -638,7 +690,8 @@ describe('共享应用外壳', () => {
     await flushPromises()
     expect(stop).toHaveBeenCalledOnce()
     expect(session.connection).toBeNull()
-    expect(wrapper.text()).toContain('使用已保存账号重新连接')
+    expect(wrapper.text()).toContain('已保存服务器')
+    expect(wrapper.text()).toContain('https://music.example.com')
   })
 
   it('保存播放设置刷新队列播放计划，仅代理连接重置时停止播放器', async () => {

@@ -43,7 +43,7 @@ function updateOpen(open: boolean): void {
         <AlertDialogAction
           class="bg-[var(--sonavi-danger)] text-white hover:bg-[color-mix(in_srgb,var(--sonavi-danger)_86%,black)]"
           :disabled="busy"
-          @click="emit('confirm')"
+          @click.capture="emit('confirm')"
         >
           {{ busy ? '正在处理…' : confirmLabel }}
         </AlertDialogAction>

@@ -10,8 +10,18 @@ export const ConnectionTestInputSchema = z.object({
   username: z.string().trim().min(1).max(256),
   password: z.string().min(1).max(4096),
   rememberMe: z.boolean(),
-  allowInsecureHttp: z.boolean()
+  allowInsecureHttp: z.boolean(),
+  profileId: z.string().uuid().optional()
 }) satisfies z.ZodType<ConnectionTestInput>
+
+export const SavedConnectionProfileIdSchema = z.string().uuid()
+export const SavedConnectionProfileSchema = z.object({
+  id: SavedConnectionProfileIdSchema,
+  serverUrl: z.string().url(),
+  username: z.string().min(1).max(256),
+  isDefault: z.boolean()
+})
+export const SavedConnectionProfilesSchema = z.array(SavedConnectionProfileSchema).max(20)
 
 const ConnectionErrorCodeSchema = z.enum([
   'invalid-input',
@@ -54,7 +64,8 @@ export const ConnectionTestResultSchema = z.discriminatedUnion('ok', [
         })
       )
     }),
-    credentialPersistence: z.enum(['encrypted', 'session-only', 'not-requested'])
+    credentialPersistence: z.enum(['encrypted', 'session-only', 'not-requested']),
+    profileId: SavedConnectionProfileIdSchema.optional()
   }),
   z.object({
     ok: z.literal(false),

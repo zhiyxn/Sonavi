@@ -7,8 +7,11 @@ import {
 } from '../shared/application'
 import { ApplicationInfoSchema } from '../shared/application-schema'
 import {
+  CONNECT_SAVED_CONNECTION_CHANNEL,
+  DELETE_SAVED_CONNECTION_CHANNEL,
   DISCONNECT_CONNECTION_CHANNEL,
   FORGET_CONNECTION_CHANNEL,
+  LIST_SAVED_CONNECTIONS_CHANNEL,
   RESTORE_CONNECTION_CHANNEL,
   TEST_CONNECTION_CHANNEL,
   type ConnectionTestResult
@@ -17,6 +20,8 @@ import {
   ConnectionTestInputSchema,
   ConnectionTestResultSchema,
   RestoredConnectionResultSchema,
+  SavedConnectionProfileIdSchema,
+  SavedConnectionProfilesSchema,
   SessionActionResultSchema
 } from '../shared/connection-schema'
 import {
@@ -216,6 +221,47 @@ function registerConnectionIpc(
       mediaHandles.revokeSession(previousSessionId)
     }
     return result
+  })
+
+  ipcMain.handle(LIST_SAVED_CONNECTIONS_CHANNEL, async (event) => {
+    assertTrustedIpcSender(event)
+    return SavedConnectionProfilesSchema.parse(await connectionService.listSavedProfiles())
+  })
+
+  ipcMain.handle(CONNECT_SAVED_CONNECTION_CHANNEL, async (event, rawProfileId: unknown) => {
+    assertTrustedIpcSender(event)
+    const profileId = SavedConnectionProfileIdSchema.safeParse(rawProfileId)
+    if (!profileId.success) {
+      const invalid: ConnectionTestResult = {
+        ok: false,
+        error: {
+          code: 'invalid-input',
+          message: '已保存服务器标识无效。',
+          retryable: false
+        }
+      }
+      return invalid
+    }
+
+    const previousSessionId = connectionService.getCurrentSessionId()
+    const result = ConnectionTestResultSchema.parse(
+      await connectionService.connectSaved(profileId.data)
+    )
+    if (result.ok && previousSessionId && previousSessionId !== result.sessionId) {
+      libraryService.cancelSessionSearches(previousSessionId)
+      mediaProtocol.revokeSession(previousSessionId)
+      mediaHandles.revokeSession(previousSessionId)
+    }
+    return result
+  })
+
+  ipcMain.handle(DELETE_SAVED_CONNECTION_CHANNEL, async (event, rawProfileId: unknown) => {
+    assertTrustedIpcSender(event)
+    const profileId = SavedConnectionProfileIdSchema.safeParse(rawProfileId)
+    if (!profileId.success) return false
+    return SessionActionResultSchema.parse(
+      await connectionService.deleteSavedProfile(profileId.data)
+    )
   })
 
   ipcMain.handle(DISCONNECT_CONNECTION_CHANNEL, (event, rawSessionId: unknown) => {

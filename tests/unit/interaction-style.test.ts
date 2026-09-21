@@ -6,6 +6,26 @@ const baseCss = readFileSync(
   resolve(process.cwd(), 'src/renderer/src/styles/base.css'),
   'utf8'
 )
+const tokensCss = readFileSync(
+  resolve(process.cwd(), 'src/renderer/src/styles/tokens.css'),
+  'utf8'
+)
+
+function relativeLuminance(hex: string): number {
+  const channels = hex.match(/[0-9a-f]{2}/gi)?.map((channel) => Number.parseInt(channel, 16) / 255)
+  if (!channels || channels.length !== 3) throw new Error(`Invalid color: ${hex}`)
+  const [red, green, blue] = channels.map((channel) =>
+    channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+  ) as [number, number, number]
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+}
+
+function contrastRatio(first: string, second: string): number {
+  const firstLuminance = relativeLuminance(first)
+  const secondLuminance = relativeLuminance(second)
+  return (Math.max(firstLuminance, secondLuminance) + 0.05) /
+    (Math.min(firstLuminance, secondLuminance) + 0.05)
+}
 
 afterEach(() => {
   document.body.replaceChildren()
@@ -89,5 +109,25 @@ describe('可点击控件样式', () => {
     expect(lyricsRule?.style.scrollbarWidth).toBe('none')
     expect(lyricsRule?.style.overflowY).toBe('auto')
     expect(webkitRule?.style.display).toBe('none')
+  })
+
+  it('同步歌词高亮使用跨明暗主题可读的强调色', () => {
+    const style = document.createElement('style')
+    style.textContent = baseCss
+    document.head.append(style)
+    const rules = [...(style.sheet?.cssRules ?? [])] as CSSStyleRule[]
+    const activeLyricsRule = rules.find(
+      (rule) => rule.selectorText === '.lyrics-lines.synced li.active'
+    )
+
+    expect(activeLyricsRule?.style.color).toBe('var(--sonavi-accent)')
+    expect(activeLyricsRule?.style.fontWeight).toBe('650')
+
+    const darkTokens = tokensCss.match(/:root\[data-theme="dark"\]\s*\{([\s\S]*?)\}/)?.[1] ?? ''
+    const accent = darkTokens.match(/--sonavi-accent:\s*(#[0-9a-f]{6})/i)?.[1]
+    const panel = darkTokens.match(/--sonavi-chrome-raised:\s*(#[0-9a-f]{6})/i)?.[1]
+    expect(accent).toBeDefined()
+    expect(panel).toBeDefined()
+    expect(contrastRatio(accent!, panel!)).toBeGreaterThanOrEqual(4.5)
   })
 })
