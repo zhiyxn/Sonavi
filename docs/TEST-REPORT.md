@@ -681,7 +681,7 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - `npm run build`：通过；只有既有 Zod PURE 注释位置提示。
 - `npm run test:e2e` 的构建与脚本分步执行：受限沙箱内 Electron GPU/renderer 子进程无法启动；获准在本机桌面环境执行同一构建产物后完整通过。新增流程在不先断开当前会话的情况下保存同地址不同用户名的第二账号、切换回首账号并删除非当前账号；完整旧流程继续通过。最终启动样本 569 ms，20 轮切页内存增量 38,860 KiB、媒体请求增量 0。
 - 缺陷回收：首次管理流程发现 AlertDialog 自动关闭先于父组件普通 click 监听，导致候选 profile 被清空而未删除。确认事件改为 capture 阶段后，4 个确认相关测试与完整 Electron 冒烟通过；未放宽二次确认要求。
-- 未验证：真实多服务器、真实账号密码更新、Windows 新安装包、macOS Intel x64、macOS arm64。本轮未生成安装包、未发布、未上传、未创建提交。
+- 用户确认当前 Windows 源码测试未发现问题；真实多服务器完整人工矩阵与真实账号密码更新仍需按 `SET-06` 补齐。功能已进入提交 `c7423b5` 和重打后的 rc.5 三目标包。
 
 ## P24 深色模式歌词高亮对比度（2026-09-21）
 
@@ -690,7 +690,7 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - 修复：只把高亮前景改为 `--sonavi-accent`，深色对比度约 5.15:1，达到普通文字 4.5:1 门槛；字重 650、时间同步、seek 定位和自动滚动保持不变。
 - 定向验证：`interaction-style` 与 `lyrics-panel` 共 2 文件/11 项通过；新增测试同时校验 CSS 变量、字重和深色 token 对比度。
 - 完整验证：`npm run lint`、三组 typecheck、35 文件/205 项测试与 `npm run build` 通过；构建只有既有 Zod PURE 注释位置提示。
-- 未验证：用户当前 Windows 真实歌词目视复验、macOS Intel x64、macOS arm64 与新安装包。本轮未提交、推送、打包或发布。
+- 用户确认当前 Windows 深色真实歌词目视复验未发现问题。macOS Intel x64、macOS arm64 仍未单独人工验证；功能已进入 `c7423b5` 和重打后的 rc.5 三目标包。
 
 ## P25 服务器切换二次确认（2026-09-21）
 
@@ -698,4 +698,12 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - 实现：按钮改为打开项目持有的 AlertDialog；取消和关闭不执行切换，点击“确认切换”才 emit 严格 UUID。确认文案说明当前播放和失败保留语义，不新增 IPC 或凭据暴露。
 - 定向验证：`server-management` 与 `app-shell` 共 2 文件/13 项通过，覆盖取消、确认、删除确认以及应用外壳既有行为。
 - 完整验证：lint、三组 typecheck、35 文件/205 项测试和生产构建通过；Windows Electron 冒烟实际点击确认后完成添加、切换、删除及全部既有流程。启动样本 546 ms，20 轮切页内存增量 37,040 KiB、媒体请求增量 0。
-- 未验证：Windows 真实服务器目视交互、macOS Intel x64、macOS arm64 与新安装包。本轮未提交、推送、打包或发布。
+- 用户确认当前 Windows 真实服务器切换确认未发现问题。macOS Intel x64、macOS arm64 仍未单独人工验证；功能已进入 `c7423b5` 和重打后的 rc.5 三目标包。
+
+## v0.1.0-rc.5 服务器管理重打（2026-09-21）
+
+- `c7423b5 feat(connection): add secure server management` 已推送到 `main`，`v0.1.0-rc.5` 标签更新到该提交。
+- main run `35577259996`：成功。
+- release run `35577304234`：Windows x64、macOS Intel x64、macOS arm64 的 lint、typecheck、205 项测试、依赖审计、源码 Electron 冒烟、安装包构建、包验证与打包应用冒烟全部成功；发布 job 成功。
+- Release 核验：非草稿、Pre-release、不是 Latest，共七个新附件；Windows NSIS 112,829,351 字节，macOS x64 DMG 135,249,375 字节，macOS arm64 DMG 130,972,601 字节，另有三个 manifest 与 610 字节 `SHA256SUMS.txt`。
+- 地址：`https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.5`。自动 runner 证据不外推为 macOS 两架构本轮真实服务器管理、歌词对比度或切换确认人工通过。

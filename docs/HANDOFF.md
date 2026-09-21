@@ -4,7 +4,7 @@
 
 ## 当前目标与状态
 
-P01～P10 已完成，P11～P22 已经过审查、稳定性修复、真机回归与单实例修复；当前 P23 服务器管理代码完成、尚未提交。未换框架或大重构，也未配置签名/公证/自动更新或创建新的 Release。最新代码仍不能判定为发布就绪，完整结论见 `docs/TEST-REPORT.md`、`docs/TEST-MATRIX.md` 与 `docs/KNOWN-ISSUES.md`。
+P01～P10 已完成，P11～P25 已经过审查、稳定性修复、真机回归、单实例与服务器管理扩展。服务器管理、深色歌词高亮和切换确认已由提交 `c7423b5` 推送并重打 rc.5。未换框架或大重构，也未配置签名/公证/自动更新。最新代码仍不能判定为正式发布就绪，完整结论见 `docs/TEST-REPORT.md`、`docs/TEST-MATRIX.md` 与 `docs/KNOWN-ISSUES.md`。
 
 P11 原 Critical 已修复：媒体句柄改为会话密钥加密、带 epoch 的无状态 token，不再因 2,000 项 FIFO 淘汰；10,000 个后续封面句柄回归测试通过。用户真实 Windows 记录 `docs/Existing issues.md` 中的艺术家大响应、后续播放、scrobble 和 UI 问题均有针对性代码修复，但艺术家/scrobble 必须回到原服务器复验，不能仅凭 fixture 宣称关闭。
 
@@ -276,14 +276,14 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 - failure-first 存储测试在旧实现上按预期失败；最终 `npm run lint`、三组 typecheck、35 文件/204 项 Vitest、生产构建均通过。新增外壳用例确认进入添加表单不会先断开当前会话，并可取消返回。
 - Windows 源码 Electron 完整冒烟通过：在隔离 userData 中添加同地址第二账号、切换回首账号、删除非当前账号，随后继续通过音乐库、播放、队列、歌词、收藏/歌单、网络诊断、单实例、凭据恢复/删除与 safeStorage 往返。最终启动样本 569 ms，20 轮切页内存增量 38,860 KiB、媒体请求增量 0。
 - E2E 首轮在受限沙箱内因 GPU 子进程无法启动而失败，获准在沙箱外运行后正常；业务流程首次运行又暴露 AlertDialog 关闭事件先清空删除候选项，已将确认回调改为 capture 阶段触发，并用组件与 Electron 测试复验。
-- 当前改动尚未提交或推送，也未重打 rc.5。真实多服务器、凭据更新、Windows 新安装包、macOS Intel x64 与 macOS arm64 均未验证；下一入口是执行 `SET-06`，不得在反馈或截图中记录真实服务器与账号。
+- 功能提交 `c7423b5` 已推送；`v0.1.0-rc.5` 已更新到该提交。真实多服务器完整人工矩阵和凭据更新仍需按 `SET-06` 补齐，不得在反馈或截图中记录真实服务器与账号。
 
 ## P24 深色模式歌词高亮对比度（2026-09-21）
 
 - 用户在当前 Windows 测试中反馈深色模式的同步歌词高亮不清晰。根因是 `.lyrics-lines.synced li.active` 使用 `--sonavi-accent-subtle`；深色值 `#4a3622` 在歌词面板 `#272a24` 上仅约 1.28:1。
 - 高亮文字已改用 `--sonavi-accent`；深色值 `#d18a43` 与面板对比度约 5.15:1，字重仍为 650。未改歌词数据、时间同步、自动居中或 AudioEngine。
 - failure-first 测试先稳定得到旧变量；修复后定向 2 文件/11 项、lint、三组 typecheck、35 文件/205 项全量测试和生产构建通过。测试同时门禁高亮变量和深色对比度不低于 4.5:1。
-- 当前源码构建已更新，但之前打开的 Electron 进程不会热更新；需从托盘执行“重启 Sonavi”后由用户目视复验。改动仍未提交、推送或打包，macOS 与安装包未验证。
+- 用户重启当前 Windows 源码构建后确认未发现问题。改动已包含在 `c7423b5` 和新 rc.5 三目标包中；macOS 深色真实歌词仍未单独人工验证。
 
 ## P25 服务器切换二次确认（2026-09-21）
 
@@ -291,4 +291,11 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 - 确认文案明确成功后会停止当前播放并加载目标服务器，连接失败保留当前会话。既有 main/preload 契约、安全切换顺序和凭据边界没有变化。
 - failure-first 测试先证明旧按钮会立即 emit；实现后同一用例覆盖取消不 emit、确认只 emit 目标 UUID。最终 lint、三组 typecheck、35 文件/205 项测试、生产构建及 Windows Electron 完整冒烟通过。
 - 最终冒烟实际点击“确认切换”，随后继续完成音乐库、播放、网络、单实例与凭据恢复/删除流程；启动样本 546 ms，20 轮切页内存增量 37,040 KiB、媒体请求增量 0。
-- 当前改动尚未提交、推送或打包；已打开的旧应用需从托盘安全重启后再人工复验。
+- 用户在当前 Windows 真实服务器上确认未发现问题。功能已随 `c7423b5` 推送并进入新 rc.5；macOS 切换确认仍未单独人工验证。
+
+## v0.1.0-rc.5 服务器管理重打结果（2026-09-21）
+
+- 功能提交：`c7423b5 feat(connection): add secure server management`，已推送到 `main`；标签 `v0.1.0-rc.5` 已更新到该提交。
+- main run `35577259996` 完成且成功；release run `35577304234` 的 Windows x64、macOS Intel x64、macOS arm64 release gate 与 `Create GitHub Pre-release` 全部成功。
+- rc.5 Release 仍是非草稿、非 Latest 的 Pre-release；三个安装包、三个 manifest 与 610 字节 `SHA256SUMS.txt` 共七个附件已于 2026-09-21 16:27（Asia/Shanghai）完成替换。
+- Release：`https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.5`。自动构建和包内冒烟不替代 macOS 两架构的本轮人工服务器管理与歌词目视验收。
