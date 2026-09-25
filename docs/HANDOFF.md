@@ -333,3 +333,4 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 - 普通 CI run `36140065564` 成功；release run `36141089881` 的 Windows x64、macOS Intel x64、macOS arm64 release gate 与 `Create GitHub Pre-release` 全部成功。
 - Release 为非草稿 Pre-release 且不是 Latest；三个安装包、三个 manifest 与 610 字节 `SHA256SUMS.txt` 共七个附件齐全。
 - Release：`https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.6`。自动 runner 证据不外推为 Windows/macOS 新安装包的完整人工验收，arm64 真机仍未验证。
+- 发布后发现 README 仍列出 rc.5 文件名；现已将下载入口直指 rc.6 Release，三个文件名更新为 rc.6，并将旧“首页”功能摘要改为音乐/专辑/艺术家页内搜索与分页。既有 rc.6 标签与已校验附件不改写。

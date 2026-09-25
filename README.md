@@ -14,18 +14,18 @@ Sonavi 是一款简洁、跨平台的 Navidrome、Subsonic 与 OpenSubsonic 桌�
 
 ## 下载
 
-前往 [GitHub Releases](https://github.com/zhiyxn/Sonavi/releases) 下载最新 Pre-release：
+前往 [GitHub Releases](https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.6) 下载最新 Pre-release：
 
-- Windows x64：`Sonavi-0.1.0-rc.5-win-x64.exe`
-- macOS Intel x64：`Sonavi-0.1.0-rc.5-mac-x64.dmg`
-- macOS Apple Silicon arm64：`Sonavi-0.1.0-rc.5-mac-arm64.dmg`
+- Windows x64：`Sonavi-0.1.0-rc.6-win-x64.exe`
+- macOS Intel x64：`Sonavi-0.1.0-rc.6-mac-x64.dmg`
+- macOS Apple Silicon arm64：`Sonavi-0.1.0-rc.6-mac-arm64.dmg`
 
 下载后可使用 Release 中的 `SHA256SUMS.txt` 校验文件完整性。
 
 ## 功能
 
 - 连接 Navidrome、Subsonic 与 OpenSubsonic 服务器；
-- 浏览首页、专辑和艺术家，支持分页搜索；
+- 浏览音乐、专辑和艺术家，支持页内搜索与服务端分页；
 - 收藏歌曲、专辑和艺术家；
 - 创建、编辑和播放歌单；
 - 播放队列、随机与循环播放；

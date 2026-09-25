@@ -436,3 +436,4 @@ P01 已达到验收条件，P02～P10 已按序达到当时可用环境的代码
 - [x] `main` 普通 CI run `36140065564` 的 Windows x64、macOS Intel x64、macOS arm64 全部通过。
 - [x] 已创建并推送 `v0.1.0-rc.6`；release run `36141089881` 的三目标 release gate 和发布 job 全部通过。
 - [x] GitHub Release 已核验为非草稿 Pre-release 且不是 Latest；三个安装包、三个 manifest 与 610 字节 `SHA256SUMS.txt` 共七个附件齐全。
+- [x] 发布后回收 README 遗漏：下载链接与三个文件名已从 rc.5 更新为 rc.6，功能摘要同步移除“首页”并改为三页内嵌搜索/服务端分页。
