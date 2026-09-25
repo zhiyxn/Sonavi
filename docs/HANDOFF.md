@@ -4,7 +4,7 @@
 
 ## 当前目标与状态
 
-P01～P10 已完成，P11～P25 已经过审查、稳定性修复、真机回归、单实例与服务器管理扩展；P26 音乐库导航/分页和 P27 艺术家自然滚动/搜索条吸顶已由提交 `eab275b` 完成本地自动闸门。`v0.1.0-rc.6` 正在发布前验证，已发布的最新候选仍为 rc.5。本轮未配置签名/公证/自动更新。最新代码仍不能判定为正式发布就绪，完整结论见 `docs/TEST-REPORT.md`、`docs/TEST-MATRIX.md` 与 `docs/KNOWN-ISSUES.md`。
+P01～P10 已完成，P11～P25 已经过审查、稳定性修复、真机回归、单实例与服务器管理扩展；P26 音乐库导航/分页和 P27 艺术家自然滚动/搜索条吸顶已由提交 `eab275b` 完成。最新候选 `v0.1.0-rc.6` 已通过普通三平台 CI、三目标 release gate 和发布 job，并发布为非草稿 GitHub Pre-release。本轮未配置签名/公证/自动更新。最新代码仍不能判定为正式发布就绪，完整结论见 `docs/TEST-REPORT.md`、`docs/TEST-MATRIX.md` 与 `docs/KNOWN-ISSUES.md`。
 
 P11 原 Critical 已修复：媒体句柄改为会话密钥加密、带 epoch 的无状态 token，不再因 2,000 项 FIFO 淘汰；10,000 个后续封面句柄回归测试通过。用户真实 Windows 记录 `docs/Existing issues.md` 中的艺术家大响应、后续播放、scrobble 和 UI 问题均有针对性代码修复，但艺术家/scrobble 必须回到原服务器复验，不能仅凭 fixture 宣称关闭。
 
@@ -309,7 +309,7 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 - failure-first 应用外壳用例先准确暴露旧“首页/搜索”导航；合并 rc.5 基线后的最终自动闸门结果见 `docs/TEST-REPORT.md`。
 - 首轮 E2E 运行暴露三处测试仍假定旧导航/详情状态或 `newest` 诊断上下文；均按新产品语义修正测试定位，没有放宽产品断言。沙箱内 Electron 无法启动，获准使用本机桌面环境后通过。
 - 分页器在服务器返回空的后继页时继续显示可用的“上一页”，避免满页启发式多开放一页后无法返回；定向回归覆盖该边界。
-- 未验证：真实 Navidrome/OpenSubsonic 的空查询兼容性和大型库多页边界、Windows 11 x64、macOS Intel 人工界面、macOS arm64、新安装包及物理听音。本轮未提交、未推送、未生成安装包、未发布或上传。
+- 未验证：真实 Navidrome/OpenSubsonic 的空查询兼容性和大型库多页边界、Windows 11 x64、macOS Intel 人工界面、macOS arm64、新安装包及物理听音；自动发布证据见后文 rc.6 发布结果。
 - 下一入口：在真实大库分别验证音乐/专辑/艺术家首末页、搜索后翻页与清空恢复；随后执行 Windows 11 x64、macOS Intel x64、macOS arm64 的导航、布局和请求诊断矩阵。
 
 ## P27 艺术家自然滚动与搜索条吸顶（2026-09-25）
@@ -319,10 +319,17 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 - 音乐、专辑和艺术家搜索表单共用 `search-form-sticky`：顶部 12px、层级 20、结果下间距 32px。专辑首行内容不再紧贴搜索卡片。
 - failure-first 样式断言先准确发现旧 `.workspace-artists-list`；合并 rc.5 基线后 lint、三组 typecheck、35 文件/205 项全量测试、生产构建与 Electron 冒烟全部通过。冒烟启动样本 1,290 ms，20 轮切页内存增量 55,212 KiB，媒体请求增量 0。
 - Electron 几何检查验证工作区为 `overflow-y:auto`、艺术家列表为 `overflow-y:visible`、搜索条为 `position:sticky; top:12px`，专辑搜索条与首行内容间距不少于 32px。
-- 未验证：当前真实账号页面的人工观感、50 项完整艺术家页、Windows 11 x64、macOS arm64 和新安装包。本轮未提交、未推送、未生成安装包或发布。
+- 未验证：当前真实账号页面的完整 50 项艺术家页、Windows 11 x64、macOS arm64 和新安装包人工复验；自动发布证据见后文 rc.6 发布结果。
 
 ## v0.1.0-rc.6 发布准备（2026-09-25）
 
 - 用户已对当前 macOS Intel 源码构建执行人工试用，未发现新问题，并明确授权提交、推送与发布新测试包。
 - 功能提交为 `eab275b feat(library): add paged browsing and embedded search`；发布准备将版本推进到 `0.1.0-rc.6`，候选说明位于 `docs/RELEASE-NOTES-v0.1.0-rc.6.md`。
 - 本地 Node.js 22.19.0 下 lint、三组 typecheck、35 文件/205 项测试、生产构建和 macOS Intel Electron 冒烟通过；标签校验、远程三平台 CI、release gate 与附件校验待后续补记。
+
+## v0.1.0-rc.6 发布结果（2026-09-25）
+
+- 发布提交：`57f1adf chore(release): prepare v0.1.0-rc.6`；标签 `v0.1.0-rc.6` 指向该提交且已推送。
+- 普通 CI run `36140065564` 成功；release run `36141089881` 的 Windows x64、macOS Intel x64、macOS arm64 release gate 与 `Create GitHub Pre-release` 全部成功。
+- Release 为非草稿 Pre-release 且不是 Latest；三个安装包、三个 manifest 与 610 字节 `SHA256SUMS.txt` 共七个附件齐全。
+- Release：`https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.6`。自动 runner 证据不外推为 Windows/macOS 新安装包的完整人工验收，arm64 真机仍未验证。

@@ -1,7 +1,7 @@
 # P10 打包、兼容性与发布前审计报告
 
 日期：2026-09-25
-状态：P27 当前工作区已通过 macOS Intel 自动代码闸门与用户试用，`v0.1.0-rc.6` 正在发布前验证；已发布的最新候选仍为 `v0.1.0-rc.5`。真实大型服务边界、Windows 11 x64、macOS arm64 真机、正式签名/公证和各平台完整实机发布验收未完成
+状态：P27 当前工作区已通过 macOS Intel 自动代码闸门与用户试用；最新候选 `v0.1.0-rc.6` 已通过三目标原生 release gate 并发布为 GitHub Pre-release。真实大型服务边界、Windows 11 x64、macOS arm64 真机、正式签名/公证和各平台完整实机发布验收未完成
 
 ## 测试环境
 
@@ -720,7 +720,7 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - `npm run test:e2e`：沙箱内 Electron 进程无法启动；获准使用本机桌面环境后继续。前两次完整运行分别暴露艺术家详情切换后的旧专辑页假设、搜索状态变化后的旧详情假设；第三次暴露 P08 诊断仍查找已删除首页的 `listType=newest`。三处只更新测试为默认专辑/保留详情的新语义。
 - 修正后先以合并前构建直接执行 `node tests/e2e/electron-smoke.mjs` 完整通过；分页空页边界调整后的标准 `npm run test:e2e`（含重新 typecheck/build）也完整通过：启动样本 1,992 ms，P26 导航、艺术家分页与详情、专辑页内搜索、音乐页内搜索均通过，P01～P09 其余链路继续通过。rc.5 合并后的统一复验结果见 P27。
 - 安全边界：未新增 IPC 通道或私有 API；renderer 仍不持有凭据/认证 URL，媒体继续使用不透明句柄。空查询和分页均由公共 `search3` 且只启用当前类别 count。
-- 未验证：真实 Navidrome/OpenSubsonic 空查询、大型库末页与响应性能，Windows 11 x64，macOS Intel 人工界面，macOS arm64，新安装包和物理听音。本轮未发布、未上传、未创建提交。
+- 未验证：真实 Navidrome/OpenSubsonic 空查询、大型库末页与响应性能，Windows 11 x64，macOS Intel 人工界面，macOS arm64，新安装包和物理听音；自动发布证据见后文 rc.6 远程发布验证。
 
 ## P27 艺术家自然滚动与搜索条吸顶（2026-09-25）
 
@@ -730,7 +730,7 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - `npm run lint`：通过，0 warning。
 - `npm run typecheck`：node/preload、renderer、tests 三组通过。
 - 合并后统一闸门：`npm run lint`、三组 `npm run typecheck`、35 文件/205 项 `npm test -- --run`、`npm run build` 与 `npm run test:e2e` 全部通过。Electron 冒烟启动样本 1,290 ms，20 轮快速切页内存增量 55,212 KiB，媒体请求增量 0；服务器添加/切换/删除、单实例唤醒、默认专辑、三页搜索/分页、艺术家自然滚动、搜索条吸顶和专辑结果间距均通过。单次性能样本不是承诺。
-- 未验证：真实账号人工观感、完整 50 项艺术家页、Windows 11 x64、macOS arm64、新安装包及物理听音。本轮未发布、未上传、未创建提交。
+- 未验证：完整 50 项真实艺术家页、Windows 11 x64、macOS arm64、新安装包及物理听音人工复验；自动发布证据见后文 rc.6 远程发布验证。
 
 ## v0.1.0-rc.6 本地发布前验证（2026-09-25）
 
@@ -739,3 +739,10 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - Electron 冒烟：启动样本 1,290 ms，20 轮快速切页内存增量 55,212 KiB，媒体请求增量 0；服务器添加/切换/删除、单实例唤醒、搜索/分页、自然滚动与吸顶几何均通过。
 - 用户复验：当前 macOS Intel 源码构建人工试用未发现问题，用户已授权提交、推送并发布新测试包。
 - 待验证：版本/标签一致性、远程三平台普通 CI、release gate、安装包元数据/架构、打包应用冒烟与七个 Release 附件。
+
+## v0.1.0-rc.6 远程发布验证（2026-09-25）
+
+- 普通 CI：run `36140065564` 成功，Windows x64、macOS Intel x64、macOS arm64 的源码闸门与原生打包检查全部通过。
+- 发布 CI：run `36141089881` 成功；三目标重新执行 lint、typecheck、205 项测试、依赖审计、源码 Electron 冒烟、安装包构建/验证与打包应用冒烟，发布 job 随后成功。
+- Release 核验：`v0.1.0-rc.6` 为非草稿 Pre-release 且不是 Latest，包含 Windows NSIS 112,829,469 字节、macOS x64 DMG 135,251,655 字节、macOS arm64 DMG 130,976,614 字节、三个 manifest 和 610 字节 `SHA256SUMS.txt`，共七个附件。
+- Release 地址：`https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.6`。自动验证不替代新安装包的人工安装、升级、卸载、真实服务、物理听音与桌面行为验收；macOS arm64 仍无实机证据。
