@@ -89,9 +89,12 @@ export interface SearchRequest {
   sessionId: string
   requestId: string
   query: string
+  artistOffset: number
   albumOffset: number
   trackOffset: number
-  size: number
+  artistCount: number
+  albumCount: number
+  trackCount: number
 }
 
 export interface CancelSearchRequest {
@@ -103,8 +106,10 @@ export interface SearchResultPage {
   artists: ArtistSummary[]
   albums: AlbumSummary[]
   tracks: TrackSummary[]
+  artistNextOffset: number
   albumNextOffset: number
   trackNextOffset: number
+  artistHasMore: boolean
   albumHasMore: boolean
   trackHasMore: boolean
 }

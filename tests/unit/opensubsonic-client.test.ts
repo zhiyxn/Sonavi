@@ -404,7 +404,15 @@ describe('OpenSubsonicClient', () => {
       client.getArtist('https://music.example.com', 'listener', 'secret', '9')
     ).resolves.toMatchObject({ id: '9', albums: [{ id: '10', name: '跨平台' }] })
     await expect(
-      client.search3('https://music.example.com', 'listener', 'secret', '声波', 25, 50, 25)
+      client.search3('https://music.example.com', 'listener', 'secret', {
+        query: '声波',
+        artistOffset: 5,
+        albumOffset: 25,
+        trackOffset: 50,
+        artistCount: 10,
+        albumCount: 25,
+        trackCount: 30
+      })
     ).resolves.toMatchObject({
       artists: [{ id: '9' }],
       albums: [{ id: '10' }],
@@ -413,10 +421,12 @@ describe('OpenSubsonicClient', () => {
 
     const searchUrl = new URL(transport.requestedUrls[2] ?? '')
     expect(searchUrl.searchParams.get('query')).toBe('声波')
-    expect(searchUrl.searchParams.get('artistOffset')).toBe('0')
+    expect(searchUrl.searchParams.get('artistOffset')).toBe('5')
+    expect(searchUrl.searchParams.get('artistCount')).toBe('10')
     expect(searchUrl.searchParams.get('albumOffset')).toBe('25')
     expect(searchUrl.searchParams.get('albumCount')).toBe('25')
     expect(searchUrl.searchParams.get('songOffset')).toBe('50')
+    expect(searchUrl.searchParams.get('songCount')).toBe('30')
   })
 
   it('读取结构化与旧版歌词，并按协议发送播放上报', async () => {
@@ -773,10 +783,15 @@ describe('OpenSubsonicClient', () => {
       'https://music.example.com',
       'listener',
       'secret',
-      'sonavi',
-      0,
-      0,
-      10,
+      {
+        query: 'sonavi',
+        artistOffset: 0,
+        albumOffset: 0,
+        trackOffset: 0,
+        artistCount: 10,
+        albumCount: 10,
+        trackCount: 10
+      },
       controller.signal
     )
     controller.abort()

@@ -1,7 +1,7 @@
 # P10 打包、兼容性与发布前审计报告
 
-日期：2026-09-16
-状态：P11 修复后的 `v0.1.0-rc.4`（提交 `acb7c8c`）已在 release run `35063014155` 三目标全通过并发布为 GitHub Pre-release；更早的 `v0.1.0-rc.3` 构建自 `cc33168`，不含 P11 修复；正式签名/公证和各平台完整实机发布验收未完成
+日期：2026-09-25
+状态：P27 当前工作区已合并到 rc.5 基线并通过 macOS Intel 自动代码闸门，真实大型服务、Windows 11 x64、macOS Intel 人工界面和 macOS arm64 仍未验证；已发布的最新候选为 `v0.1.0-rc.5`，本轮未生成或发布新候选，正式签名/公证和各平台完整实机发布验收未完成
 
 ## 测试环境
 
@@ -707,3 +707,27 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - release run `35577304234`：Windows x64、macOS Intel x64、macOS arm64 的 lint、typecheck、205 项测试、依赖审计、源码 Electron 冒烟、安装包构建、包验证与打包应用冒烟全部成功；发布 job 成功。
 - Release 核验：非草稿、Pre-release、不是 Latest，共七个新附件；Windows NSIS 112,829,351 字节，macOS x64 DMG 135,249,375 字节，macOS arm64 DMG 130,972,601 字节，另有三个 manifest 与 610 字节 `SHA256SUMS.txt`。
 - 地址：`https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.5`。自动 runner 证据不外推为 macOS 两架构本轮真实服务器管理、歌词对比度或切换确认人工通过。
+
+## P26 音乐库导航、内嵌搜索与艺术家分页（2026-09-25）
+
+- 环境：macOS 13.7.8 Intel x64，NVM Node.js 22.19.0，npm 10.9.3，Electron 44.3.0。Electron 冒烟只使用 `127.0.0.1` 受控 fixture 与合成媒体，不读取真实服务或凭据。
+- failure-first：`npm test -- --run tests/unit/app-shell.test.ts -t "连接后默认展示专辑"` 在旧实现上按预期失败，实际导航仍为“首页/搜索”且默认首页；实现后该行为改为默认专辑并移除两项旧导航。
+- 契约与组件回归覆盖：三类独立 offset/count、歌曲空查询第 1/2 页、专辑列表与页内专辑搜索切换、艺术家空查询第 1/2 页与关键词搜索、来源详情链、收藏失效、搜索取消以及应用外壳默认页。
+- `npm run lint`：通过，0 warning。
+- `npm run typecheck`：node/preload、renderer、tests 三组通过。
+- `npm test`：合并 rc.5 基线后 35 个文件、205 项全部通过；新增回归确认服务器返回空的后继页时分页器仍保留可用的上一页入口。
+- `npm run build`：合并后通过；main 322.62 kB、preload 7.73 kB、renderer JavaScript 1,207.62 kB、CSS 81.31 kB。只有既有 Zod PURE 注释位置提示。
+- `npm run test:e2e`：沙箱内 Electron 进程无法启动；获准使用本机桌面环境后继续。前两次完整运行分别暴露艺术家详情切换后的旧专辑页假设、搜索状态变化后的旧详情假设；第三次暴露 P08 诊断仍查找已删除首页的 `listType=newest`。三处只更新测试为默认专辑/保留详情的新语义。
+- 修正后先以合并前构建直接执行 `node tests/e2e/electron-smoke.mjs` 完整通过；分页空页边界调整后的标准 `npm run test:e2e`（含重新 typecheck/build）也完整通过：启动样本 1,992 ms，P26 导航、艺术家分页与详情、专辑页内搜索、音乐页内搜索均通过，P01～P09 其余链路继续通过。rc.5 合并后的统一复验结果见 P27。
+- 安全边界：未新增 IPC 通道或私有 API；renderer 仍不持有凭据/认证 URL，媒体继续使用不透明句柄。空查询和分页均由公共 `search3` 且只启用当前类别 count。
+- 未验证：真实 Navidrome/OpenSubsonic 空查询、大型库末页与响应性能，Windows 11 x64，macOS Intel 人工界面，macOS arm64，新安装包和物理听音。本轮未发布、未上传、未创建提交。
+
+## P27 艺术家自然滚动与搜索条吸顶（2026-09-25）
+
+- failure-first：更新样式与应用外壳断言后，旧实现仍存在 `.workspace-artists-list { overflow:hidden }` 且没有 `.search-form-sticky`，定向用例按预期失败。
+- 实现：删除固定高度 `VirtualArtistList` 和独立艺术家滚动状态，新增自然文档流 `ArtistList`；音乐、专辑、艺术家表单统一吸顶 12px，并以 32px 下间距分隔结果。
+- 定向回归：4 个文件、32 项通过；覆盖 50 位艺术家完整渲染、点击选择、工作区滚动恢复、三页面吸顶类和 CSS 边界。
+- `npm run lint`：通过，0 warning。
+- `npm run typecheck`：node/preload、renderer、tests 三组通过。
+- 合并后统一闸门：`npm run lint`、三组 `npm run typecheck`、35 文件/205 项 `npm test -- --run`、`npm run build` 与 `npm run test:e2e` 全部通过。Electron 冒烟启动样本 1,290 ms，20 轮快速切页内存增量 55,212 KiB，媒体请求增量 0；服务器添加/切换/删除、单实例唤醒、默认专辑、三页搜索/分页、艺术家自然滚动、搜索条吸顶和专辑结果间距均通过。单次性能样本不是承诺。
+- 未验证：真实账号人工观感、完整 50 项艺术家页、Windows 11 x64、macOS arm64、新安装包及物理听音。本轮未发布、未上传、未创建提交。

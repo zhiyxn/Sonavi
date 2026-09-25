@@ -159,10 +159,6 @@ button.nav-item {
   overflow: hidden;
 }
 
-.workspace-artists-list {
-  overflow: hidden;
-}
-
 .content-frame {
   width: min(100%, 940px);
   min-height: 100%;
@@ -174,23 +170,6 @@ button.nav-item {
   height: 100%;
   min-height: 0;
   overflow: hidden;
-}
-
-.workspace-artists-list .content-frame {
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.artists-list-page {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-}
-
-.artists-list-page .artists-page-header {
-  flex: 0 0 auto;
 }
 
 .album-detail-page {
@@ -837,6 +816,14 @@ button.nav-item {
   border: 1px solid var(--sonavi-border);
   border-radius: var(--sonavi-card-radius);
   background: var(--sonavi-raised);
+}
+
+.search-form-sticky {
+  position: sticky;
+  top: 12px;
+  z-index: 20;
+  margin-bottom: 32px;
+  box-shadow: 0 12px 32px rgb(48 45 40 / 10%);
 }
 
 .search-field {

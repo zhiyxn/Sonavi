@@ -35,6 +35,16 @@ const RESPONSE_TIMEOUT_MS = 12_000
 const ARTISTS_RESPONSE_TIMEOUT_MS = 45_000
 const LARGE_LIBRARY_RESPONSE_BYTES = 16 * 1024 * 1024
 
+export interface Search3Parameters {
+  query: string
+  artistOffset: number
+  albumOffset: number
+  trackOffset: number
+  artistCount: number
+  albumCount: number
+  trackCount: number
+}
+
 const SubsonicErrorSchema = z.object({
   code: z.number().int(),
   message: z.string().optional()
@@ -522,12 +532,9 @@ export class OpenSubsonicClient {
     baseUrl: string,
     username: string,
     password: string,
-    query: string,
-    albumOffset: number,
-    trackOffset: number,
-    size: number,
+    parameters: Search3Parameters,
     signal?: AbortSignal
-  ): Promise<Omit<SearchResultPage, 'albumNextOffset' | 'trackNextOffset' | 'albumHasMore' | 'trackHasMore' | 'artists' | 'albums' | 'tracks'> & {
+  ): Promise<Omit<SearchResultPage, 'artistNextOffset' | 'albumNextOffset' | 'trackNextOffset' | 'artistHasMore' | 'albumHasMore' | 'trackHasMore' | 'artists' | 'albums' | 'tracks'> & {
     artists: ArtistWithCover[]
     albums: AlbumWithCover[]
     tracks: TrackWithCover[]
@@ -538,13 +545,13 @@ export class OpenSubsonicClient {
       username,
       password,
       {
-        query,
-        artistCount: size,
-        artistOffset: 0,
-        albumCount: size,
-        albumOffset,
-        songCount: size,
-        songOffset: trackOffset
+        query: parameters.query,
+        artistCount: parameters.artistCount,
+        artistOffset: parameters.artistOffset,
+        albumCount: parameters.albumCount,
+        albumOffset: parameters.albumOffset,
+        songCount: parameters.trackCount,
+        songOffset: parameters.trackOffset
       },
       signal
     )

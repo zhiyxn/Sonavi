@@ -4,9 +4,10 @@ import { computed, nextTick, ref } from 'vue'
 import type { AlbumListType, AlbumSummary, TrackSummary } from '../../../shared/library'
 import { useStarredMutation } from '../composables/use-starred-mutation'
 import { useErrorToast } from '../lib/notifications'
-import { getAlbum, listAlbums } from '../services/library'
+import { getAlbum, listAlbums, searchLibrary } from '../services/library'
 import { usePlayerStore } from '../stores/player'
 import { Button } from './ui/button'
+import { Input } from './ui/input'
 import DeferredCoverImage from './DeferredCoverImage.vue'
 import {
   Pagination,
@@ -44,6 +45,8 @@ const albumListScrollTop = ref(0)
 const restoreAlbumListScroll = ref(false)
 const currentPage = computed(() => Math.max(1, Math.floor(props.page)))
 const albumRequestAttempts = new Map<string, number>()
+const searchInput = ref('')
+const submittedQuery = ref('')
 
 function albumRequestKey(): string {
   return `${props.sessionId}:${props.listType}:${currentPage.value}`
@@ -75,11 +78,57 @@ const albumsQuery = useQuery({
   retry: 1
 })
 
-const albums = computed<AlbumSummary[]>(() => albumsQuery.data.value?.items ?? [])
+const searchedAlbumsQuery = useQuery({
+  queryKey: computed(() => [
+    'search',
+    props.sessionId,
+    'albums',
+    submittedQuery.value,
+    currentPage.value
+  ]),
+  queryFn: ({ signal }) => searchLibrary({
+    sessionId: props.sessionId,
+    query: submittedQuery.value,
+    artistOffset: 0,
+    albumOffset: (currentPage.value - 1) * ALBUM_PAGE_SIZE,
+    trackOffset: 0,
+    artistCount: 0,
+    albumCount: ALBUM_PAGE_SIZE,
+    trackCount: 0
+  }, signal),
+  enabled: computed(() => props.albumListEnabled !== false && submittedQuery.value.length > 0),
+  staleTime: Number.POSITIVE_INFINITY,
+  gcTime: Number.POSITIVE_INFINITY,
+  placeholderData: (previousData, previousQuery) =>
+    previousQuery?.queryKey[3] === submittedQuery.value ? previousData : undefined,
+  refetchOnMount: false,
+  refetchOnWindowFocus: false,
+  retry: false
+})
+
+const searching = computed(() => submittedQuery.value.length > 0)
+const albums = computed<AlbumSummary[]>(() => searching.value
+  ? (searchedAlbumsQuery.data.value?.albums ?? [])
+  : (albumsQuery.data.value?.items ?? []))
 const paginationTotal = computed(() => {
-  if (albumsQuery.data.value?.hasMore) return currentPage.value * ALBUM_PAGE_SIZE + 1
+  const hasMore = searching.value
+    ? searchedAlbumsQuery.data.value?.albumHasMore
+    : albumsQuery.data.value?.hasMore
+  if (hasMore) return currentPage.value * ALBUM_PAGE_SIZE + 1
   return (currentPage.value - 1) * ALBUM_PAGE_SIZE + albums.value.length
 })
+const listPending = computed(() => searching.value
+  ? searchedAlbumsQuery.isPending.value
+  : albumsQuery.isPending.value)
+const listFetching = computed(() => searching.value
+  ? searchedAlbumsQuery.isFetching.value
+  : albumsQuery.isFetching.value)
+const listError = computed(() => searching.value
+  ? searchedAlbumsQuery.error.value
+  : albumsQuery.error.value)
+const listIsError = computed(() => searching.value
+  ? searchedAlbumsQuery.isError.value
+  : albumsQuery.isError.value)
 
 const albumQuery = useQuery({
   queryKey: computed(() => ['album', props.sessionId, props.selectedAlbumId]),
@@ -92,8 +141,8 @@ const albumQuery = useQuery({
 })
 
 useErrorToast(
-  () => albumsQuery.isError.value
-    ? (albumsQuery.error.value?.message ?? '音乐库加载失败。')
+  () => listIsError.value
+    ? (listError.value?.message ?? '音乐库加载失败。')
     : null,
   { title: '音乐库加载失败', id: 'albums-query-error' }
 )
@@ -141,12 +190,36 @@ function refreshCurrentView(): void {
     void albumQuery.refetch()
     return
   }
-  retryAlbumList()
+  if (searching.value) {
+    void searchedAlbumsQuery.refetch()
+  } else {
+    retryAlbumList()
+  }
 }
 
 function retryAlbumList(): void {
+  if (searching.value) {
+    void searchedAlbumsQuery.refetch()
+    return
+  }
   albumRequestAttempts.delete(albumRequestKey())
   void albumsQuery.refetch()
+}
+
+function submitSearch(): void {
+  const nextQuery = searchInput.value.trim()
+  if (nextQuery === submittedQuery.value) {
+    refreshCurrentView()
+    return
+  }
+  emit('update:page', 1)
+  submittedQuery.value = nextQuery
+}
+
+function handleSearchEnter(event: KeyboardEvent): void {
+  if (event.isComposing) return
+  event.preventDefault()
+  submitSearch()
 }
 
 function playTrack(track: TrackSummary): void {
@@ -188,11 +261,11 @@ function appendTrack(track: TrackSummary): void {
       <div class="flex gap-2">
         <Button
           variant="outline"
-          :disabled="selectedAlbumId ? albumQuery.isFetching.value : albumsQuery.isFetching.value"
+          :disabled="selectedAlbumId ? albumQuery.isFetching.value : listFetching"
           @click="refreshCurrentView"
         >
           {{
-            (selectedAlbumId ? albumQuery.isFetching.value : albumsQuery.isFetching.value)
+            (selectedAlbumId ? albumQuery.isFetching.value : listFetching)
               ? '正在刷新…'
               : '刷新'
           }}
@@ -214,6 +287,26 @@ function appendTrack(track: TrackSummary): void {
         </Button>
       </div>
     </div>
+
+    <form
+      v-if="!selectedAlbumId && albumListEnabled"
+      class="search-form search-form-sticky"
+      role="search"
+      @submit.prevent="submitSearch"
+    >
+      <label class="search-field">
+        <span class="sr-only">搜索专辑</span>
+        <Input
+          v-model="searchInput"
+          type="search"
+          maxlength="200"
+          autocomplete="off"
+          placeholder="搜索专辑"
+          @keydown.enter="handleSearchEnter"
+        />
+      </label>
+      <Button type="submit">搜索</Button>
+    </form>
 
     <template v-if="selectedAlbumId">
       <p v-if="albumQuery.isPending.value" role="status">正在读取专辑…</p>
@@ -279,18 +372,20 @@ function appendTrack(track: TrackSummary): void {
       </div>
     </template>
 
-    <p v-else-if="albumsQuery.isPending.value" role="status">正在读取音乐库…</p>
+    <p v-else-if="listPending" role="status">正在读取音乐库…</p>
     <div
-      v-else-if="albumsQuery.isError.value && albums.length === 0"
+      v-else-if="listIsError && albums.length === 0"
       class="rounded-2xl border border-sonavi-border bg-sonavi-raised p-6"
       role="alert"
     >
-      <p>{{ albumsQuery.error.value?.message ?? '音乐库加载失败。' }}</p>
+      <p>{{ listError?.message ?? '音乐库加载失败。' }}</p>
       <Button class="mt-4" size="sm" @click="retryAlbumList">重试</Button>
     </div>
 
     <template v-else>
-      <p v-if="albums.length === 0" class="text-sm text-sonavi-muted">音乐库中暂无专辑。</p>
+      <p v-if="albums.length === 0" class="text-sm text-sonavi-muted">
+        {{ submittedQuery ? `没有找到“${submittedQuery}”的专辑。` : '音乐库中暂无专辑。' }}
+      </p>
       <div v-else class="grid grid-cols-2 gap-5 md:grid-cols-3 xl:grid-cols-4">
         <button
           v-for="album in albums"
@@ -314,7 +409,7 @@ function appendTrack(track: TrackSummary): void {
           </small>
         </button>
       </div>
-      <div v-if="albums.length > 0" class="mt-8 space-y-3">
+      <div v-if="albums.length > 0 || currentPage > 1" class="mt-8 space-y-3">
         <Pagination
           :page="currentPage"
           :items-per-page="ALBUM_PAGE_SIZE"
@@ -339,7 +434,7 @@ function appendTrack(track: TrackSummary): void {
           </PaginationContent>
         </Pagination>
         <p class="text-center text-xs text-sonavi-muted">
-          第 {{ currentPage }} 页 · 本页 {{ albums.length }} 张专辑
+          {{ submittedQuery ? `“${submittedQuery}” · ` : '' }}第 {{ currentPage }} 页 · 本页 {{ albums.length }} 张专辑
         </p>
       </div>
     </template>

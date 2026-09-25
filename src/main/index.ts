@@ -379,14 +379,7 @@ function registerLibraryIpc(libraryService: LibraryService): void {
       return invalid
     }
     return SearchResultSchema.parse(
-      await libraryService.search(
-        request.data.sessionId,
-        request.data.requestId,
-        request.data.query,
-        request.data.albumOffset,
-        request.data.trackOffset,
-        request.data.size
-      )
+      await libraryService.search(request.data)
     )
   })
 

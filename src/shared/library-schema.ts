@@ -38,11 +38,17 @@ export const RequestIdSchema = z.string().uuid()
 export const SearchRequestSchema = z.object({
   sessionId: SessionIdSchema,
   requestId: RequestIdSchema,
-  query: z.string().trim().min(1).max(200),
+  query: z.string().trim().max(200),
+  artistOffset: z.number().int().min(0).max(10_000_000),
   albumOffset: z.number().int().min(0).max(10_000_000),
   trackOffset: z.number().int().min(0).max(10_000_000),
-  size: z.number().int().min(1).max(50)
-}) satisfies z.ZodType<SearchRequest>
+  artistCount: z.number().int().min(0).max(50),
+  albumCount: z.number().int().min(0).max(50),
+  trackCount: z.number().int().min(0).max(50)
+}).refine(
+  ({ artistCount, albumCount, trackCount }) => artistCount + albumCount + trackCount > 0,
+  { message: '至少需要请求一种音乐库实体。' }
+) satisfies z.ZodType<SearchRequest>
 
 export const CancelSearchRequestSchema = z.object({
   sessionId: SessionIdSchema,
@@ -111,8 +117,10 @@ export const SearchResultPageSchema = z.object({
   artists: z.array(ArtistSummarySchema),
   albums: z.array(AlbumSummarySchema),
   tracks: AlbumDetailSchema.shape.tracks,
+  artistNextOffset: z.number().int().nonnegative(),
   albumNextOffset: z.number().int().nonnegative(),
   trackNextOffset: z.number().int().nonnegative(),
+  artistHasMore: z.boolean(),
   albumHasMore: z.boolean(),
   trackHasMore: z.boolean()
 }) satisfies z.ZodType<SearchResultPage>

@@ -7,9 +7,9 @@ import ConnectPanel from './components/ConnectPanel.vue'
 import FavoritesPanel from './components/FavoritesPanel.vue'
 import ArtistsPanel from './components/ArtistsPanel.vue'
 import LibraryPanel from './components/LibraryPanel.vue'
+import MusicPanel from './components/MusicPanel.vue'
 import PlayerBar from './components/PlayerBar.vue'
 import PlaylistsPanel from './components/PlaylistsPanel.vue'
-import SearchPanel from './components/SearchPanel.vue'
 import ServerManagementPanel from './components/ServerManagementPanel.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
 import ConfirmationDialog from './components/ConfirmationDialog.vue'
@@ -45,34 +45,26 @@ const player = usePlayerStore()
 const { errorMessage: playbackReportError } = usePlaybackReporting()
 usePlaybackBufferDiagnostics()
 const queryClient = useQueryClient()
-type ApplicationView = 'home' | 'albums' | 'artists' | 'search' | 'favorites' | 'playlists' | 'servers' | 'server-form' | 'settings'
-const activeView = ref<ApplicationView>('home')
-const homeSelectedAlbumId = ref<string | null>(null)
+type ApplicationView = 'music' | 'albums' | 'artists' | 'favorites' | 'playlists' | 'servers' | 'server-form' | 'settings'
+const activeView = ref<ApplicationView>('albums')
 const albumsSelectedAlbumId = ref<string | null>(null)
 const artistsSelectedAlbumId = ref<string | null>(null)
 const artistsSelectedArtistId = ref<string | null>(null)
-const searchSelectedAlbumId = ref<string | null>(null)
-const searchSelectedArtistId = ref<string | null>(null)
 const favoritesSelectedAlbumId = ref<string | null>(null)
 const favoritesSelectedArtistId = ref<string | null>(null)
 const selectedArtistId = computed(() => {
   if (activeView.value === 'artists') return artistsSelectedArtistId.value
-  if (activeView.value === 'search') return searchSelectedArtistId.value
   if (activeView.value === 'favorites') return favoritesSelectedArtistId.value
   return null
 })
 const selectedAlbumId = computed(() => {
-  if (activeView.value === 'home') return homeSelectedAlbumId.value
   if (activeView.value === 'albums') return albumsSelectedAlbumId.value
   if (activeView.value === 'artists') return artistsSelectedAlbumId.value
-  if (activeView.value === 'search') return searchSelectedAlbumId.value
   if (activeView.value === 'favorites') return favoritesSelectedAlbumId.value
   return null
 })
 const workspace = ref<HTMLElement | null>(null)
 const workspaceScrollPositions = new Map<string, number>()
-const artistListScrollTop = ref(0)
-const homeAlbumPage = ref(1)
 const albumsAlbumPage = ref(1)
 const viewCacheRevision = ref(0)
 const forgetConfirmationOpen = ref(false)
@@ -88,18 +80,15 @@ const shortcutHint = computed(() =>
   applicationInfo.value ? `${applicationInfo.value.shortcutModifier}+,` : '…'
 )
 const activeAlbumPage = computed(() => {
-  if (activeView.value === 'home') return homeAlbumPage.value
   if (activeView.value === 'albums') return albumsAlbumPage.value
   return 1
 })
 const albumBackLabel = computed(() => {
   if (selectedArtistId.value) return '返回艺术家专辑'
-  if (activeView.value === 'search') return '返回搜索'
   if (activeView.value === 'favorites') return '返回收藏'
   return '返回专辑'
 })
 const artistBackLabel = computed(() => {
-  if (activeView.value === 'search') return '返回搜索'
   if (activeView.value === 'favorites') return '返回收藏'
   return '返回艺术家'
 })
@@ -137,7 +126,7 @@ function handleConnected(result: ConnectionSuccessResult): void {
   resetWorkspaceScrollPositions()
   connectionDraft.value = null
   session.establish(result)
-  activeView.value = 'home'
+  activeView.value = 'albums'
 }
 
 function handleNetworkChanged(connectionsReset: boolean, playbackChanged: boolean): void {
@@ -187,8 +176,6 @@ function rememberWorkspaceScroll(): void {
 
 function resetWorkspaceScrollPositions(): void {
   workspaceScrollPositions.clear()
-  artistListScrollTop.value = 0
-  homeAlbumPage.value = 1
   albumsAlbumPage.value = 1
   if (workspace.value) workspace.value.scrollTop = 0
 }
@@ -202,12 +189,7 @@ async function restoreWorkspaceScroll(): Promise<void> {
   }
 }
 
-function updateArtistListScrollTop(scrollTop: number): void {
-  artistListScrollTop.value = scrollTop
-}
-
 function updateAlbumPage(page: number): void {
-  if (activeView.value === 'home') homeAlbumPage.value = page
   if (activeView.value === 'albums') albumsAlbumPage.value = page
 }
 
@@ -219,10 +201,8 @@ async function navigate(view: ApplicationView): Promise<void> {
 
 async function updateSelectedAlbumId(albumId: string | null): Promise<void> {
   rememberWorkspaceScroll()
-  if (activeView.value === 'home') homeSelectedAlbumId.value = albumId
   if (activeView.value === 'albums') albumsSelectedAlbumId.value = albumId
   if (activeView.value === 'artists') artistsSelectedAlbumId.value = albumId
-  if (activeView.value === 'search') searchSelectedAlbumId.value = albumId
   if (activeView.value === 'favorites') favoritesSelectedAlbumId.value = albumId
   await restoreWorkspaceScroll()
 }
@@ -233,10 +213,6 @@ async function updateSelectedArtistId(artistId: string | null): Promise<void> {
     artistsSelectedArtistId.value = artistId
     if (artistId === null) artistsSelectedAlbumId.value = null
   }
-  if (activeView.value === 'search') {
-    searchSelectedArtistId.value = artistId
-    if (artistId === null) searchSelectedAlbumId.value = null
-  }
   if (activeView.value === 'favorites') {
     favoritesSelectedArtistId.value = artistId
     if (artistId === null) favoritesSelectedAlbumId.value = null
@@ -246,10 +222,7 @@ async function updateSelectedArtistId(artistId: string | null): Promise<void> {
 
 async function openAlbum(albumId: string): Promise<void> {
   rememberWorkspaceScroll()
-  if (activeView.value === 'search') {
-    searchSelectedArtistId.value = null
-    searchSelectedAlbumId.value = albumId
-  } else if (activeView.value === 'favorites') {
+  if (activeView.value === 'favorites') {
     favoritesSelectedArtistId.value = null
     favoritesSelectedAlbumId.value = albumId
   } else {
@@ -262,17 +235,13 @@ async function openAlbum(albumId: string): Promise<void> {
 async function openAlbumFromArtist(albumId: string): Promise<void> {
   rememberWorkspaceScroll()
   if (activeView.value === 'artists') artistsSelectedAlbumId.value = albumId
-  if (activeView.value === 'search') searchSelectedAlbumId.value = albumId
   if (activeView.value === 'favorites') favoritesSelectedAlbumId.value = albumId
   await restoreWorkspaceScroll()
 }
 
 async function openArtist(artistId: string): Promise<void> {
   rememberWorkspaceScroll()
-  if (activeView.value === 'search') {
-    searchSelectedArtistId.value = artistId
-    searchSelectedAlbumId.value = null
-  } else if (activeView.value === 'favorites') {
+  if (activeView.value === 'favorites') {
     favoritesSelectedArtistId.value = artistId
     favoritesSelectedAlbumId.value = null
   } else {
@@ -284,12 +253,9 @@ async function openArtist(artistId: string): Promise<void> {
 }
 
 function resetSelections(): void {
-  homeSelectedAlbumId.value = null
   albumsSelectedAlbumId.value = null
   artistsSelectedAlbumId.value = null
   artistsSelectedArtistId.value = null
-  searchSelectedAlbumId.value = null
-  searchSelectedArtistId.value = null
   favoritesSelectedAlbumId.value = null
   favoritesSelectedArtistId.value = null
 }
@@ -308,7 +274,7 @@ async function disconnectCurrent(nextDraft: SavedConnectionProfile | null): Prom
     session.disconnect()
     player.stop()
     resetSelections()
-    activeView.value = 'home'
+    activeView.value = 'albums'
     resetWorkspaceScrollPositions()
     return true
   } catch {
@@ -343,7 +309,7 @@ function handleServerConnected(result: ConnectionSuccessResult): void {
   viewCacheRevision.value += 1
   connectionDraft.value = null
   session.establish(result)
-  activeView.value = 'home'
+  activeView.value = 'albums'
 }
 
 async function handleSwitchServer(profileId: string): Promise<void> {
@@ -385,7 +351,7 @@ async function confirmForget(): Promise<void> {
     connectionDraft.value = null
     session.disconnect()
     resetSelections()
-    activeView.value = 'home'
+    activeView.value = 'albums'
     resetWorkspaceScrollPositions()
   } catch {
     sessionActionError.value = '无法删除保存的凭据；当前界面未退出，请重试。'
@@ -421,17 +387,14 @@ async function confirmForget(): Promise<void> {
           连接服务器
         </span>
         <template v-else>
-          <button class="nav-item" :class="{ active: activeView === 'home' }" @click="navigate('home')">
-            首页
+          <button class="nav-item" :class="{ active: activeView === 'music' }" @click="navigate('music')">
+            音乐
           </button>
           <button class="nav-item" :class="{ active: activeView === 'albums' }" @click="navigate('albums')">
             专辑
           </button>
           <button class="nav-item" :class="{ active: activeView === 'artists' }" @click="navigate('artists')">
             艺术家
-          </button>
-          <button class="nav-item" :class="{ active: activeView === 'search' }" @click="navigate('search')">
-            搜索
           </button>
           <button class="nav-item" :class="{ active: activeView === 'favorites' }" @click="navigate('favorites')">
             收藏
@@ -461,8 +424,7 @@ async function confirmForget(): Promise<void> {
       ref="workspace"
       class="workspace"
       :class="{
-        'workspace-album-detail': selectedAlbumId,
-        'workspace-artists-list': activeView === 'artists' && !selectedArtistId && !selectedAlbumId
+        'workspace-album-detail': selectedAlbumId
       }"
       @scroll.passive="rememberWorkspaceScroll"
     >
@@ -470,38 +432,34 @@ async function confirmForget(): Promise<void> {
         <template v-if="applicationInfo && !startupPending && session.connection">
           <KeepAlive :key="viewCacheRevision">
             <LibraryPanel
-              v-if="selectedAlbumId || activeView === 'home' || activeView === 'albums'"
+              v-if="selectedAlbumId || activeView === 'albums'"
               :key="`library:${activeView}`"
               :selected-album-id="selectedAlbumId"
               :session-id="session.connection.sessionId"
               :server-name="session.connection.server.serverType ?? 'Subsonic 服务器'"
               :server-id="session.connection.server.baseUrl"
-              :list-type="activeView === 'home' ? 'newest' : 'alphabeticalByName'"
-              :title="activeView === 'home' ? '最近添加' : '全部专辑'"
+              list-type="alphabeticalByName"
+              title="全部专辑"
               :back-label="albumBackLabel"
-              :album-list-enabled="activeView === 'home' || activeView === 'albums'"
+              :album-list-enabled="activeView === 'albums'"
               :page="activeAlbumPage"
               @update:page="updateAlbumPage"
               @update:selected-album-id="updateSelectedAlbumId"
+            />
+            <MusicPanel
+              v-else-if="activeView === 'music'"
+              :session-id="session.connection.sessionId"
+              :server-id="session.connection.server.baseUrl"
             />
             <ArtistsPanel
               v-else-if="selectedArtistId || activeView === 'artists'"
               :key="`artists:${activeView}`"
               :artist-list-enabled="activeView === 'artists'"
               :back-label="artistBackLabel"
-              :list-scroll-top="artistListScrollTop"
               :selected-artist-id="selectedArtistId"
               :session-id="session.connection.sessionId"
-              @update:list-scroll-top="updateArtistListScrollTop"
               @update:selected-artist-id="updateSelectedArtistId"
               @open-album="openAlbumFromArtist"
-            />
-            <SearchPanel
-              v-else-if="activeView === 'search'"
-              :session-id="session.connection.sessionId"
-              :server-id="session.connection.server.baseUrl"
-              @open-album="openAlbum"
-              @open-artist="openArtist"
             />
             <FavoritesPanel
               v-else-if="activeView === 'favorites'"

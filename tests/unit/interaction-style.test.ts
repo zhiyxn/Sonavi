@@ -82,18 +82,18 @@ describe('可点击控件样式', () => {
     expect(trackListRule?.style.overscrollBehavior).toBe('contain')
   })
 
-  it('艺术家列表关闭外层滚动并占满工作区剩余高度', () => {
+  it('艺术家列表使用工作区自然滚动，页内搜索条统一吸顶并保留内容间距', () => {
     const style = document.createElement('style')
     style.textContent = baseCss
     document.head.append(style)
     const rules = [...(style.sheet?.cssRules ?? [])] as CSSStyleRule[]
     const workspaceRule = rules.find((rule) => rule.selectorText === '.workspace-artists-list')
-    const pageRule = rules.find((rule) => rule.selectorText === '.artists-list-page')
+    const stickySearchRule = rules.find((rule) => rule.selectorText === '.search-form-sticky')
 
-    expect(workspaceRule?.style.overflow).toBe('hidden')
-    expect(pageRule?.style.display).toBe('flex')
-    expect(pageRule?.style.height).toBe('100%')
-    expect(pageRule?.style.minHeight).toBe('0')
+    expect(workspaceRule).toBeUndefined()
+    expect(stickySearchRule?.style.position).toBe('sticky')
+    expect(stickySearchRule?.style.top).toBe('12px')
+    expect(stickySearchRule?.style.marginBottom).toBe('32px')
   })
 
   it('歌词保留滚动能力但隐藏会随自动定位闪动的视觉滚动条', () => {

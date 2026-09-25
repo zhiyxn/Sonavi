@@ -10,6 +10,7 @@ import type {
   MutationSuccess,
   PlaylistDetail,
   PlaylistSummary,
+  SearchRequest,
   SearchResultPage,
   StarredLibrary,
   StarTargetType,
@@ -312,20 +313,13 @@ export class LibraryService {
     }
   }
 
-  async search(
-    sessionId: string,
-    requestId: string,
-    query: string,
-    albumOffset: number,
-    trackOffset: number,
-    size: number
-  ): Promise<LibraryResult<SearchResultPage>> {
-    const session = this.connectionService.getSession(sessionId)
+  async search(request: SearchRequest): Promise<LibraryResult<SearchResultPage>> {
+    const session = this.connectionService.getSession(request.sessionId)
     if (!session) return this.notConnected()
 
     const controller = new AbortController()
-    this.searchControllers.get(requestId)?.controller.abort()
-    this.searchControllers.set(requestId, { sessionId, controller })
+    this.searchControllers.get(request.requestId)?.controller.abort()
+    this.searchControllers.set(request.requestId, { sessionId: request.sessionId, controller })
 
     try {
       const { serverUrl, username, password } = session.credential
@@ -333,29 +327,36 @@ export class LibraryService {
         serverUrl,
         username,
         password,
-        query,
-        albumOffset,
-        trackOffset,
-        size,
+        {
+          query: request.query,
+          artistOffset: request.artistOffset,
+          albumOffset: request.albumOffset,
+          trackOffset: request.trackOffset,
+          artistCount: request.artistCount,
+          albumCount: request.albumCount,
+          trackCount: request.trackCount
+        },
         controller.signal
       )
       return {
         ok: true,
         value: {
-          artists: result.artists.map((artist) => this.withArtistCover(sessionId, artist)),
-          albums: result.albums.map((album) => this.withAlbumCover(sessionId, album)),
-          tracks: result.tracks.map((track) => this.withTrackHandles(sessionId, track)),
-          albumNextOffset: albumOffset + size,
-          trackNextOffset: trackOffset + size,
-          albumHasMore: result.albums.length === size,
-          trackHasMore: result.tracks.length === size
+          artists: result.artists.map((artist) => this.withArtistCover(request.sessionId, artist)),
+          albums: result.albums.map((album) => this.withAlbumCover(request.sessionId, album)),
+          tracks: result.tracks.map((track) => this.withTrackHandles(request.sessionId, track)),
+          artistNextOffset: request.artistOffset + request.artistCount,
+          albumNextOffset: request.albumOffset + request.albumCount,
+          trackNextOffset: request.trackOffset + request.trackCount,
+          artistHasMore: request.artistCount > 0 && result.artists.length === request.artistCount,
+          albumHasMore: request.albumCount > 0 && result.albums.length === request.albumCount,
+          trackHasMore: request.trackCount > 0 && result.tracks.length === request.trackCount
         }
       }
     } catch (error) {
       return this.failure(error)
     } finally {
-      if (this.searchControllers.get(requestId)?.controller === controller) {
-        this.searchControllers.delete(requestId)
+      if (this.searchControllers.get(request.requestId)?.controller === controller) {
+        this.searchControllers.delete(request.requestId)
       }
     }
   }

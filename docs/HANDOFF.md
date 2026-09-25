@@ -1,10 +1,10 @@
 # 项目交接
 
-更新日期：2026-09-21
+更新日期：2026-09-25
 
 ## 当前目标与状态
 
-P01～P10 已完成，P11～P25 已经过审查、稳定性修复、真机回归、单实例与服务器管理扩展。服务器管理、深色歌词高亮和切换确认已由提交 `c7423b5` 推送并重打 rc.5。未换框架或大重构，也未配置签名/公证/自动更新。最新代码仍不能判定为正式发布就绪，完整结论见 `docs/TEST-REPORT.md`、`docs/TEST-MATRIX.md` 与 `docs/KNOWN-ISSUES.md`。
+P01～P10 已完成，P11～P25 已经过审查、稳定性修复、真机回归、单实例与服务器管理扩展；服务器管理、深色歌词高亮和切换确认已由提交 `c7423b5` 推送并进入 rc.5。P26 音乐库导航/分页和 P27 艺术家自然滚动/搜索条吸顶已合并到当前 rc.5 基线并通过 macOS Intel 自动闸门，等待真实大型 Navidrome 与其他目标平台人工复验。本轮未配置签名/公证/自动更新，也未创建新 Release。最新代码仍不能判定为正式发布就绪，完整结论见 `docs/TEST-REPORT.md`、`docs/TEST-MATRIX.md` 与 `docs/KNOWN-ISSUES.md`。
 
 P11 原 Critical 已修复：媒体句柄改为会话密钥加密、带 epoch 的无状态 token，不再因 2,000 项 FIFO 淘汰；10,000 个后续封面句柄回归测试通过。用户真实 Windows 记录 `docs/Existing issues.md` 中的艺术家大响应、后续播放、scrobble 和 UI 问题均有针对性代码修复，但艺术家/scrobble 必须回到原服务器复验，不能仅凭 fixture 宣称关闭。
 
@@ -299,3 +299,24 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 - main run `35577259996` 完成且成功；release run `35577304234` 的 Windows x64、macOS Intel x64、macOS arm64 release gate 与 `Create GitHub Pre-release` 全部成功。
 - rc.5 Release 仍是非草稿、非 Latest 的 Pre-release；三个安装包、三个 manifest 与 610 字节 `SHA256SUMS.txt` 共七个附件已于 2026-09-21 16:27（Asia/Shanghai）完成替换。
 - Release：`https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.5`。自动构建和包内冒烟不替代 macOS 两架构的本轮人工服务器管理与歌词目视验收。
+
+## P26 音乐库导航、内嵌搜索与艺术家分页（2026-09-25）
+
+- 导航现为“音乐、专辑、艺术家、收藏、歌单、服务器、设置”。首页与独立搜索页及其状态已删除；连接成功、凭据恢复和重新连接均默认进入专辑。
+- 新增 `MusicPanel.vue`：空查询使用公共 `search3` 的歌曲窗口按 30 首分页浏览，非空查询在同页搜索；播放、追加队列与收藏沿用既有共享行为。
+- 专辑页空查询继续使用 `getAlbumList2(alphabeticalByName)` 每页 30 张，提交关键词后只请求 `search3` 专辑结果。艺术家页改为 `search3` 空查询每页 50 位，提交关键词后同页分页搜索；详情仍走 `getArtist`，来源详情链与收藏来源链未拆分。
+- 搜索共享契约现为 artist/album/track 三组独立 offset/count 与三组下一偏移/`hasMore`。main/preload/renderer 均继续做运行时校验和 requestId/AbortSignal 取消；未引入私有 Navidrome API、任意 URL、凭据下放或服务器写入。
+- failure-first 应用外壳用例先准确暴露旧“首页/搜索”导航；合并 rc.5 基线后的最终自动闸门结果见 `docs/TEST-REPORT.md`。
+- 首轮 E2E 运行暴露三处测试仍假定旧导航/详情状态或 `newest` 诊断上下文；均按新产品语义修正测试定位，没有放宽产品断言。沙箱内 Electron 无法启动，获准使用本机桌面环境后通过。
+- 分页器在服务器返回空的后继页时继续显示可用的“上一页”，避免满页启发式多开放一页后无法返回；定向回归覆盖该边界。
+- 未验证：真实 Navidrome/OpenSubsonic 的空查询兼容性和大型库多页边界、Windows 11 x64、macOS Intel 人工界面、macOS arm64、新安装包及物理听音。本轮未提交、未推送、未生成安装包、未发布或上传。
+- 下一入口：在真实大库分别验证音乐/专辑/艺术家首末页、搜索后翻页与清空恢复；随后执行 Windows 11 x64、macOS Intel x64、macOS arm64 的导航、布局和请求诊断矩阵。
+
+## P27 艺术家自然滚动与搜索条吸顶（2026-09-25）
+
+- 艺术家列表不再把内容压进 480px 内部滚动区，也不再给工作区添加 `overflow: hidden`。每页最多 50 位艺术家由 `ArtistList.vue` 完整渲染，页面只保留工作区这一层纵向滚动。
+- App 删除独立艺术家列表滚动状态，继续使用既有工作区栏目/详情键保存与恢复位置；艺术家分页后滚回搜索条区域。
+- 音乐、专辑和艺术家搜索表单共用 `search-form-sticky`：顶部 12px、层级 20、结果下间距 32px。专辑首行内容不再紧贴搜索卡片。
+- failure-first 样式断言先准确发现旧 `.workspace-artists-list`；合并 rc.5 基线后 lint、三组 typecheck、35 文件/205 项全量测试、生产构建与 Electron 冒烟全部通过。冒烟启动样本 1,290 ms，20 轮切页内存增量 55,212 KiB，媒体请求增量 0。
+- Electron 几何检查验证工作区为 `overflow-y:auto`、艺术家列表为 `overflow-y:visible`、搜索条为 `position:sticky; top:12px`，专辑搜索条与首行内容间距不少于 32px。
+- 未验证：当前真实账号页面的人工观感、50 项完整艺术家页、Windows 11 x64、macOS arm64 和新安装包。本轮未提交、未推送、未生成安装包或发布。

@@ -15,7 +15,7 @@ describe('LibraryService 搜索生命周期', () => {
     const search3 = vi.fn(
       (...parameters: Parameters<OpenSubsonicClient['search3']>) =>
         new Promise<Awaited<ReturnType<OpenSubsonicClient['search3']>>>((_resolve, reject) => {
-          const signal = parameters[7]
+          const signal = parameters[4]
           signal?.addEventListener(
             'abort',
             () => reject(new DOMException('Search cancelled', 'AbortError')),
@@ -43,7 +43,17 @@ describe('LibraryService 搜索生命周期', () => {
       new MediaHandleRegistry()
     )
     const requestId = '813489b6-8df7-4708-98ae-8dc3b7b14d22'
-    const pending = service.search(SESSION_ID, requestId, '跨平台', 0, 0, 25)
+    const pending = service.search({
+      sessionId: SESSION_ID,
+      requestId,
+      query: '跨平台',
+      artistOffset: 0,
+      albumOffset: 0,
+      trackOffset: 0,
+      artistCount: 25,
+      albumCount: 25,
+      trackCount: 25
+    })
 
     await started
     expect(service.cancelSearch('c6593ec1-803d-4a66-98a4-71730047c6f4', requestId)).toBe(false)
@@ -85,18 +95,23 @@ describe('LibraryService 搜索生命周期', () => {
       new MediaHandleRegistry()
     )
 
-    await expect(service.search(
-      SESSION_ID,
-      '813489b6-8df7-4708-98ae-8dc3b7b14d22',
-      '分页',
-      25,
-      50,
-      2
-    )).resolves.toMatchObject({
+    await expect(service.search({
+      sessionId: SESSION_ID,
+      requestId: '813489b6-8df7-4708-98ae-8dc3b7b14d22',
+      query: '分页',
+      artistOffset: 10,
+      albumOffset: 25,
+      trackOffset: 50,
+      artistCount: 2,
+      albumCount: 2,
+      trackCount: 2
+    })).resolves.toMatchObject({
       ok: true,
       value: {
+        artistNextOffset: 12,
         albumNextOffset: 27,
         trackNextOffset: 52,
+        artistHasMore: false,
         albumHasMore: true,
         trackHasMore: false
       }
@@ -105,10 +120,15 @@ describe('LibraryService 搜索生命周期', () => {
       'https://music.example.com',
       'listener',
       'secret',
-      '分页',
-      25,
-      50,
-      2,
+      {
+        query: '分页',
+        artistOffset: 10,
+        albumOffset: 25,
+        trackOffset: 50,
+        artistCount: 2,
+        albumCount: 2,
+        trackCount: 2
+      },
       expect.any(AbortSignal)
     )
   })

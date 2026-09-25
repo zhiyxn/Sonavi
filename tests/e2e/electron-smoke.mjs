@@ -353,18 +353,27 @@ function fixtureResponse(endpoint, requestUrl) {
     }
   }
   if (endpoint === 'search3') {
+    const artistOffset = Number(requestUrl.searchParams.get('artistOffset') ?? 0)
+    const albumOffset = Number(requestUrl.searchParams.get('albumOffset') ?? 0)
+    const songOffset = Number(requestUrl.searchParams.get('songOffset') ?? 0)
+    const artistCount = Number(requestUrl.searchParams.get('artistCount') ?? 20)
+    const albumCount = Number(requestUrl.searchParams.get('albumCount') ?? 20)
+    const songCount = Number(requestUrl.searchParams.get('songCount') ?? 20)
+    const artists = [{ id: 'fixture-artist', name: 'Sonavi Fixture', albumCount: 31 }]
+    const albums = [fixtureAlbums[0]]
+    const songs = [
+      {
+        ...fixtureTracks[0],
+        ...(starredTrackIds.has('fixture-track') ? { starred: '2026-09-14' } : {})
+      }
+    ]
     return {
       'subsonic-response': {
         ...base,
         searchResult3: {
-          artist: [{ id: 'fixture-artist', name: 'Sonavi Fixture', albumCount: 31 }],
-          album: [fixtureAlbums[0]],
-          song: [
-            {
-              ...fixtureTracks[0],
-              ...(starredTrackIds.has('fixture-track') ? { starred: '2026-09-14' } : {})
-            }
-          ]
+          artist: artists.slice(artistOffset, artistOffset + artistCount),
+          album: albums.slice(albumOffset, albumOffset + albumCount),
+          song: songs.slice(songOffset, songOffset + songCount)
         }
       }
     }
@@ -737,7 +746,7 @@ try {
   await window.locator('#remember-me').click()
   await window.locator('#allow-insecure-http').click()
   await window.getByRole('button', { name: '测试连接' }).click()
-  await window.getByRole('heading', { name: '最近添加' }).waitFor()
+  await window.getByRole('heading', { name: '全部专辑' }).waitFor()
   await window.getByRole('button', { name: '服务器', exact: true }).click()
   await window.getByRole('heading', { name: '服务器管理', exact: true }).waitFor()
   await window.getByText('fixture-user', { exact: true }).waitFor()
@@ -749,7 +758,7 @@ try {
   await window.locator('#remember-me').click()
   await window.locator('#allow-insecure-http').click()
   await window.getByRole('button', { name: '测试连接', exact: true }).click()
-  await window.getByRole('heading', { name: '最近添加' }).waitFor()
+  await window.getByRole('heading', { name: '全部专辑' }).waitFor()
   await window.getByRole('button', { name: '服务器', exact: true }).click()
   await window.getByRole('heading', { name: '服务器管理', exact: true }).waitFor()
   await window.getByText('fixture-user-two', { exact: true }).waitFor()
@@ -758,7 +767,7 @@ try {
     exact: true
   }).click()
   await window.getByRole('button', { name: '确认切换', exact: true }).click()
-  await window.getByRole('heading', { name: '最近添加' }).waitFor()
+  await window.getByRole('heading', { name: '全部专辑' }).waitFor()
   await window.getByRole('button', { name: '服务器', exact: true }).click()
   await window.getByRole('button', {
     name: `删除 http://127.0.0.1:${fixtureAddress.port}/sonavi-fixture · fixture-user-two`,
@@ -769,8 +778,8 @@ try {
   console.log('Server management passed: add + switch + delete encrypted profiles')
   await window.keyboard.press(platformText.includes('macOS') ? 'Meta+Comma' : 'Control+Comma')
   await window.getByRole('heading', { name: '设置', exact: true }).waitFor()
-  await window.getByRole('button', { name: '首页', exact: true }).click()
-  await window.getByRole('heading', { name: '最近添加' }).waitFor()
+  await window.getByRole('button', { name: '专辑', exact: true }).click()
+  await window.getByRole('heading', { name: '全部专辑' }).waitFor()
   await window.getByRole('button', { name: '下一页', exact: true }).click()
   await window.getByRole('button', { name: /分页专辑 31/ }).waitFor()
   if (!(await window.getByRole('button', { name: '下一页', exact: true }).isDisabled())) {
@@ -856,12 +865,41 @@ try {
   if ((await queueButton.getAttribute('aria-expanded')) === 'true') await queueButton.click()
   await window.getByRole('button', { name: '艺术家', exact: true }).click()
   await window.getByRole('heading', { name: '艺术家', exact: true }).waitFor()
+  const artistListLayout = await window.evaluate(() => {
+    const workspace = globalThis.document.querySelector('.workspace')
+    const searchForm = globalThis.document.querySelector('.artists-search-form')
+    const artistList = globalThis.document.querySelector('[data-testid="artist-list"]')
+    if (!workspace || !searchForm || !artistList) return null
+    return {
+      workspaceClass: workspace.className,
+      workspaceOverflowY: globalThis.getComputedStyle(workspace).overflowY,
+      searchPosition: globalThis.getComputedStyle(searchForm).position,
+      searchTop: globalThis.getComputedStyle(searchForm).top,
+      listOverflowY: globalThis.getComputedStyle(artistList).overflowY
+    }
+  })
+  if (
+    !artistListLayout ||
+    artistListLayout.workspaceClass.includes('workspace-artists-list') ||
+    artistListLayout.workspaceOverflowY !== 'auto' ||
+    artistListLayout.searchPosition !== 'sticky' ||
+    artistListLayout.searchTop !== '12px' ||
+    artistListLayout.listOverflowY !== 'visible'
+  ) {
+    throw new Error(`艺术家页面未使用自然滚动与吸顶搜索：${JSON.stringify(artistListLayout)}`)
+  }
+  const artistSearchInput = window.getByPlaceholder('搜索艺术家')
+  await artistSearchInput.fill('Sonavi')
+  await artistSearchInput.press('Enter')
   await window.getByRole('button', { name: /Sonavi Fixture/ }).click()
   await window.getByRole('heading', { name: 'Sonavi Fixture' }).waitFor()
   await window.getByRole('button', { name: /石与琥珀/ }).first().click()
   await window.getByRole('heading', { name: '专辑详情' }).waitFor()
-  await window.getByRole('button', { name: '搜索', exact: true }).click()
-  const searchInput = window.getByPlaceholder('搜索艺术家、专辑或歌曲')
+  await window.getByRole('button', { name: '专辑', exact: true }).click()
+  await window.getByRole('heading', { name: '专辑详情' }).waitFor()
+  await window.getByRole('button', { name: '返回专辑', exact: true }).click()
+  await window.getByRole('heading', { name: '全部专辑' }).waitFor()
+  const searchInput = window.getByPlaceholder('搜索专辑')
   const searchSubmit = window.locator('.search-form').getByRole('button', { name: '搜索', exact: true })
   await searchInput.fill('跨平台')
   const [searchInputBox, searchSubmitBox] = await Promise.all([
@@ -877,48 +915,39 @@ try {
     throw new Error('搜索框与搜索按钮未对齐')
   }
   await searchSubmit.click()
-  await window.getByText('“跨平台”的搜索结果', { exact: true }).waitFor()
-  await window
-    .getByText('1 位艺术家 · 专辑第 1 页（1 张） · 歌曲第 1 页（1 首）', { exact: true })
-    .waitFor()
-  const albumResults = window.getByRole('region', { name: '专辑' })
-  await albumResults.getByText('Sonavi Fixture', { exact: true }).waitFor()
-  await albumResults.getByText('3 首歌曲', { exact: true }).waitFor()
-  const songResults = window.getByRole('region', { name: '歌曲' })
-  await songResults.getByText('跨平台试音', { exact: true }).waitFor()
-  const [discoveryResultsBox, songResultsBox] = await Promise.all([
-    window.locator('.search-discovery-column').boundingBox(),
-    songResults.boundingBox()
+  await window.getByText('“跨平台” · 第 1 页 · 本页 1 张专辑', { exact: true }).waitFor()
+  await window.getByText('3 首歌曲', { exact: true }).waitFor()
+  const [albumSearchBox, firstAlbumBox] = await Promise.all([
+    window.locator('.search-form-sticky').boundingBox(),
+    window.getByRole('button', { name: /石与琥珀/ }).first().boundingBox()
   ])
   if (
-    !discoveryResultsBox ||
-    !songResultsBox ||
-    songResultsBox.y < discoveryResultsBox.y + discoveryResultsBox.height - 1
+    !albumSearchBox ||
+    !firstAlbumBox ||
+    firstAlbumBox.y - (albumSearchBox.y + albumSearchBox.height) < 31
   ) {
-    throw new Error('搜索结果未按艺术家、专辑、歌曲上下排列')
+    throw new Error('专辑搜索条与首行内容的间距不足 32px')
   }
-  const [albumNextDisabled, trackNextDisabled] = await Promise.all([
-    window.getByRole('button', { name: '专辑下一页', exact: true }).isDisabled(),
-    window.getByRole('button', { name: '歌曲下一页', exact: true }).isDisabled()
-  ])
-  if (!albumNextDisabled || !trackNextDisabled) {
-    throw new Error('单页搜索结果的独立下一页按钮没有禁用')
+  if (!(await window.getByRole('button', { name: '下一页', exact: true }).isDisabled())) {
+    throw new Error('单页专辑搜索结果的下一页按钮没有禁用')
   }
-  const [albumGridBox, albumPaginationBox, trackListBox, trackPaginationBox] = await Promise.all([
-    albumResults.locator('.search-album-grid').boundingBox(),
-    albumResults.locator('[data-testid="search-albums-pagination"]').boundingBox(),
-    songResults.locator('.track-results').boundingBox(),
-    songResults.locator('[data-testid="search-tracks-pagination"]').boundingBox()
-  ])
-  if (
-    !albumGridBox ||
-    !albumPaginationBox ||
-    !trackListBox ||
-    !trackPaginationBox ||
-    albumPaginationBox.y - (albumGridBox.y + albumGridBox.height) < 19 ||
-    trackPaginationBox.y - (trackListBox.y + trackListBox.height) < 19
-  ) {
-    throw new Error('搜索结果内容与独立分页器的垂直间距不足 20px')
+
+  await window.getByRole('button', { name: '音乐', exact: true }).click()
+  await window.getByRole('heading', { name: '音乐', exact: true }).waitFor()
+  const musicSearchInput = window.getByPlaceholder('搜索歌曲')
+  const musicSearchStyle = await window.locator('.search-form-sticky').evaluate((element) => ({
+    position: globalThis.getComputedStyle(element).position,
+    top: globalThis.getComputedStyle(element).top
+  }))
+  if (musicSearchStyle.position !== 'sticky' || musicSearchStyle.top !== '12px') {
+    throw new Error(`音乐搜索条未吸顶：${JSON.stringify(musicSearchStyle)}`)
+  }
+  await musicSearchInput.fill('跨平台')
+  await musicSearchInput.press('Enter')
+  await window.getByRole('heading', { name: '“跨平台”的歌曲', exact: true }).waitFor()
+  await window.getByText('跨平台试音', { exact: true }).first().waitFor()
+  if (!(await window.getByRole('button', { name: '歌曲下一页', exact: true }).isDisabled())) {
+    throw new Error('单页歌曲搜索结果的下一页按钮没有禁用')
   }
   await electronApplication.evaluate(({ BrowserWindow }) => {
     BrowserWindow.getAllWindows()[0]?.setSize(960, 640)
@@ -931,7 +960,7 @@ try {
   )
   if (hasHorizontalOverflow) throw new Error('P05 最小窗口出现应用级横向溢出')
   await window.screenshot({ path: screenshotPath, fullPage: true })
-  console.log('P05 navigation passed: artists + artist detail + album detail + submitted search')
+  console.log('P26 navigation passed: paged artists + artist detail + embedded album/music search')
 
   await window.getByRole('button', { name: '收藏', exact: true }).click()
   await window.getByRole('heading', { name: '收藏', exact: true }).waitFor()
@@ -994,7 +1023,8 @@ try {
   ) {
     throw new Error(`设置组件未持久化所选值：${JSON.stringify(savedNetworkSettings)}`)
   }
-  await window.getByRole('button', { name: '首页', exact: true }).click()
+  await window.getByRole('button', { name: '专辑', exact: true }).click()
+  await window.getByRole('button', { name: /石与琥珀/ }).first().click()
   await window.getByRole('heading', { name: '专辑详情', exact: true }).waitFor()
   await window.getByRole('button', { name: '播放 跨平台试音' }).click()
   await window.getByRole('button', { name: '暂停' }).waitFor()
@@ -1043,7 +1073,7 @@ try {
   await window.getByText('播放缓冲', { exact: true }).first().waitFor()
   await window.getByText(/buffer-end · — · 无类型 · 1234 ms/).first().waitFor()
   await window
-    .getByText(/getAlbumList2 · listType=newest,page=1,size=30 · 第 1 次/)
+    .getByText(/getAlbumList2 · listType=alphabeticalByName,page=1,size=30 · 第 1 次/)
     .first()
     .waitFor()
   const coverTimingDiagnostic = await window.evaluate(async () => {
@@ -1077,7 +1107,7 @@ try {
   await window.screenshot({ path: diagnosticsScreenshotPath, fullPage: true })
   console.log('P08 integration passed: shared proxy policy + compatible transcode + full-timeline seek + diagnostics')
 
-  await window.getByRole('button', { name: '首页', exact: true }).click()
+  await window.getByRole('button', { name: '专辑', exact: true }).click()
   await window.getByRole('heading', { name: '专辑详情', exact: true }).waitFor()
   await window.getByRole('button', { name: '播放 跨平台试音' }).click()
   await window.getByRole('button', { name: '暂停' }).waitFor()
@@ -1139,7 +1169,7 @@ try {
   for (let index = 0; index < 20; index += 1) {
     await window.getByRole('button', { name: '设置', exact: true }).click()
     await window.getByRole('heading', { name: '设置', exact: true }).waitFor()
-    await window.getByRole('button', { name: '首页', exact: true }).click()
+    await window.getByRole('button', { name: '专辑', exact: true }).click()
     await window.getByRole('heading', { name: '专辑详情', exact: true }).waitFor()
   }
   const memoryAfter = await electronApplication.evaluate(({ app }) =>
@@ -1214,7 +1244,7 @@ try {
   await electronApplication.close()
   electronApplication = await launchApplication()
   window = await electronApplication.firstWindow()
-  await window.getByRole('heading', { name: '最近添加' }).waitFor()
+  await window.getByRole('heading', { name: '全部专辑' }).waitFor()
   await window
     .locator('footer[aria-label="播放器"] .player-track-details > strong')
     .getByText(expectedPausedTitle, { exact: true })

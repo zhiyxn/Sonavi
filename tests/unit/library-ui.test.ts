@@ -1,14 +1,13 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia } from 'pinia'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
-import { KeepAlive, defineComponent, h, nextTick, ref } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { SonaviApi } from '../../src/shared/application'
 import type { ArtistSummary, CancelSearchRequest } from '../../src/shared/library'
+import ArtistList from '../../src/renderer/src/components/ArtistList.vue'
 import ArtistsPanel from '../../src/renderer/src/components/ArtistsPanel.vue'
 import DeferredCoverImage from '../../src/renderer/src/components/DeferredCoverImage.vue'
 import LibraryPanel from '../../src/renderer/src/components/LibraryPanel.vue'
-import VirtualArtistList from '../../src/renderer/src/components/VirtualArtistList.vue'
 import { searchLibrary } from '../../src/renderer/src/services/library'
 
 const SESSION_ID = 'c1a3b589-7763-4fc6-8d52-cad7a11986bb'
@@ -21,83 +20,41 @@ afterEach(() => {
 })
 
 describe('P05 音乐库界面', () => {
-  it('在固定 10,000 条合成数据下只渲染可见窗口并记录耗时', async () => {
-    const artists: ArtistSummary[] = Array.from({ length: 10_000 }, (_, index) => ({
+  it('艺术家当前分页使用页面自然流完整渲染，不建立内部滚动窗口', async () => {
+    const artists: ArtistSummary[] = Array.from({ length: 50 }, (_, index) => ({
       id: String(index),
       name: `艺术家 ${index} — 很长的中英文混排 Artist Name`,
       albumCount: index % 12,
       starred: false
     }))
-    const startedAt = performance.now()
-    const wrapper = mount(VirtualArtistList, { props: { artists } })
-    const renderDurationMs = performance.now() - startedAt
+    const wrapper = mount(ArtistList, { props: { artists } })
 
-    expect(wrapper.findAll('button').length).toBeLessThan(20)
-    expect(renderDurationMs).toBeLessThan(1_000)
+    expect(wrapper.findAll('button')).toHaveLength(50)
     expect(wrapper.text()).toContain('艺术家 0')
-    expect(wrapper.text()).not.toContain('艺术家 9999')
-    expect(wrapper.get('[data-testid="virtual-artist-list"]').attributes()).toMatchObject({
-      'aria-label': '艺术家列表',
-      tabindex: '0'
-    })
-    const viewport = wrapper.get('[data-testid="virtual-artist-list"]')
-    viewport.element.scrollTop = 360
-    await viewport.trigger('scroll')
-    expect(wrapper.emitted('update:scrollTop')?.at(-1)).toEqual([360])
+    expect(wrapper.text()).toContain('艺术家 49')
+    expect(wrapper.get('[data-testid="artist-list"]').attributes('aria-label')).toBe('艺术家列表')
+    await wrapper.findAll('button')[49]?.trigger('click')
+    expect(wrapper.emitted('select')?.at(-1)).toEqual([artists[49]])
   })
 
-  it('从 KeepAlive 重新激活时立即恢复艺术家列表可见窗口', async () => {
-    const artists: ArtistSummary[] = Array.from({ length: 100 }, (_, index) => ({
-      id: String(index),
-      name: `艺术家 ${index}`,
-      albumCount: index % 12,
-      starred: false
-    }))
-    const active = ref(true)
-    const savedScrollTop = ref(360)
-    const InactiveView = defineComponent(() => () => h('div', '其他页面'))
-    const Host = defineComponent(() => () =>
-      h(KeepAlive, null, {
-        default: () => active.value
-          ? h(VirtualArtistList, {
-              key: 'artists',
-              artists,
-              scrollTop: savedScrollTop.value,
-              'onUpdate:scrollTop': (value: number) => { savedScrollTop.value = value }
-            })
-          : h(InactiveView, { key: 'inactive' })
-      })
-    )
-    const wrapper = mount(Host, { attachTo: document.body })
-    await nextTick()
-    await nextTick()
-
-    const previousViewport = wrapper.get('[data-testid="virtual-artist-list"]')
-    previousViewport.element.scrollTop = 0
-    active.value = false
-    await nextTick()
-    active.value = true
-    await nextTick()
-    await nextTick()
-
-    expect(wrapper.get('[data-testid="virtual-artist-list"]').element.scrollTop).toBe(360)
-  })
-
-  it('同一连接会话重新打开艺术家页面不会重复请求完整索引', async () => {
-    const listArtists = vi.fn<SonaviApi['library']['listArtists']>().mockResolvedValue({
+  it('同一连接会话重新打开艺术家页面不会重复请求当前分页', async () => {
+    const search = vi.fn<SonaviApi['library']['search']>().mockResolvedValue({
       ok: true,
       value: {
-        indexes: [
-          {
-            name: 'S',
-            artists: [{ id: 'artist-1', name: 'Sonavi Artist', albumCount: 1, starred: false }]
-          }
-        ]
+        artists: [{ id: 'artist-1', name: 'Sonavi Artist', albumCount: 1, starred: false }],
+        albums: [],
+        tracks: [],
+        artistNextOffset: 50,
+        albumNextOffset: 0,
+        trackNextOffset: 0,
+        artistHasMore: false,
+        albumHasMore: false,
+        trackHasMore: false
       }
     })
     Object.defineProperty(window, 'sonavi', {
       configurable: true,
-      value: { library: { listArtists } } as unknown as SonaviApi
+      value: { library: { search, cancelSearch: vi.fn(async () => true) } } as unknown as SonaviApi
     })
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const mountArtists = () => mount(ArtistsPanel, {
@@ -113,23 +70,23 @@ describe('P05 音乐库界面', () => {
     const first = mountArtists()
     await flushPromises()
     expect(first.text()).toContain('Sonavi Artist')
-    expect(first.find('.artists-list-page').exists()).toBe(true)
+    expect(first.find('[data-testid="artist-list"]').exists()).toBe(true)
     first.unmount()
 
     const reopened = mountArtists()
     await flushPromises()
     expect(reopened.text()).toContain('Sonavi Artist')
-    expect(listArtists).toHaveBeenCalledOnce()
+    expect(search).toHaveBeenCalledOnce()
   })
 
-  it('艺术家完整索引失败时不自动重试，只允许用户明确刷新', async () => {
-    const listArtists = vi.fn<SonaviApi['library']['listArtists']>().mockResolvedValue({
+  it('艺术家分页失败时不自动重试，只允许用户明确刷新', async () => {
+    const search = vi.fn<SonaviApi['library']['search']>().mockResolvedValue({
       ok: false,
-      error: { code: 'network', message: '艺术家索引读取超时。', retryable: true }
+      error: { code: 'network', message: '艺术家分页读取超时。', retryable: true }
     })
     Object.defineProperty(window, 'sonavi', {
       configurable: true,
-      value: { library: { listArtists } } as unknown as SonaviApi
+      value: { library: { search, cancelSearch: vi.fn(async () => true) } } as unknown as SonaviApi
     })
     const queryClient = new QueryClient()
     const wrapper = mount(ArtistsPanel, {
@@ -143,14 +100,14 @@ describe('P05 音乐库界面', () => {
     })
 
     await flushPromises()
-    expect(listArtists).toHaveBeenCalledOnce()
-    expect(wrapper.text()).toContain('艺术家索引读取超时')
+    expect(search).toHaveBeenCalledOnce()
+    expect(wrapper.text()).toContain('艺术家分页读取超时')
 
     const retryButton = wrapper.findAll('button').find((button) => button.text() === '重试')
     expect(retryButton).toBeDefined()
     await retryButton!.trigger('click')
     await flushPromises()
-    expect(listArtists).toHaveBeenCalledTimes(2)
+    expect(search).toHaveBeenCalledTimes(2)
   })
 
   it.each([
@@ -441,8 +398,10 @@ describe('P05 音乐库界面', () => {
                 artists: [],
                 albums: [],
                 tracks: [],
+                artistNextOffset: 25,
                 albumNextOffset: 25,
                 trackNextOffset: 25,
+                artistHasMore: false,
                 albumHasMore: false,
                 trackHasMore: false
               }
@@ -459,14 +418,16 @@ describe('P05 音乐库界面', () => {
       value: { library: { search, cancelSearch } } as unknown as SonaviApi
     })
     const controller = new AbortController()
-    const pending = searchLibrary(
-      SESSION_ID,
-      '跨平台',
-      0,
-      0,
-      25,
-      controller.signal
-    )
+    const pending = searchLibrary({
+      sessionId: SESSION_ID,
+      query: '跨平台',
+      artistOffset: 0,
+      albumOffset: 0,
+      trackOffset: 0,
+      artistCount: 25,
+      albumCount: 25,
+      trackCount: 25
+    }, controller.signal)
 
     controller.abort()
     await expect(pending).rejects.toMatchObject({ name: 'AbortError' })

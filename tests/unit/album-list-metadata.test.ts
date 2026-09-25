@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import ArtistsPanel from '../../src/renderer/src/components/ArtistsPanel.vue'
 import FavoritesPanel from '../../src/renderer/src/components/FavoritesPanel.vue'
 import LibraryPanel from '../../src/renderer/src/components/LibraryPanel.vue'
-import SearchPanel from '../../src/renderer/src/components/SearchPanel.vue'
 import {
   getArtist,
   listAlbums,
@@ -48,10 +47,7 @@ afterEach(() => {
 })
 
 describe('专辑列表元数据与搜索布局', () => {
-  it.each([
-    ['newest', '首页'],
-    ['alphabeticalByName', '全部专辑']
-  ] as const)('%s %s卡片显示歌曲数量', async (listType, title) => {
+  it('全部专辑卡片显示歌曲数量', async () => {
     vi.mocked(listAlbums).mockResolvedValue({
       items: [{
         id: 'album-library',
@@ -70,8 +66,8 @@ describe('专辑列表元数据与搜索布局', () => {
         sessionId: SESSION_ID,
         serverId: SERVER_ID,
         serverName: '测试服务器',
-        listType,
-        title,
+        listType: 'alphabeticalByName',
+        title: '全部专辑',
         selectedAlbumId: null
       },
       global: globalPlugins()
@@ -137,9 +133,10 @@ describe('专辑列表元数据与搜索布局', () => {
     expect(wrapper.get('.album-card-song-count').text()).toBe('5 首歌曲')
   })
 
-  it('搜索结果使用分区布局、显示数量摘要和专辑歌曲数量', async () => {
+  it('专辑页内搜索结果显示专辑歌曲数量', async () => {
+    vi.mocked(listAlbums).mockResolvedValue({ items: [], nextOffset: 30, hasMore: false })
     vi.mocked(searchLibrary).mockResolvedValue({
-      artists: [{ id: 'artist-search', name: '搜索艺术家', albumCount: 1, starred: false }],
+      artists: [],
       albums: [{
         id: 'album-search',
         name: '搜索专辑',
@@ -148,40 +145,32 @@ describe('专辑列表元数据与搜索布局', () => {
         duration: 540,
         starred: false
       }],
-      tracks: [{
-        id: 'track-search',
-        title: '搜索歌曲',
-        artist: 'Sonavi Artist',
-        album: '搜索专辑',
-        duration: 180,
-        streamUrl: 'sonavi-media://media/11111111-1111-4111-8111-111111111111',
-        playback: {
-          streamMode: 'original',
-          seekMode: 'native',
-          reason: '测试原始音频。'
-        },
-        starred: false
-      }],
-      albumNextOffset: 25,
-      trackNextOffset: 25,
+      tracks: [],
+      artistNextOffset: 0,
+      albumNextOffset: 30,
+      trackNextOffset: 0,
+      artistHasMore: false,
       albumHasMore: false,
       trackHasMore: false
     })
 
-    const wrapper = mount(SearchPanel, {
-      props: { sessionId: SESSION_ID, serverId: SERVER_ID },
+    const wrapper = mount(LibraryPanel, {
+      props: {
+        sessionId: SESSION_ID,
+        serverId: SERVER_ID,
+        serverName: '测试服务器',
+        listType: 'alphabeticalByName',
+        title: '全部专辑',
+        selectedAlbumId: null
+      },
       global: globalPlugins()
     })
-    await wrapper.get('input[type="search"]').setValue('Sonavi')
+    await wrapper.get('input[placeholder="搜索专辑"]').setValue('Sonavi')
     await wrapper.get('form').trigger('submit')
     await flushPromises()
 
-    expect(wrapper.get('[data-testid="search-result-summary"]').text()).toContain('1 位艺术家')
-    expect(wrapper.get('[data-testid="search-result-summary"]').text()).toContain('专辑第 1 页（1 张）')
-    expect(wrapper.get('[data-testid="search-result-summary"]').text()).toContain('歌曲第 1 页（1 首）')
-    expect(wrapper.find('.search-results-layout').exists()).toBe(true)
     expect(wrapper.find('[data-slot="pagination-next"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="search-albums"] .album-card').text()).toContain('9 首歌曲')
-    expect(wrapper.get('[data-testid="search-albums"] .album-card-song-count').text()).toBe('9 首歌曲')
+    expect(wrapper.get('.album-card').text()).toContain('9 首歌曲')
+    expect(wrapper.get('.album-card-song-count').text()).toBe('9 首歌曲')
   })
 })

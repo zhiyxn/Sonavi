@@ -1,12 +1,12 @@
 # Sonavi 架构
 
-更新日期：2026-09-20
+更新日期：2026-09-25
 
 ## 单工程与共享边界
 
 ```text
 共享 Vue renderer
-  连接 / 音乐库 / 搜索 / 收藏 / 歌单 / 歌词 / 设置
+  连接 / 音乐 / 专辑 / 艺术家（页内搜索）/ 收藏 / 歌单 / 歌词 / 设置
   Pinia + TanStack Vue Query + 单一 AudioEngine
                     │
                     │ 受限、类型化 preload API
@@ -65,13 +65,15 @@ P09 将非敏感队列元数据保存到 main 的 `desktop-state.v1.json`，不�
 
 ## P05 音乐库与搜索
 
-首页与全部专辑共用 `LibraryPanel.vue`，仅以受限的 `AlbumListType` 区分 `newest` 和 `alphabeticalByName`；查询 key 包含 session、类型与页码，每页请求 30 张。renderer 使用项目持有的 shadcn-vue Pagination 源码显示页码、上一页和下一页；由于公共响应只有 `hasMore` 而没有总数，控件只公布已知页和下一可用页，不猜测远端总量。首页与专辑页分别在应用外壳保存当前页。艺术家列表使用 `getArtists` 的协议索引，但 renderer 只挂载固定行高可见窗口和 overscan；艺术家详情通过 `getArtist` 复用同一专辑卡片语义。首页、全部专辑、艺术家详情、搜索和收藏直接显示共享 `AlbumSummary.songCount`，该值沿用既有 main 解析与共享 schema 校验，不增加 renderer 侧请求或协议旁路。
+应用外壳不再挂载首页或独立搜索页，连接后的默认视图固定为专辑。`LibraryPanel.vue` 在空搜索时使用受限 `AlbumListType=alphabeticalByName` 和公共 `getAlbumList2`，每页请求 30 张；提交关键词后只请求 `search3` 的专辑窗口。两条路径共享专辑详情、歌曲数量、收藏和播放队列语义，查询 key 明确区分 session、已提交关键词和页码。
 
-搜索只调用公共 `search3`。请求结构分别携带受限的 `albumOffset` 与 `trackOffset`，main 映射为协议的 `albumOffset` / `songOffset`；艺术家固定使用 offset 0，三类 count 均最多 25。`SearchPanel` 的查询 key 包含 session、已提交关键词、专辑页和歌曲页；两个 shadcn-vue Pagination 分别依据 `albumHasMore` / `trackHasMore` 只公布已知页和下一可用页，翻页替换对应当前页而不在 DOM 中累积历史页。结果按艺术家、专辑、歌曲上下排列。输入与已提交关键词分离，只有按 Enter 或点击搜索按钮才更新查询；TanStack Query 为每个查询提供 AbortSignal，并对搜索与收藏读取明确设置 `retry: false`，避免一次 12 秒超时被默认放大为四次请求。renderer 生成随机 requestId，通过固定 `cancel-search` preload 方法请求 main 中止对应 AbortController。main 同时校验 sessionId/requestId 和两个偏移量，断开或轮换账号时取消该会话的全部活动搜索。搜索结果只返回纯文本元数据及随机媒体句柄，不允许 renderer 访问任意 URL。
+`MusicPanel.vue` 使用公共 `search3` 的歌曲窗口：空查询表示浏览全部歌曲，非空查询表示本页搜索，每页 30 首。`ArtistsPanel.vue` 使用同一公共端点的艺术家窗口，每页 50 位；当前页由 `ArtistList.vue` 完整放入工作区自然文档流，不再建立固定高度的内部滚动窗口。艺术家详情仍通过 `getArtist`。旧 `getArtists` 客户端能力保留给兼容和既有测试，但当前艺术家页面不再获取无分页的完整索引。
 
-完整艺术家索引仍使用公共 `getArtists` 和独立 16 MiB 上限，但真实大库按端点使用一次 45 秒有界超时；renderer 关闭该查询的自动重试，仅由用户明确刷新。其他 API 保持 12 秒超时，避免慢艺术家端点扩大所有请求的等待边界。
+共享搜索请求为 artist/album/track 分别携带 offset/count，main 将 track 映射为协议 `songOffset/songCount`；未参与当前页面的类别 count 固定为 0。共享返回结构分别提供 `artistHasMore`、`albumHasMore`、`trackHasMore` 及下一偏移。公共响应没有总数，所以 shadcn-vue Pagination 只展示已确认页和下一可用页，不猜测总页数。输入与已提交关键词分离，只有 Enter 或搜索按钮会更新查询；空输入会恢复浏览模式。
 
-首页、专辑、艺术家、搜索、收藏与歌单组件由 `KeepAlive` 保留已访问实例，避免栏目切换重建搜索条件、歌单详情和查询观察器；设置页不缓存。服务器读取按 session 与资源键在当前连接会话内保持新鲜，禁用挂载和窗口聚焦自动重取，各页的刷新按钮直接 `refetch` 当前列表、当前分页或当前详情，不清空全局缓存。收藏/歌单写入仍按资源失效并重读服务器事实；代理变更、恢复/解锁、断开和忘记账号继续清除查询缓存，其中网络设置变更同时轮换页面缓存实例，确保不会复用旧网络上下文。
+TanStack Query 为每次 `search3` 提供 AbortSignal 并设置 `retry: false`。renderer 生成随机 requestId，通过固定 `cancel-search` preload 方法中止过期主进程请求；main 严格校验 sessionId、requestId、三个 offset 与三个 count，断开或轮换账号时取消该会话全部活动搜索。搜索结果只返回纯文本元数据和不透明媒体句柄，renderer 不能访问任意 URL，也没有新增 Navidrome 私有接口。
+
+音乐、专辑、艺术家、收藏与歌单组件由 `KeepAlive` 保留已访问实例，避免栏目切换重建搜索条件、详情来源链、歌单详情和查询观察器；设置页不缓存。服务器读取按 session 与资源键在当前连接会话内保持新鲜，禁用挂载和窗口聚焦自动重取，各页刷新按钮只 `refetch` 当前列表、分页或详情。工作区是音乐、专辑和艺术家列表的唯一纵向滚动容器，已有栏目/详情键继续保存其滚动位置；三页搜索表单统一使用 `position: sticky; top: 12px`，并以 32px 下间距分隔结果。收藏/歌单写入仍按资源失效并重读服务器事实；代理变更、恢复/解锁、断开和忘记账号继续清除查询缓存，其中网络设置变更同时轮换页面缓存实例，确保不会复用旧网络上下文。
 
 设置页在同一共享组件中呈现平台、服务器、协议、播放/网络策略、关闭动作、主题、当前账号封面缓存与安全退出；平台行为由 preload/main 适配，不在 Vue 组件读取 `process`。
 

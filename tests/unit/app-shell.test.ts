@@ -136,6 +136,42 @@ afterEach(() => {
 enableAutoUnmount(afterEach)
 
 describe('共享应用外壳', () => {
+  it('连接后默认展示专辑，并使用音乐/专辑/艺术家导航而不保留首页和独立搜索', async () => {
+    installPlatformApi('windows')
+    const pinia = createPinia()
+    const wrapper = mount(App, { global: { plugins: [pinia, VueQueryPlugin] } })
+    await flushPromises()
+
+    useSessionStore(pinia).establish({
+      ok: true,
+      sessionId: '1e2d7353-9554-46a5-84fe-89b53008f01d',
+      server: {
+        baseUrl: 'https://music.example.com',
+        protocolVersion: '1.16.1',
+        serverType: 'navidrome',
+        openSubsonic: true,
+        capabilityStatus: 'available',
+        extensions: [],
+        musicFolders: []
+      },
+      credentialPersistence: 'encrypted'
+    })
+    await flushPromises()
+
+    expect(wrapper.findAll('button.nav-item').map((button) => button.text())).toEqual([
+      '音乐',
+      '专辑',
+      '艺术家',
+      '收藏',
+      '歌单',
+      '服务器',
+      '设置'
+    ])
+    expect(wrapper.findComponent({ name: 'LibraryPanel' }).exists()).toBe(true)
+    expect(wrapper.getComponent({ name: 'LibraryPanel' }).props('title')).toBe('全部专辑')
+    expect(wrapper.findComponent({ name: 'SearchPanel' }).exists()).toBe(false)
+  })
+
   it('按 preload 契约显示 Windows 快捷键，不渲染伪窗口按钮', async () => {
     const api = installPlatformApi('windows')
     const wrapper = mount(App, { global: { plugins: [createPinia(), VueQueryPlugin] } })
@@ -223,9 +259,9 @@ describe('共享应用外壳', () => {
     await flushPromises()
 
     const headings = [
-      ['首页', 'LIBRARY'],
+      ['音乐', 'MUSIC'],
+      ['专辑', 'LIBRARY'],
       ['艺术家', 'ARTISTS'],
-      ['搜索', 'SEARCH'],
       ['收藏', 'FAVORITES'],
       ['歌单', 'PLAYLISTS'],
       ['设置', 'SETTINGS']
@@ -240,23 +276,24 @@ describe('共享应用外壳', () => {
       await flushPromises()
       expect(wrapper.get('.eyebrow').text()).toBe(heading)
       expect(wrapper.get('.eyebrow').text()).not.toContain('/')
-      expect(workspace.classes().includes('workspace-artists-list')).toBe(
-        navigationLabel === '艺术家'
-      )
+      expect(workspace.classes()).not.toContain('workspace-artists-list')
     }
   })
 
   it('除设置外切换页面时分别保存并恢复各自滚动位置', async () => {
     const api = installPlatformApi('windows')
-    api.library.listArtists = vi.fn<SonaviApi['library']['listArtists']>().mockResolvedValue({
+    api.library.search = vi.fn<SonaviApi['library']['search']>().mockResolvedValue({
       ok: true,
       value: {
-        indexes: [
-          {
-            name: 'S',
-            artists: [{ id: 'artist-1', name: 'Sonavi Artist', albumCount: 1, starred: false }]
-          }
-        ]
+        artists: [{ id: 'artist-1', name: 'Sonavi Artist', albumCount: 1, starred: false }],
+        albums: [],
+        tracks: [],
+        artistNextOffset: 50,
+        albumNextOffset: 0,
+        trackNextOffset: 0,
+        artistHasMore: false,
+        albumHasMore: false,
+        trackHasMore: false
       }
     })
     const pinia = createPinia()
@@ -281,13 +318,6 @@ describe('共享应用外壳', () => {
     const navigation = (label: string) =>
       wrapper.findAll('button.nav-item').find((button) => button.text() === label)!
 
-    const homeLibrary = wrapper.getComponent({ name: 'LibraryPanel' })
-    expect(homeLibrary.props('page')).toBe(1)
-    homeLibrary.vm.$emit('update:page', 2)
-    await flushPromises()
-
-    await navigation('专辑').trigger('click')
-    await flushPromises()
     const albumsLibrary = wrapper.getComponent({ name: 'LibraryPanel' })
     expect(albumsLibrary.props('page')).toBe(1)
     albumsLibrary.vm.$emit('update:page', 3)
@@ -295,17 +325,18 @@ describe('共享应用外壳', () => {
     workspace.element.scrollTop = 520
     await workspace.trigger('scroll')
 
-    await navigation('设置').trigger('click')
+    await navigation('音乐').trigger('click')
     await flushPromises()
-    expect(workspace.element.scrollTop).toBe(0)
     workspace.element.scrollTop = 260
     await workspace.trigger('scroll')
 
+    await navigation('设置').trigger('click')
+    await flushPromises()
+    expect(workspace.element.scrollTop).toBe(0)
     await navigation('艺术家').trigger('click')
     await flushPromises()
-    const artistList = wrapper.get('[data-testid="virtual-artist-list"]')
-    artistList.element.scrollTop = 216
-    await artistList.trigger('scroll')
+    workspace.element.scrollTop = 216
+    await workspace.trigger('scroll')
 
     await navigation('专辑').trigger('click')
     await flushPromises()
@@ -318,11 +349,11 @@ describe('共享应用外壳', () => {
 
     await navigation('艺术家').trigger('click')
     await flushPromises()
-    expect(wrapper.get('[data-testid="virtual-artist-list"]').element.scrollTop).toBe(216)
+    expect(workspace.element.scrollTop).toBe(216)
 
-    await navigation('首页').trigger('click')
+    await navigation('音乐').trigger('click')
     await flushPromises()
-    expect(wrapper.getComponent({ name: 'LibraryPanel' }).props('page')).toBe(2)
+    expect(workspace.element.scrollTop).toBe(260)
   })
 
   it('切换页面保留已访问页面实例且不重复读取当前专辑页', async () => {
@@ -348,8 +379,10 @@ describe('共享应用外壳', () => {
         artists: [],
         albums: [],
         tracks: [],
+        artistNextOffset: 25,
         albumNextOffset: 25,
         trackNextOffset: 25,
+        artistHasMore: false,
         albumHasMore: false,
         trackHasMore: false
       }
@@ -376,25 +409,25 @@ describe('共享应用外壳', () => {
 
     const navigation = (label: string) =>
       wrapper.findAll('button.nav-item').find((button) => button.text() === label)!
-    await navigation('搜索').trigger('click')
+    await navigation('音乐').trigger('click')
     await flushPromises()
     const searchInput = wrapper.get('input[type="search"]')
     await searchInput.setValue('保留的搜索')
     await searchInput.trigger('keydown.enter')
     await flushPromises()
-    expect(api.library.search).toHaveBeenCalledOnce()
+    expect(api.library.search).toHaveBeenCalledTimes(2)
 
-    await navigation('首页').trigger('click')
+    await navigation('专辑').trigger('click')
     await flushPromises()
     expect(api.library.listAlbums).toHaveBeenCalledOnce()
 
-    await navigation('搜索').trigger('click')
+    await navigation('音乐').trigger('click')
     await flushPromises()
     expect(wrapper.get('input[type="search"]').element).toHaveProperty('value', '保留的搜索')
-    expect(api.library.search).toHaveBeenCalledOnce()
+    expect(api.library.search).toHaveBeenCalledTimes(2)
   })
 
-  it('从搜索进入艺术家及其专辑时保留搜索来源并逐级返回', async () => {
+  it('从艺术家搜索进入详情及其专辑时保留艺术家来源并逐级返回', async () => {
     const api = installPlatformApi('windows')
     api.library.listAlbums = vi.fn(api.library.listAlbums)
     api.library.getAlbum = vi.fn<SonaviApi['library']['getAlbum']>().mockResolvedValue({
@@ -430,16 +463,20 @@ describe('共享应用外壳', () => {
 
     const navigation = (label: string) =>
       wrapper.findAll('button.nav-item').find((button) => button.text() === label)!
-    await navigation('搜索').trigger('click')
+    await navigation('艺术家').trigger('click')
     await flushPromises()
     vi.mocked(api.library.listAlbums).mockClear()
-    wrapper.getComponent({ name: 'SearchPanel' }).vm.$emit('openArtist', 'artist-1')
+    const searchInput = wrapper.get('input[placeholder="搜索艺术家"]')
+    await searchInput.setValue('测试艺术家')
+    await searchInput.trigger('keydown.enter')
+    await flushPromises()
+    wrapper.getComponent({ name: 'ArtistsPanel' }).vm.$emit('update:selectedArtistId', 'artist-1')
     await flushPromises()
     const artistsPanel = wrapper.getComponent({ name: 'ArtistsPanel' })
     expect(artistsPanel.props('selectedArtistId')).toBe('artist-1')
-    expect(artistsPanel.props('artistListEnabled')).toBe(false)
-    expect(artistsPanel.props('backLabel')).toBe('返回搜索')
-    expect(navigation('搜索').classes()).toContain('active')
+    expect(artistsPanel.props('artistListEnabled')).toBe(true)
+    expect(artistsPanel.props('backLabel')).toBe('返回艺术家')
+    expect(navigation('艺术家').classes()).toContain('active')
     const workspace = wrapper.get('.workspace')
     expect(workspace.classes()).not.toContain('workspace-artists-list')
     workspace.element.scrollTop = 410
@@ -449,8 +486,7 @@ describe('共享应用外壳', () => {
     await flushPromises()
     expect(workspace.element.scrollTop).toBe(0)
     expect(workspace.classes()).toContain('workspace-album-detail')
-    expect(navigation('搜索').classes()).toContain('active')
-    expect(navigation('艺术家').classes()).not.toContain('active')
+    expect(navigation('艺术家').classes()).toContain('active')
     expect(navigation('专辑').classes()).not.toContain('active')
     const libraryPanel = wrapper.getComponent({ name: 'LibraryPanel' })
     expect(libraryPanel.props('backLabel')).toBe('返回艺术家专辑')
@@ -462,17 +498,18 @@ describe('共享应用外壳', () => {
     await back?.trigger('click')
     await flushPromises()
     expect(wrapper.getComponent({ name: 'ArtistsPanel' }).props('selectedArtistId')).toBe('artist-1')
-    expect(navigation('搜索').classes()).toContain('active')
+    expect(navigation('艺术家').classes()).toContain('active')
     expect(workspace.element.scrollTop).toBe(410)
     expect(workspace.classes()).not.toContain('workspace-album-detail')
 
     wrapper.getComponent({ name: 'ArtistsPanel' }).vm.$emit('update:selectedArtistId', null)
     await flushPromises()
-    expect(wrapper.findComponent({ name: 'SearchPanel' }).exists()).toBe(true)
-    expect(navigation('搜索').classes()).toContain('active')
+    expect(wrapper.findComponent({ name: 'ArtistsPanel' }).exists()).toBe(true)
+    expect(wrapper.get('input[placeholder="搜索艺术家"]').element).toHaveProperty('value', '测试艺术家')
+    expect(navigation('艺术家').classes()).toContain('active')
   })
 
-  it('搜索与收藏的专辑详情保留来源栏目并返回原页面', async () => {
+  it('收藏的专辑详情保留来源栏目并返回原页面', async () => {
     const api = installPlatformApi('windows')
     api.library.getAlbum = vi.fn<SonaviApi['library']['getAlbum']>().mockResolvedValue({
       ok: true,
@@ -508,7 +545,6 @@ describe('共享应用外壳', () => {
     const navigation = (label: string) =>
       wrapper.findAll('button.nav-item').find((button) => button.text() === label)!
     for (const [label, componentName, backLabel] of [
-      ['搜索', 'SearchPanel', '返回搜索'],
       ['收藏', 'FavoritesPanel', '返回收藏']
     ] as const) {
       await navigation(label).trigger('click')
@@ -531,7 +567,7 @@ describe('共享应用外壳', () => {
     }
   })
 
-  it('首页、专辑与艺术家栏目分别保留自己的详情状态', async () => {
+  it('专辑与艺术家栏目分别保留自己的详情状态', async () => {
     const api = installPlatformApi('windows')
     api.library.listAlbums = vi.fn<SonaviApi['library']['listAlbums']>().mockResolvedValue({
       ok: true,
