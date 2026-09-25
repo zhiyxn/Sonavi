@@ -35,7 +35,7 @@ npm run test:e2e:package -- mac-arm64
 
 验证器会在 `release/<version>/` 写入本地 JSON 清单，记录目标、宿主、包大小、SHA-256、应用标识、版本、架构、资源和签名状态。普通 CI 只构建并验证，不上传安装包。只有用户明确授权后创建的 `v*-rc.*` 标签会触发候选发布工作流；标签必须等于 `v` 加 `package.json` 版本，三个原生目标会重新执行完整检查，全部通过后只上传三个安装包、三份 manifest 和 `SHA256SUMS.txt`，并标记为 Pre-release。
 
-测试候选 `v0.1.0-rc.1` 与 `v0.1.0-rc.2` 均因 Electron release gate 失败而没有创建 Release，远端标签保留且不改写。`v0.1.0-rc.3` 已由 release run `35040657787` 完成三个原生目标门禁并发布为 Pre-release；其 Release notes 使用 `docs/RELEASE-NOTES-v0.1.0-rc.3.md` 的未签名/未公证提示，未标为 Latest 或正式稳定版。提交 `acb7c8c` 的 `v0.1.0-rc.4` 是首个包含 P11 审查修复的候选，已由 release run `35063014155` 完成三个原生目标门禁与发布 job 并发布为 Pre-release，其 Release notes 使用 `docs/RELEASE-NOTES-v0.1.0-rc.4.md`（`v0.1.0-rc.3` 构建自版本提交 `cc33168`，不含 P11 修复）。发布 job 按标签名读取 `docs/RELEASE-NOTES-${GITHUB_REF_NAME}.md`，文件缺失时直接失败，不再写死具体候选版本，也不得把任何候选标为 Latest 或正式稳定版。
+测试候选 `v0.1.0-rc.1` 与 `v0.1.0-rc.2` 均因 Electron release gate 失败而没有创建 Release，远端标签保留且不改写。`v0.1.0-rc.3`、`v0.1.0-rc.4` 和 `v0.1.0-rc.5` 已完成三个原生目标门禁并发布为 Pre-release；`v0.1.0-rc.6` 用于交付 P26/P27 的音乐库导航、页内搜索、艺术家分页与滚动布局。发布 job 按标签名读取 `docs/RELEASE-NOTES-${GITHUB_REF_NAME}.md`，文件缺失时直接失败；任何候选都不得标为 Latest 或正式稳定版。
 
 ## 签名与公证接口
 

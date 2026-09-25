@@ -428,3 +428,11 @@ P01 已达到验收条件，P02～P10 已按序达到当时可用环境的代码
 - [x] 艺术家翻页后滚回搜索条区域；不改变服务端分页、详情、收藏和播放行为。
 - [x] failure-first 样式/应用外壳断言在旧实现上失败；合并 rc.5 基线后 lint、三组 typecheck、35 文件/205 项全量测试、生产构建和 macOS Intel Electron 冒烟全部通过。
 - [ ] macOS Intel 当前真实应用、Windows 11 x64、macOS arm64 与真实 50 项艺术家分页分别人工验证吸顶、滚动位置和窄窗口布局。
+
+## v0.1.0-rc.6 候选发布（进行中，2026-09-25）
+
+- [x] 功能提交 `eab275b` 已整合 rc.5 基线与 P26/P27，本地 lint、三组 typecheck、35 文件/205 项测试、生产构建和 macOS Intel Electron 冒烟通过。
+- [x] 版本号推进到 `0.1.0-rc.6`，新增按标签读取的候选版说明，并保留未签名/未公证与 arm64 无实机的明确限制。
+- [ ] 推送 `main` 并等待 Windows x64、macOS Intel x64、macOS arm64 普通 CI 全部通过。
+- [ ] 普通 CI 通过后创建并推送 `v0.1.0-rc.6`，等待三目标 release gate 和发布 job 通过。
+- [ ] 核验 GitHub Pre-release 不是 Latest，三个安装包、三个 manifest 与 `SHA256SUMS.txt` 共七个附件齐全。
