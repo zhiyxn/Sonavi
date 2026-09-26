@@ -4,6 +4,20 @@ Sonavi 是一款简洁、跨平台的 Navidrome、Subsonic 与 OpenSubsonic 桌�
 
 支持 Windows 11 x64、macOS 13+ Intel x64 和 macOS 13+ Apple Silicon arm64。
 
+## English overview
+
+Sonavi (听屿) is a minimal, cross-platform desktop music client for **Navidrome, Subsonic and OpenSubsonic** servers. One Electron + Vue 3 + TypeScript codebase targets **Windows 11 x64, macOS 13+ Intel x64 and macOS 13+ Apple Silicon arm64**. MIT licensed.
+
+- Connect to Navidrome / Subsonic / OpenSubsonic with token+salt auth and capability probing — unsupported features degrade instead of breaking;
+- Browse and search albums, artists and songs with server-side pagination; favorites for songs, albums and artists;
+- Playlists (create, edit, delete, play) and a real playback queue (shuffle / repeat / reorder);
+- Streaming playback with seeking (HTTP Range 200/206/416), optional MP3-compatible transcoding, synced and plain lyrics;
+- Windows tray / macOS menu-bar controls, media keys, close-to-tray with an explicit real quit, resume-on-restart;
+- Credentials encrypted via Electron `safeStorage` (no plaintext fallback), with `contextIsolation` + `sandbox` + strict CSP;
+- Downloads: [latest pre-release](https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.6), verify with the release's `SHA256SUMS.txt`. Current status: **v0.1.0-rc.6 preview** — macOS builds are unsigned.
+
+Project documentation is currently written in Chinese; an English translation is planned.
+
 ## 界面预览
 
 以下截图使用本地测试数据，不包含真实账号或服务器信息。
