@@ -1,7 +1,7 @@
 # P10 打包、兼容性与发布前审计报告
 
-日期：2026-09-26
-状态：P28 当前未提交工作区已通过 macOS Intel 自动代码闸门、源码 Electron 冒烟与 locale 裁剪后的目录包冒烟；最新候选 `v0.1.0-rc.6` 不包含 P28。真实大型服务边界、Windows 11 x64、macOS arm64 真机、正式签名/公证和各平台完整实机发布验收未完成
+日期：2026-09-28
+状态：P28～P30 已随提交 `cf25508` 进入 `main`，当前正在准备 `v0.1.0-rc.7` 三平台 GitHub Pre-release。macOS Intel 自动代码闸门、源码 Electron 冒烟与 locale 裁剪后的目录包冒烟已通过；真实大型服务边界、Windows 11 x64、macOS arm64 真机、正式签名/公证和各平台完整实机发布验收未完成
 
 ## 测试环境
 
@@ -763,4 +763,13 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - `npm run pack:dir`：首次沙箱网络受限；获准联网后 macOS Intel x64 未签名目录包生成成功。实际检查同时且只保留 `en.lproj` 与 `zh_CN.lproj`；应用 265,852 KiB（约 259.6 MiB），Electron Framework 260,256 KiB（约 254.2 MiB）。
 - `npm run test:e2e:package -- mac-x64`：裁剪后的未签名目录包完整冒烟通过，启动样本 1,802 ms；20 轮快速切页内存样本增量 52,500 KiB、媒体请求增量 0。单次性能样本不是承诺。
 - 安全边界：没有新增运行时依赖、IPC 通道、renderer Node.js 权限、凭据流向或媒体传输方式；Chromium、FFmpeg、GPU 回退与许可文件均保留。
-- 未验证：Windows x64 实际 locale 目录与 NSIS 下载体积、macOS x64 DMG 下载体积、macOS arm64 包和运行、中文/英文系统上的人工切换/重启/原生对话框/安装卸载，以及真实服务和物理听音。当前目录包未签名、未公证，未提交、推送或发布。
+- 未验证：Windows x64 实际 locale 目录与 NSIS 下载体积、macOS x64 DMG 下载体积、macOS arm64 包和运行、中文/英文系统上的人工切换/重启/原生对话框/安装卸载，以及真实服务和物理听音。当前目录包未签名、未公证；P28～P30 已随 `cf25508` 进入 `main`。
+
+## v0.1.0-rc.7 本地发布前验证（2026-09-28）
+
+- `SONAVI_RELEASE_TAG=v0.1.0-rc.7 node scripts/prepare-release.mjs validate-tag`：标签与 `package.json` 版本匹配。
+- `npm run lint`、三组 `npm run typecheck`、36 文件/214 项 `npm test`、`npm run build`：全部通过；构建只有既有 Zod PURE 注释位置提示。
+- `npm audit --audit-level=high --registry=https://registry.npmjs.org`：0 vulnerabilities。
+- `npm run test:e2e`：首次运行暴露 E2E 仍定位旧“返回专辑/返回歌单”文字；第二次继续暴露收藏页歌曲仍定位旧可见“取消收藏”文字。测试分别更新为统一“返回”和带歌曲名称的心形按钮无障碍标签，未删除流程或放宽业务断言；最终完整通过。
+- 最终 Electron 冒烟启动样本 1,564 ms，覆盖多服务器、分页与搜索、收藏、歌单、播放与歌词、代理、生命周期、单实例、凭据、队列恢复及 safeStorage。20 轮快速切页内存样本增量 69,800 KiB、媒体请求增量 0；单次性能样本不是承诺。
+- 下一证据：发布准备提交的普通三平台 CI，以及标签触发的 Windows x64、macOS Intel x64、macOS arm64 原生 release gate、安装包验证、包内冒烟和发布 job。

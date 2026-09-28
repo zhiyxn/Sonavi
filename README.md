@@ -14,7 +14,7 @@ Sonavi (听屿) is a minimal, cross-platform desktop music client for **Navidrom
 - Streaming playback with seeking (HTTP Range 200/206/416), optional MP3-compatible transcoding, synced and plain lyrics;
 - Windows tray / macOS menu-bar controls, media keys, close-to-tray with an explicit real quit, resume-on-restart;
 - Credentials encrypted via Electron `safeStorage` (no plaintext fallback), with `contextIsolation` + `sandbox` + strict CSP;
-- Downloads: [latest pre-release](https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.6), verify with the release's `SHA256SUMS.txt`. Current status: **v0.1.0-rc.6 preview** — macOS builds are unsigned.
+- Downloads: [latest pre-release](https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.7), verify with the release's `SHA256SUMS.txt`. Current status: **v0.1.0-rc.7 preview** — macOS builds are unsigned.
 
 Project documentation is currently written in Chinese; an English translation is planned.
 
@@ -28,11 +28,11 @@ Project documentation is currently written in Chinese; an English translation is
 
 ## 下载
 
-前往 [GitHub Releases](https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.6) 下载最新 Pre-release：
+前往 [GitHub Releases](https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.7) 下载最新 Pre-release：
 
-- Windows x64：`Sonavi-0.1.0-rc.6-win-x64.exe`
-- macOS Intel x64：`Sonavi-0.1.0-rc.6-mac-x64.dmg`
-- macOS Apple Silicon arm64：`Sonavi-0.1.0-rc.6-mac-arm64.dmg`
+- Windows x64：`Sonavi-0.1.0-rc.7-win-x64.exe`
+- macOS Intel x64：`Sonavi-0.1.0-rc.7-mac-x64.dmg`
+- macOS Apple Silicon arm64：`Sonavi-0.1.0-rc.7-mac-arm64.dmg`
 
 下载后可使用 Release 中的 `SHA256SUMS.txt` 校验文件完整性。
 

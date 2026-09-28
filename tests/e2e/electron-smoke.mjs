@@ -897,7 +897,7 @@ try {
   await window.getByRole('heading', { name: '专辑详情' }).waitFor()
   await window.getByRole('button', { name: '专辑', exact: true }).click()
   await window.getByRole('heading', { name: '专辑详情' }).waitFor()
-  await window.getByRole('button', { name: '返回专辑', exact: true }).click()
+  await window.getByRole('button', { name: '返回', exact: true }).click()
   await window.getByRole('heading', { name: '全部专辑' }).waitFor()
   const searchInput = window.getByPlaceholder('搜索专辑')
   const searchSubmit = window.locator('.search-form').getByRole('button', { name: '搜索', exact: true })
@@ -966,7 +966,7 @@ try {
   await window.getByRole('heading', { name: '收藏', exact: true }).waitFor()
   const favoriteTracks = window.getByRole('region', { name: '歌曲' })
   await favoriteTracks.getByText('跨平台试音', { exact: true }).waitFor()
-  await favoriteTracks.getByRole('button', { name: '取消收藏', exact: true }).click()
+  await favoriteTracks.getByRole('button', { name: '取消收藏 跨平台试音', exact: true }).click()
   await window.getByText('还没有收藏的艺术家、专辑或歌曲。').waitFor()
 
   await window.getByRole('button', { name: '歌单', exact: true }).click()
@@ -985,7 +985,7 @@ try {
     async () => (await playlistTracks.getByText('跨平台试音', { exact: true }).count()) === 1,
     '歌单按索引移除未生效'
   )
-  await window.getByRole('button', { name: '返回歌单', exact: true }).click()
+  await window.getByRole('button', { name: '返回', exact: true }).click()
   await window.getByPlaceholder('例如：夜间聆听').fill('P06 自动化')
   await window.getByLabel(/包含当前队列/).click()
   await window.getByRole('button', { name: '创建歌单', exact: true }).click()

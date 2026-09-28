@@ -1,10 +1,10 @@
 # 项目交接
 
-更新日期：2026-09-26
+更新日期：2026-09-28
 
 ## 当前目标与状态
 
-P01～P10 已完成，P11～P25 已经过审查、稳定性修复、真机回归、单实例与服务器管理扩展；P26 音乐库导航/分页和 P27 艺术家自然滚动/搜索条吸顶已由提交 `eab275b` 完成。当前未提交工作区已完成 P28 中英文界面、语言偏好迁移、原生菜单同步与 Electron locale 裁剪；macOS Intel 源码/目录包自动冒烟通过，Windows 与 macOS arm64 仍待原生复验。最新候选 `v0.1.0-rc.6` 不包含 P28，且已作为非草稿 GitHub Pre-release 发布。本轮未配置签名/公证/自动更新，也未提交、推送或发布 P28。最新代码仍不能判定为正式发布就绪，完整结论见 `docs/TEST-REPORT.md`、`docs/TEST-MATRIX.md` 与 `docs/KNOWN-ISSUES.md`。
+P01～P30 的当前代码已完成并随提交 `cf25508` 进入 `main`。P28 增加中英文界面、语言偏好迁移、原生菜单同步与 Electron locale 裁剪，P29/P30 完成收藏按钮和统一返回文案调整。用户已明确授权准备 `v0.1.0-rc.7` 三平台 GitHub Pre-release；当前正在执行版本升级、本地发布闸门与标签发布流程。候选仍不配置正式签名、公证或自动更新，Windows 与 macOS arm64 的本轮证据必须来自各自 GitHub 原生 runner；完整结论见 `docs/TEST-REPORT.md`、`docs/TEST-MATRIX.md` 与 `docs/KNOWN-ISSUES.md`。
 
 P11 原 Critical 已修复：媒体句柄改为会话密钥加密、带 epoch 的无状态 token，不再因 2,000 项 FIFO 淘汰；10,000 个后续封面句柄回归测试通过。用户真实 Windows 记录 `docs/Existing issues.md` 中的艺术家大响应、后续播放、scrobble 和 UI 问题均有针对性代码修复，但艺术家/scrobble 必须回到原服务器复验，不能仅凭 fixture 宣称关闭。
 
@@ -348,3 +348,10 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 - 同轮将“返回专辑 / 返回艺术家 / 返回艺术家专辑 / 返回收藏 / 返回歌单”等可见文案统一为“返回”（英文 `Back`）；删除 renderer 间只承载显示差异的 `backLabel` 参数，但不改变来源状态、逐级导航、栏目高亮或滚动恢复。
 - P29 按用户最终复核调整后的本地闸门：Node.js 22.19.0 下 lint、三组 typecheck、36 文件/214 项测试、生产构建和 `git diff --check` 全部通过；当前应用已用该构建重启供人工复验。
 - 下一入口：分别在 Windows x64、macOS x64、macOS arm64 原生 release gate 中重打并记录安装包、解包目录、ASAR 与 locale 体积；在中文/英文系统验证设置切换、重启恢复、原生菜单/对话框、播放与安装卸载。当前 Windows 实际 locale 目录、DMG/NSIS 下载体积、macOS arm64 运行和全部人工语言检查均为“未验证”。
+
+## v0.1.0-rc.7 发布准备（2026-09-28）
+
+- 用户明确授权发布三平台 GitHub Pre-release；版本、README 下载入口和候选说明已推进到 `0.1.0-rc.7`，仍明确标注未签名、未公证、非 Latest 与 arm64 无实机证据。
+- 本地 Node.js 22.19.0 闸门已通过：标签校验、lint、三组 typecheck、36 文件/214 项测试、生产构建、0 漏洞依赖审计与源码 Electron 完整冒烟。
+- 冒烟首次发现统一返回文案后 E2E 仍定位“返回专辑/返回歌单”，第二次发现歌曲心形按钮后仍定位可见“取消收藏”；两处均改为新 UI 的精确角色/无障碍名称，最终完整冒烟通过，未放宽产品断言。
+- 下一入口：提交并推送发布准备，确认普通 CI 后创建并推送 `v0.1.0-rc.7` 标签；发布工作流必须在三个原生目标全部通过后才创建七附件 Pre-release。
