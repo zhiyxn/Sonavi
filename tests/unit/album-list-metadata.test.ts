@@ -105,6 +105,9 @@ describe('专辑列表元数据与搜索布局', () => {
     })
     await flushPromises()
 
+    const favoriteArtist = wrapper.get('button[aria-label="收藏 Sonavi Artist"]')
+    expect(favoriteArtist.text()).toBe('收藏艺术家')
+    expect(favoriteArtist.find('svg').exists()).toBe(false)
     expect(wrapper.get('.album-card').text()).toContain('7 首歌曲')
     expect(wrapper.get('.album-card-song-count').text()).toBe('7 首歌曲')
   })

@@ -7,6 +7,7 @@ import { reactiveOmit } from "@vueuse/core"
 import { PaginationPrev, useForwardProps } from "reka-ui"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from '@/components/ui/button'
+import { t } from '@/i18n'
 
 const props = withDefaults(defineProps<PaginationPrevProps & {
   size?: ButtonVariants["size"]
@@ -30,7 +31,7 @@ const forwarded = useForwardProps(delegatedProps)
   >
     <slot>
       <ChevronLeft />
-      <span class="hidden sm:block">上一页</span>
+      <span class="hidden sm:block">{{ t('上一页') }}</span>
     </slot>
   </PaginationPrev>
 </template>

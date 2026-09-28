@@ -1,5 +1,6 @@
 import type { BrowserWindowConstructorOptions, MenuItemConstructorOptions } from 'electron'
 import type { ApplicationInfo } from '../../shared/application'
+import type { AppLanguage } from '../../shared/localization'
 
 export interface PlatformAdapter {
   readonly applicationInfo: Pick<
@@ -8,5 +9,8 @@ export interface PlatformAdapter {
   >
   readonly quitWhenAllWindowsClosed: boolean
   createWindowOptions: () => Pick<BrowserWindowConstructorOptions, 'backgroundColor' | 'titleBarStyle'>
-  createMenuTemplate: (applicationName: string) => MenuItemConstructorOptions[]
+  createMenuTemplate: (
+    applicationName: string,
+    language: AppLanguage
+  ) => MenuItemConstructorOptions[]
 }

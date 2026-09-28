@@ -1,10 +1,10 @@
 # 项目交接
 
-更新日期：2026-09-25
+更新日期：2026-09-26
 
 ## 当前目标与状态
 
-P01～P10 已完成，P11～P25 已经过审查、稳定性修复、真机回归、单实例与服务器管理扩展；P26 音乐库导航/分页和 P27 艺术家自然滚动/搜索条吸顶已由提交 `eab275b` 完成。最新候选 `v0.1.0-rc.6` 已通过普通三平台 CI、三目标 release gate 和发布 job，并发布为非草稿 GitHub Pre-release。本轮未配置签名/公证/自动更新。最新代码仍不能判定为正式发布就绪，完整结论见 `docs/TEST-REPORT.md`、`docs/TEST-MATRIX.md` 与 `docs/KNOWN-ISSUES.md`。
+P01～P10 已完成，P11～P25 已经过审查、稳定性修复、真机回归、单实例与服务器管理扩展；P26 音乐库导航/分页和 P27 艺术家自然滚动/搜索条吸顶已由提交 `eab275b` 完成。当前未提交工作区已完成 P28 中英文界面、语言偏好迁移、原生菜单同步与 Electron locale 裁剪；macOS Intel 源码/目录包自动冒烟通过，Windows 与 macOS arm64 仍待原生复验。最新候选 `v0.1.0-rc.6` 不包含 P28，且已作为非草稿 GitHub Pre-release 发布。本轮未配置签名/公证/自动更新，也未提交、推送或发布 P28。最新代码仍不能判定为正式发布就绪，完整结论见 `docs/TEST-REPORT.md`、`docs/TEST-MATRIX.md` 与 `docs/KNOWN-ISSUES.md`。
 
 P11 原 Critical 已修复：媒体句柄改为会话密钥加密、带 epoch 的无状态 token，不再因 2,000 项 FIFO 淘汰；10,000 个后续封面句柄回归测试通过。用户真实 Windows 记录 `docs/Existing issues.md` 中的艺术家大响应、后续播放、scrobble 和 UI 问题均有针对性代码修复，但艺术家/scrobble 必须回到原服务器复验，不能仅凭 fixture 宣称关闭。
 
@@ -334,3 +334,17 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 - Release 为非草稿 Pre-release 且不是 Latest；三个安装包、三个 manifest 与 610 字节 `SHA256SUMS.txt` 共七个附件齐全。
 - Release：`https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.6`。自动 runner 证据不外推为 Windows/macOS 新安装包的完整人工验收，arm64 真机仍未验证。
 - 发布后发现 README 仍列出 rc.5 文件名；现已将下载入口直指 rc.6 Release，三个文件名更新为 rc.6，并将旧“首页”功能摘要改为音乐/专辑/艺术家页内搜索与分页。既有 rc.6 标签与已校验附件不改写。
+
+## 安装包体积与 P28 locale 裁剪（2026-09-26）
+
+- 当前生产输出 `out/` 约 2.1 MiB，现有本地产物的 `app.asar` 约 1.9～2.0 MiB；构建期 `node_modules`、源码与 source map 已按 P10 边界排除，因此继续压缩 Vue/TypeScript 业务代码不会显著改变百 MiB 级安装包。
+- 本地历史产物只用于体积归因，不冒充 rc.6 发布附件实测：Windows x64 NSIS 约 108 MiB、解包目录约 370 MiB，其中主可执行文件约 235 MiB、Electron locales 约 48 MiB；macOS x64 DMG 约 129 MiB、应用约 295 MiB，其中 Electron Framework 约 289 MiB、locale 目录约 49 MiB。Electron/Chromium 运行时是主要体积来源。
+- P28 已配置按平台裁剪 Electron locale：Windows 保留 `zh-CN` / `en-US`，macOS 按 Electron 上游目录名保留 `zh_CN` / `en-US`。首次使用 `zh-CN` 验证 macOS 目录包时只留下英文，检查 electron-builder 26.15.3 的实际匹配逻辑后修正为 `zh_CN`，重打结果同时且只包含 `en.lproj` 与 `zh_CN.lproj`。
+- 当前 macOS Intel 未签名目录包为约 259.6 MiB，Electron Framework 约 254.2 MiB；相对本轮调查使用的历史约 295 MiB 应用样本减少约 35 MiB。该比较只用于本机解包体积归因，不冒充 DMG 下载体积或 Windows/macOS arm64 原生产物测量。
+- `compression: maximum` 不是主要方案；当前 electron-builder 26.15.3 的配置说明明确表示它通常没有明显体积差异，只会增加构建时间。删除 Chromium、FFmpeg、SwiftShader、DirectX 或许可文件可能破坏音频、GPU 回退、Windows/macOS 兼容性或许可合规，不应作为常规优化。
+- P28 自动证据：Node.js 22.19.0 下 lint、三组 typecheck、36 文件/214 项测试和生产构建通过；macOS Intel 源码 Electron 完整冒烟及裁剪后目录包完整冒烟通过。目录包未签名、未公证，只作本地验证。
+- 2026-09-28 真机试用发现语言保存后选择框已选项仍显示旧语言，需再次点击才刷新；第一次修复只覆盖语言框，复测截图确认关闭行为和外观框仍为中文。根因是 Reka `SelectValue` 缓存选项文本；当前已统一让关闭行为、外观、语言、播放模式、码率、代理模式和歌词版本从响应式选项直接渲染，并以组件回归断言全部设置选择框无需二次交互即可更新。
+- 同轮收藏按钮按用户最终复核区分：歌曲使用心形图标（空心未收藏、琥珀色实心已收藏），艺术家和专辑保持文字按钮；全部保留带实体名称的中英文 `aria-label`、`aria-pressed`、禁用态和既有服务器同步逻辑。
+- 同轮将“返回专辑 / 返回艺术家 / 返回艺术家专辑 / 返回收藏 / 返回歌单”等可见文案统一为“返回”（英文 `Back`）；删除 renderer 间只承载显示差异的 `backLabel` 参数，但不改变来源状态、逐级导航、栏目高亮或滚动恢复。
+- P29 按用户最终复核调整后的本地闸门：Node.js 22.19.0 下 lint、三组 typecheck、36 文件/214 项测试、生产构建和 `git diff --check` 全部通过；当前应用已用该构建重启供人工复验。
+- 下一入口：分别在 Windows x64、macOS x64、macOS arm64 原生 release gate 中重打并记录安装包、解包目录、ASAR 与 locale 体积；在中文/英文系统验证设置切换、重启恢复、原生菜单/对话框、播放与安装卸载。当前 Windows 实际 locale 目录、DMG/NSIS 下载体积、macOS arm64 运行和全部人工语言检查均为“未验证”。

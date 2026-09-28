@@ -5,6 +5,7 @@ import { Ellipsis } from '@lucide/vue'
 import { reactiveOmit } from "@vueuse/core"
 import { PaginationEllipsis } from "reka-ui"
 import { cn } from "@/lib/utils"
+import { t } from '@/i18n'
 
 const props = withDefaults(
   defineProps<PaginationEllipsisProps & { class?: HTMLAttributes["class"] }>(),
@@ -22,7 +23,7 @@ const delegatedProps = reactiveOmit(props, "class")
   >
     <slot>
       <Ellipsis class="size-4" />
-      <span class="sr-only">更多页</span>
+      <span class="sr-only">{{ t('更多页') }}</span>
     </slot>
   </PaginationEllipsis>
 </template>

@@ -13,6 +13,8 @@ export const CLEAR_COVER_CACHE_CHANNEL = 'sonavi:desktop:clear-cover-cache' as c
 
 export type CloseAction = 'hide' | 'quit'
 export type ThemePreference = 'system' | 'light' | 'dark'
+export type { AppLanguage } from './localization'
+import type { AppLanguage } from './localization'
 export type DesktopCommand =
   | 'toggle-playback'
   | 'next'
@@ -24,6 +26,7 @@ export type DesktopCommand =
 export interface DesktopPreferences {
   closeAction: CloseAction
   theme: ThemePreference
+  language: AppLanguage
   volume: number
 }
 

@@ -1,7 +1,7 @@
 # P10 打包、兼容性与发布前审计报告
 
-日期：2026-09-25
-状态：P27 当前工作区已通过 macOS Intel 自动代码闸门与用户试用；最新候选 `v0.1.0-rc.6` 已通过三目标原生 release gate 并发布为 GitHub Pre-release。真实大型服务边界、Windows 11 x64、macOS arm64 真机、正式签名/公证和各平台完整实机发布验收未完成
+日期：2026-09-26
+状态：P28 当前未提交工作区已通过 macOS Intel 自动代码闸门、源码 Electron 冒烟与 locale 裁剪后的目录包冒烟；最新候选 `v0.1.0-rc.6` 不包含 P28。真实大型服务边界、Windows 11 x64、macOS arm64 真机、正式签名/公证和各平台完整实机发布验收未完成
 
 ## 测试环境
 
@@ -746,3 +746,21 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - 发布 CI：run `36141089881` 成功；三目标重新执行 lint、typecheck、205 项测试、依赖审计、源码 Electron 冒烟、安装包构建/验证与打包应用冒烟，发布 job 随后成功。
 - Release 核验：`v0.1.0-rc.6` 为非草稿 Pre-release 且不是 Latest，包含 Windows NSIS 112,829,469 字节、macOS x64 DMG 135,251,655 字节、macOS arm64 DMG 130,976,614 字节、三个 manifest 和 610 字节 `SHA256SUMS.txt`，共七个附件。
 - Release 地址：`https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.6`。自动验证不替代新安装包的人工安装、升级、卸载、真实服务、物理听音与桌面行为验收；macOS arm64 仍无实机证据。
+
+## P28 中英文界面与 Electron locale 裁剪（2026-09-26）
+
+- failure-first：新增语言 schema、旧桌面状态迁移、共享翻译、原生菜单/托盘和构建配置回归后，旧实现按预期因缺少 `language`、词典与菜单参数失败；未通过删除测试或放宽断言修复。
+- 功能：设置页只提供简体中文与英文；保存后 renderer、通知、可访问名称、Windows/macOS 菜单、托盘/菜单栏和诊断保存对话框使用同一持久化偏好。旧 v1 状态迁移保留窗口、音量和暂停队列。
+- 词条回归：测试扫描 renderer 内所有含中文的 `t()` 字面量，要求存在英文词条；另覆盖插值、动态网络/播放错误模式、启动恢复英文和 `<html lang>` 更新。
+- 2026-09-28 选择框即时刷新回归：failure-first 断言将活动语言切换为英文后，旧实现仍显示中文已选项；首次只覆盖语言框后，真机截图确认关闭行为和外观仍未刷新。最终回归同时断言关闭行为、外观、语言、播放模式、码率和代理模式，无需重新点击即可显示英文或语言无关值；歌词版本也使用相同的响应式已选标签策略。
+- 2026-09-28 收藏按钮回归：歌曲入口统一使用 Lucide Heart；用户复核后，艺术家详情、专辑详情及收藏页中的艺术家/专辑操作恢复为文字按钮。反向 failure-first 在旧图标实现上产生 4 项预期失败，修正后相关 3 文件/19 项通过；所有入口继续保留实体名称无障碍标签，收藏 IPC 参数及失败处理未改变。
+- 2026-09-28 返回文案回归：旧专辑详情因仍显示“返回专辑”而无法触发统一为“返回”的测试路径；实现后相关 7 文件/42 项、三组 typecheck 和 lint 通过，覆盖艺术家→专辑逐级返回、收藏来源返回、详情状态隔离和列表滚动恢复。
+- `npm run lint`：通过，0 warning。
+- `npm run typecheck`：node/preload、renderer、tests 三组通过。
+- `npm test`：36 个文件、214 项全部通过。
+- `npm run build`：P29 最终调整后通过；main 357.15 kB、preload 7.73 kB、renderer JavaScript 1,253.74 kB、CSS 81.39 kB。只有既有 Zod PURE 注释位置提示。
+- `npm run test:e2e`：沙箱内 Electron 启动受限；获准使用本机桌面环境后完整通过。启动样本 2,156 ms，连接、音乐库、播放、歌单、多服务器、代理诊断、生命周期、凭据和队列恢复均通过。
+- `npm run pack:dir`：首次沙箱网络受限；获准联网后 macOS Intel x64 未签名目录包生成成功。实际检查同时且只保留 `en.lproj` 与 `zh_CN.lproj`；应用 265,852 KiB（约 259.6 MiB），Electron Framework 260,256 KiB（约 254.2 MiB）。
+- `npm run test:e2e:package -- mac-x64`：裁剪后的未签名目录包完整冒烟通过，启动样本 1,802 ms；20 轮快速切页内存样本增量 52,500 KiB、媒体请求增量 0。单次性能样本不是承诺。
+- 安全边界：没有新增运行时依赖、IPC 通道、renderer Node.js 权限、凭据流向或媒体传输方式；Chromium、FFmpeg、GPU 回退与许可文件均保留。
+- 未验证：Windows x64 实际 locale 目录与 NSIS 下载体积、macOS x64 DMG 下载体积、macOS arm64 包和运行、中文/英文系统上的人工切换/重启/原生对话框/安装卸载，以及真实服务和物理听音。当前目录包未签名、未公证，未提交、推送或发布。

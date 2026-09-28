@@ -7,6 +7,7 @@ import { reactiveOmit } from "@vueuse/core"
 import { PaginationFirst, useForwardProps } from "reka-ui"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from '@/components/ui/button'
+import { t } from '@/i18n'
 
 const props = withDefaults(defineProps<PaginationFirstProps & {
   size?: ButtonVariants["size"]
@@ -30,7 +31,7 @@ const forwarded = useForwardProps(delegatedProps)
   >
     <slot>
       <ChevronLeft />
-      <span class="hidden sm:block">第一页</span>
+      <span class="hidden sm:block">{{ t('第一页') }}</span>
     </slot>
   </PaginationFirst>
 </template>

@@ -24,7 +24,7 @@ describe('P09 桌面集成', () => {
     const quitApplication = vi.fn()
     const controller = new DesktopIntegrationController({
       getWindow: () => null,
-      getPreferences: () => ({ closeAction: 'hide', theme: 'system', volume: 1 }),
+      getPreferences: () => ({ closeAction: 'hide', theme: 'system', language: 'zh-CN', volume: 1 }),
       saveWindowState: async () => undefined,
       sendCommand: vi.fn(),
       recoverNetwork: async () => undefined,
@@ -46,7 +46,8 @@ describe('P09 桌面集成', () => {
     const quit = vi.fn()
     const template = createTrayMenuTemplate(
       { hasTrack: true, isPlaying: true, canGoPrevious: true, canGoNext: false },
-      { showWindow, sendCommand, restart, quit }
+      { showWindow, sendCommand, restart, quit },
+      'zh-CN'
     )
 
     expect(template.map((item) => item.label).filter(Boolean)).toEqual([
@@ -61,6 +62,24 @@ describe('P09 桌面集成', () => {
     expect(restart).toHaveBeenCalledOnce()
     expect(quit).toHaveBeenCalledOnce()
     expect(template[4]?.enabled).toBe(false)
+  })
+
+  it('托盘菜单可切换为英文且行为保持不变', () => {
+    const actions = {
+      showWindow: vi.fn(),
+      sendCommand: vi.fn(),
+      restart: vi.fn(),
+      quit: vi.fn()
+    }
+    const template = createTrayMenuTemplate(
+      { hasTrack: true, isPlaying: false, canGoPrevious: true, canGoNext: true },
+      actions,
+      'en-US'
+    )
+
+    expect(template.map((item) => item.label).filter(Boolean)).toEqual([
+      'Show Sonavi', 'Play', 'Previous', 'Next', 'Restart Sonavi', 'Quit Sonavi'
+    ])
   })
 
   it('编辑控件中的空格不会被播放器快捷键截获', () => {

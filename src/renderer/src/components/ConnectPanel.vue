@@ -17,6 +17,7 @@ import { Checkbox } from './ui/checkbox'
 import ConfirmationDialog from './ConfirmationDialog.vue'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
+import { t } from '../i18n'
 
 const props = withDefaults(defineProps<{
   applicationInfo: ApplicationInfo
@@ -149,7 +150,11 @@ async function submitConnection(): Promise<void> {
           : '凭据仅用于本次会话。'
 
     statusKind.value = 'success'
-    statusMessage.value = `已连接 ${serverName}，发现 ${result.server.musicFolders.length} 个音乐文件夹。${persistenceMessage}`
+    statusMessage.value = t('已连接 {server}，发现 {count} 个音乐文件夹。{persistence}', {
+      server: serverName,
+      count: result.server.musicFolders.length,
+      persistence: t(persistenceMessage)
+    })
     emit('connected', result)
   } catch {
     showErrorToast('无法验证应用返回的连接结果，请重新启动 Sonavi。', {
@@ -185,9 +190,9 @@ onMounted(() => {
   <section class="connect-panel" aria-labelledby="connect-title">
     <p class="eyebrow">CONNECT</p>
     <h1 id="connect-title">
-      {{ props.initialProfile ? '更新服务器账号' : props.managementMode ? '添加服务器' : '连接你的音乐空间' }}
+      {{ t(props.initialProfile ? '更新服务器账号' : props.managementMode ? '添加服务器' : '连接你的音乐空间') }}
     </h1>
-    <p class="intro">添加 Navidrome、Subsonic 或 OpenSubsonic 服务器。已保存账号可直接切换，密码不会回填到 renderer。</p>
+    <p class="intro">{{ t('添加 Navidrome、Subsonic 或 OpenSubsonic 服务器。已保存账号可直接切换，密码不会回填到 renderer。') }}</p>
 
     <section
       v-if="!props.managementMode && (profilesLoading || savedProfiles.length)"
@@ -195,35 +200,35 @@ onMounted(() => {
       aria-labelledby="saved-connections-title"
     >
       <div class="saved-connections-heading">
-        <h2 id="saved-connections-title">已保存服务器</h2>
+        <h2 id="saved-connections-title">{{ t('已保存服务器') }}</h2>
         <span>{{ savedProfiles.length }} / 20</span>
       </div>
-      <p v-if="profilesLoading" class="field-note">正在读取系统加密保存的账号…</p>
+      <p v-if="profilesLoading" class="field-note">{{ t('正在读取系统加密保存的账号…') }}</p>
       <ul v-else class="saved-connections-list">
         <li v-for="profile in savedProfiles" :key="profile.id">
           <div class="saved-connection-copy">
             <strong>{{ profile.serverUrl }}</strong>
-            <span>{{ profile.username }}<template v-if="profile.isDefault"> · 默认</template></span>
+            <span>{{ profile.username }}<template v-if="profile.isDefault"> · {{ t('默认') }}</template></span>
           </div>
           <div class="saved-connection-actions">
             <Button
               type="button"
               size="sm"
               :disabled="isSubmitting || isRestoring"
-              :aria-label="`连接 ${profile.serverUrl} · ${profile.username}`"
+              :aria-label="t('连接 {server} · {username}', { server: profile.serverUrl, username: profile.username })"
               @click="connectProfile(profile)"
             >
-              {{ profileActionId === profile.id && isRestoring ? '正在连接…' : '连接' }}
+              {{ t(profileActionId === profile.id && isRestoring ? '正在连接…' : '连接') }}
             </Button>
             <Button
               type="button"
               size="sm"
               variant="ghost"
               :disabled="isSubmitting || isRestoring || profileActionId !== null"
-              :aria-label="`删除 ${profile.serverUrl} · ${profile.username}`"
+              :aria-label="t('删除 {server} · {username}', { server: profile.serverUrl, username: profile.username })"
               @click="deleteCandidate = profile"
             >
-              删除
+              {{ t('删除') }}
             </Button>
           </div>
         </li>
@@ -231,7 +236,7 @@ onMounted(() => {
     </section>
 
     <form class="connection-form" novalidate @submit.prevent="submitConnection">
-      <Label for="server-url">服务器地址</Label>
+      <Label for="server-url">{{ t('服务器地址') }}</Label>
       <Input
         id="server-url"
         v-model="serverUrl"
@@ -241,12 +246,12 @@ onMounted(() => {
         autocomplete="url"
         placeholder="https://music.example.com"
       />
-      <p class="field-note">支持 HTTPS、自定义端口与子路径；不会绕过 TLS 证书验证。</p>
+      <p class="field-note">{{ t('支持 HTTPS、自定义端口与子路径；不会绕过 TLS 证书验证。') }}</p>
 
-      <Label for="username">用户名</Label>
+      <Label for="username">{{ t('用户名') }}</Label>
       <Input id="username" v-model="username" name="username" type="text" autocomplete="username" />
 
-      <Label for="password">密码</Label>
+      <Label for="password">{{ t('密码') }}</Label>
       <Input
         id="password"
         v-model="password"
@@ -257,7 +262,7 @@ onMounted(() => {
 
       <div class="remember-row">
         <Checkbox id="remember-me" v-model="rememberMe" name="rememberMe" />
-        <Label for="remember-me">在这台 {{ applicationInfo.platformLabel }} 设备上记住我</Label>
+        <Label for="remember-me">{{ t('在这台 {platform} 设备上记住我', { platform: applicationInfo.platformLabel }) }}</Label>
       </div>
 
       <div class="remember-row">
@@ -266,12 +271,12 @@ onMounted(() => {
           v-model="allowInsecureHttp"
           name="allowInsecureHttp"
         />
-        <Label for="allow-insecure-http">允许不加密的 HTTP（仅限我了解风险的局域网测试）</Label>
+        <Label for="allow-insecure-http">{{ t('允许不加密的 HTTP（仅限我了解风险的局域网测试）') }}</Label>
       </div>
 
       <div class="connection-actions">
         <Button type="submit" :disabled="isSubmitting || isRestoring">
-          {{ isSubmitting ? '正在测试…' : props.initialProfile ? '更新并连接' : '测试连接' }}
+          {{ t(isSubmitting ? '正在测试…' : props.initialProfile ? '更新并连接' : '测试连接') }}
         </Button>
         <Button
           v-if="props.managementMode"
@@ -280,21 +285,21 @@ onMounted(() => {
           :disabled="isSubmitting || isRestoring"
           @click="emit('cancel')"
         >
-          取消
+          {{ t('取消') }}
         </Button>
       </div>
-      <p class="form-status" :class="`is-${statusKind}`" role="status">{{ statusMessage }}</p>
+      <p class="form-status" :class="`is-${statusKind}`" role="status">{{ t(statusMessage) }}</p>
     </form>
 
     <footer class="security-note">
       <span aria-hidden="true">◇</span>
-      renderer 不直接访问 Node.js；密码不会进入 localStorage、Pinia 或日志。
+      {{ t('renderer 不直接访问 Node.js；密码不会进入 localStorage、Pinia 或日志。') }}
     </footer>
     <ConfirmationDialog
       :open="deleteCandidate !== null"
-      title="删除已保存服务器？"
-      :description="deleteCandidate ? `将删除 ${deleteCandidate.serverUrl} 的系统加密凭据，不会修改服务器数据。` : ''"
-      confirm-label="删除服务器"
+      :title="t('删除已保存服务器？')"
+      :description="deleteCandidate ? t('将删除 {server} 的系统加密凭据，不会修改服务器数据。', { server: deleteCandidate.serverUrl }) : ''"
+      :confirm-label="t('删除服务器')"
       :busy="profileActionId !== null"
       @update:open="(open) => { if (!open) deleteCandidate = null }"
       @confirm="confirmDeleteProfile"

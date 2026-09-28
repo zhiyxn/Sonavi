@@ -59,8 +59,15 @@ describe('P06 收藏与歌单界面', () => {
     const listStarred = vi.fn<SonaviApi['library']['listStarred']>().mockResolvedValue({
       ok: true,
       value: {
-        artists: [],
-        albums: [],
+        artists: [{ id: 'artist-1', name: '收藏艺术家', albumCount: 2, starred: true }],
+        albums: [{
+          id: 'album-1',
+          name: '收藏专辑',
+          artist: '收藏艺术家',
+          songCount: 1,
+          duration: 60,
+          starred: true
+        }],
         tracks: [
           {
             id: 'track-1',
@@ -87,8 +94,16 @@ describe('P06 收藏与歌单界面', () => {
     const wrapper = mountWithPlugins(FavoritesPanel)
     await flushPromises()
     expect(wrapper.text()).toContain('收藏歌曲')
-    const unstar = wrapper.findAll('button').find((button) => button.text() === '取消收藏')
-    await unstar?.trigger('click')
+    const unstarArtist = wrapper.get('button[aria-label="取消收藏 收藏艺术家"]')
+    const unstarAlbum = wrapper.get('button[aria-label="取消收藏 收藏专辑"]')
+    expect(unstarArtist.text()).toBe('取消收藏')
+    expect(unstarArtist.find('svg').exists()).toBe(false)
+    expect(unstarAlbum.text()).toBe('取消收藏')
+    expect(unstarAlbum.find('svg').exists()).toBe(false)
+    const unstar = wrapper.get('button[aria-label="取消收藏 收藏歌曲"]')
+    expect(unstar.find('svg').exists()).toBe(true)
+    expect(unstar.text()).toBe('')
+    await unstar.trigger('click')
     await flushPromises()
 
     expect(setStarred).toHaveBeenCalledWith({

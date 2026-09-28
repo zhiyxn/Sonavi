@@ -21,6 +21,7 @@ export const DesktopCommandSchema = z.enum([
 export const DesktopPreferencesSchema = z.object({
   closeAction: z.enum(['hide', 'quit']),
   theme: z.enum(['system', 'light', 'dark']),
+  language: z.enum(['zh-CN', 'en-US']),
   volume: z.number().finite().min(0).max(1)
 }) satisfies z.ZodType<DesktopPreferences>
 

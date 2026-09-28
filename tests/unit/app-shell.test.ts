@@ -6,6 +6,7 @@ import App from '../../src/renderer/src/App.vue'
 import type { SonaviApi } from '../../src/shared/application'
 import { usePlayerStore } from '../../src/renderer/src/stores/player'
 import { useSessionStore } from '../../src/renderer/src/stores/session'
+import { setActiveLanguage } from '../../src/renderer/src/i18n'
 
 function installPlatformApi(platform: 'windows' | 'macos'): SonaviApi {
   const isMac = platform === 'macos'
@@ -108,7 +109,12 @@ function installPlatformApi(platform: 'windows' | 'macos'): SonaviApi {
       createTranscodeSeek: async () => ({ ok: false, message: 'not used' })
     },
     desktop: {
-      getPreferences: async () => ({ closeAction: 'hide', theme: 'system', volume: 1 }),
+      getPreferences: async () => ({
+        closeAction: 'hide',
+        theme: 'system',
+        language: 'zh-CN',
+        volume: 1
+      }),
       updatePreferences: async (preferences) => preferences,
       updatePlaybackStatus: async () => true,
       onCommand: () => () => undefined,
@@ -128,6 +134,7 @@ function installPlatformApi(platform: 'windows' | 'macos'): SonaviApi {
 }
 
 afterEach(() => {
+  setActiveLanguage('zh-CN')
   Reflect.deleteProperty(window, 'sonavi')
   Reflect.deleteProperty(window, 'confirm')
   document.body.innerHTML = ''
@@ -136,6 +143,22 @@ afterEach(() => {
 enableAutoUnmount(afterEach)
 
 describe('共享应用外壳', () => {
+  it('启动时应用已保存的英文偏好', async () => {
+    const api = installPlatformApi('windows')
+    api.desktop.getPreferences = async () => ({
+      closeAction: 'hide',
+      theme: 'system',
+      language: 'en-US',
+      volume: 1
+    })
+    const wrapper = mount(App, { global: { plugins: [createPinia(), VueQueryPlugin] } })
+    await flushPromises()
+
+    expect(document.documentElement.lang).toBe('en-US')
+    expect(wrapper.text()).toContain('Connect to server')
+    expect(wrapper.text()).toContain('Settings shortcut Ctrl+,')
+  })
+
   it('连接后默认展示专辑，并使用音乐/专辑/艺术家导航而不保留首页和独立搜索', async () => {
     installPlatformApi('windows')
     const pinia = createPinia()
@@ -475,7 +498,7 @@ describe('共享应用外壳', () => {
     const artistsPanel = wrapper.getComponent({ name: 'ArtistsPanel' })
     expect(artistsPanel.props('selectedArtistId')).toBe('artist-1')
     expect(artistsPanel.props('artistListEnabled')).toBe(true)
-    expect(artistsPanel.props('backLabel')).toBe('返回艺术家')
+    expect(artistsPanel.findAll('button').some((button) => button.text() === '返回')).toBe(true)
     expect(navigation('艺术家').classes()).toContain('active')
     const workspace = wrapper.get('.workspace')
     expect(workspace.classes()).not.toContain('workspace-artists-list')
@@ -489,12 +512,11 @@ describe('共享应用外壳', () => {
     expect(navigation('艺术家').classes()).toContain('active')
     expect(navigation('专辑').classes()).not.toContain('active')
     const libraryPanel = wrapper.getComponent({ name: 'LibraryPanel' })
-    expect(libraryPanel.props('backLabel')).toBe('返回艺术家专辑')
     expect(libraryPanel.props('albumListEnabled')).toBe(false)
     expect(libraryPanel.text()).toContain('艺术家来源专辑')
     expect(api.library.listAlbums).not.toHaveBeenCalled()
 
-    const back = wrapper.findAll('button').find((button) => button.text() === '返回艺术家专辑')
+    const back = wrapper.findAll('button').find((button) => button.text() === '返回')
     await back?.trigger('click')
     await flushPromises()
     expect(wrapper.getComponent({ name: 'ArtistsPanel' }).props('selectedArtistId')).toBe('artist-1')
@@ -544,8 +566,8 @@ describe('共享应用外壳', () => {
 
     const navigation = (label: string) =>
       wrapper.findAll('button.nav-item').find((button) => button.text() === label)!
-    for (const [label, componentName, backLabel] of [
-      ['收藏', 'FavoritesPanel', '返回收藏']
+    for (const [label, componentName] of [
+      ['收藏', 'FavoritesPanel']
     ] as const) {
       await navigation(label).trigger('click')
       await flushPromises()
@@ -554,12 +576,11 @@ describe('共享应用外壳', () => {
 
       const libraryPanel = wrapper.getComponent({ name: 'LibraryPanel' })
       expect(libraryPanel.props('selectedAlbumId')).toBe('album-1')
-      expect(libraryPanel.props('backLabel')).toBe(backLabel)
       expect(libraryPanel.props('albumListEnabled')).toBe(false)
       expect(navigation(label).classes()).toContain('active')
       expect(navigation('专辑').classes()).not.toContain('active')
 
-      const back = wrapper.findAll('button').find((button) => button.text() === backLabel)
+      const back = wrapper.findAll('button').find((button) => button.text() === '返回')
       await back?.trigger('click')
       await flushPromises()
       expect(wrapper.findComponent({ name: componentName }).exists()).toBe(true)
@@ -632,7 +653,8 @@ describe('共享应用外壳', () => {
     await navigation('艺术家').trigger('click')
     await flushPromises()
     expect(wrapper.getComponent({ name: 'LibraryPanel' }).props('selectedAlbumId')).toBe('artist-album-1')
-    expect(wrapper.getComponent({ name: 'LibraryPanel' }).props('backLabel')).toBe('返回艺术家专辑')
+    expect(wrapper.getComponent({ name: 'LibraryPanel' }).findAll('button')
+      .some((button) => button.text() === '返回')).toBe(true)
   })
 
   it('清空缓存和断开连接均在 AlertDialog 确认后才执行', async () => {

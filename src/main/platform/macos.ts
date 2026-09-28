@@ -1,4 +1,5 @@
 import type { PlatformAdapter } from './types'
+import { translate } from '../../shared/localization'
 
 export const macosAdapter: PlatformAdapter = {
   applicationInfo: {
@@ -13,7 +14,7 @@ export const macosAdapter: PlatformAdapter = {
     backgroundColor: '#FAF9F6',
     titleBarStyle: 'default'
   }),
-  createMenuTemplate: (applicationName) => [
+  createMenuTemplate: (applicationName, language) => [
     {
       label: applicationName,
       submenu: [
@@ -27,7 +28,7 @@ export const macosAdapter: PlatformAdapter = {
       ]
     },
     {
-      label: '编辑',
+      label: translate(language, '编辑'),
       submenu: [
         { role: 'undo' },
         { role: 'redo' },
@@ -39,7 +40,7 @@ export const macosAdapter: PlatformAdapter = {
       ]
     },
     {
-      label: '窗口',
+      label: translate(language, '窗口'),
       submenu: [{ role: 'minimize' }, { role: 'zoom' }, { type: 'separator' }, { role: 'front' }]
     }
   ]

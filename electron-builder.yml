@@ -17,6 +17,9 @@ publish: null
 
 win:
   icon: build/icon.png
+  electronLanguages:
+    - zh-CN
+    - en-US
   target:
     - target: nsis
       arch:
@@ -31,6 +34,9 @@ nsis:
 
 mac:
   icon: build/icon.png
+  electronLanguages:
+    - zh_CN
+    - en-US
   target:
     - target: dmg
       arch:

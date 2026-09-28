@@ -15,6 +15,7 @@ import { Button } from './ui/button'
 import { Checkbox } from './ui/checkbox'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
+import { t } from '../i18n'
 
 const props = defineProps<{ sessionId: string; serverId: string }>()
 const queryClient = useQueryClient()
@@ -83,7 +84,7 @@ async function runMutation(action: () => Promise<unknown>, successMessage: strin
   mutationStatus.value = ''
   try {
     await action()
-    mutationStatus.value = successMessage
+    mutationStatus.value = t(successMessage)
     return true
   } catch (error) {
     showErrorToast(error instanceof Error ? error.message : '歌单操作失败。', {
@@ -138,7 +139,7 @@ async function handleAppendQueue(): Promise<void> {
           playlistId: selectedPlaylistId.value!,
           songIdsToAdd: player.queue.map((entry) => entry.trackId)
         }),
-      `已追加 ${player.queue.length} 首歌曲。`
+      t('已追加 {count} 首歌曲。', { count: player.queue.length })
     )
   ) await refreshPlaylists()
 }
@@ -202,8 +203,8 @@ function refreshCurrentView(): void {
     <div class="section-heading">
       <div>
         <p class="eyebrow">PLAYLISTS</p>
-        <h1 id="playlists-title">{{ selectedPlaylistId ? '歌单详情' : '歌单' }}</h1>
-        <p>所有写操作直接同步服务器；权限不足时不会修改本地显示。</p>
+        <h1 id="playlists-title">{{ t(selectedPlaylistId ? '歌单详情' : '歌单') }}</h1>
+        <p>{{ t('所有写操作直接同步服务器；权限不足时不会修改本地显示。') }}</p>
       </div>
       <div class="flex gap-2">
         <Button
@@ -213,19 +214,19 @@ function refreshCurrentView(): void {
         >
           {{
             (selectedPlaylistId ? playlistQuery.isFetching.value : playlistsQuery.isFetching.value)
-              ? '正在刷新…'
-              : '刷新'
+              ? t('正在刷新…')
+              : t('刷新')
           }}
         </Button>
-        <Button v-if="selectedPlaylistId" variant="outline" @click="selectedPlaylistId = null">返回歌单</Button>
+        <Button v-if="selectedPlaylistId" variant="outline" @click="selectedPlaylistId = null">{{ t('返回') }}</Button>
       </div>
     </div>
 
     <template v-if="!selectedPlaylistId">
       <form class="playlist-create" @submit.prevent="handleCreate">
         <div class="playlist-field">
-          <Label for="new-playlist-name">新歌单名称</Label>
-          <Input id="new-playlist-name" v-model="newName" maxlength="200" placeholder="例如：夜间聆听" />
+          <Label for="new-playlist-name">{{ t('新歌单名称') }}</Label>
+          <Input id="new-playlist-name" v-model="newName" maxlength="200" :placeholder="t('例如：夜间聆听')" />
         </div>
         <div class="remember-row">
           <Checkbox
@@ -234,18 +235,18 @@ function refreshCurrentView(): void {
             :disabled="player.queue.length === 0"
           />
           <Label for="include-current-queue">
-            包含当前队列（{{ player.queue.length }} 首，重复歌曲会保留）
+            {{ t('包含当前队列（{count} 首，重复歌曲会保留）', { count: player.queue.length }) }}
           </Label>
         </div>
-        <Button type="submit" :disabled="busy || !newName.trim()">创建歌单</Button>
+        <Button type="submit" :disabled="busy || !newName.trim()">{{ t('创建歌单') }}</Button>
       </form>
 
-      <p v-if="playlistsQuery.isPending.value" class="mt-8" role="status">正在读取歌单…</p>
+      <p v-if="playlistsQuery.isPending.value" class="mt-8" role="status">{{ t('正在读取歌单…') }}</p>
       <div v-else-if="playlistsQuery.isError.value" class="state-card" role="alert">
-        <p>{{ playlistsQuery.error.value?.message ?? '歌单加载失败。' }}</p>
-        <Button class="mt-4" size="sm" @click="playlistsQuery.refetch()">重试</Button>
+        <p>{{ t(playlistsQuery.error.value?.message ?? '歌单加载失败。') }}</p>
+        <Button class="mt-4" size="sm" @click="playlistsQuery.refetch()">{{ t('重试') }}</Button>
       </div>
-      <p v-else-if="playlistsQuery.data.value?.length === 0" class="mt-8 text-sonavi-muted">服务器中暂无歌单。</p>
+      <p v-else-if="playlistsQuery.data.value?.length === 0" class="mt-8 text-sonavi-muted">{{ t('服务器中暂无歌单。') }}</p>
       <div v-else class="playlist-grid">
         <button
           v-for="playlist in playlistsQuery.data.value"
@@ -254,51 +255,51 @@ function refreshCurrentView(): void {
           @click="selectedPlaylistId = playlist.id"
         >
           <strong>{{ playlist.name }}</strong>
-          <span>{{ playlist.songCount }} 首 · {{ playlist.public ? '公开' : '私有' }}</span>
-          <small>{{ playlist.owner || '当前账号' }}</small>
+          <span>{{ t('{count} 首 · {visibility}', { count: playlist.songCount, visibility: t(playlist.public ? '公开' : '私有') }) }}</span>
+          <small>{{ playlist.owner || t('当前账号') }}</small>
         </button>
       </div>
     </template>
 
     <template v-else>
-      <p v-if="playlistQuery.isPending.value" role="status">正在读取歌单详情…</p>
+      <p v-if="playlistQuery.isPending.value" role="status">{{ t('正在读取歌单详情…') }}</p>
       <div v-else-if="playlistQuery.isError.value" class="state-card" role="alert">
-        <p>{{ playlistQuery.error.value?.message ?? '歌单详情加载失败。' }}</p>
-        <Button class="mt-4" size="sm" @click="playlistQuery.refetch()">重试</Button>
+        <p>{{ t(playlistQuery.error.value?.message ?? '歌单详情加载失败。') }}</p>
+        <Button class="mt-4" size="sm" @click="playlistQuery.refetch()">{{ t('重试') }}</Button>
       </div>
       <template v-else-if="playlistQuery.data.value">
         <form class="playlist-editor" @submit.prevent="handleSaveMetadata">
           <div class="playlist-field">
-            <Label for="playlist-name">名称</Label>
+            <Label for="playlist-name">{{ t('名称') }}</Label>
             <Input id="playlist-name" v-model="editName" maxlength="200" />
           </div>
           <div class="remember-row">
             <Checkbox id="playlist-public" v-model="editPublic" />
-            <Label for="playlist-public">对服务器上的其他用户公开</Label>
+            <Label for="playlist-public">{{ t('对服务器上的其他用户公开') }}</Label>
           </div>
           <div class="flex flex-wrap gap-2">
-            <Button type="submit" :disabled="busy || !editName.trim()">保存信息</Button>
-            <Button type="button" variant="outline" :disabled="playlistQuery.data.value.tracks.length === 0" @click="playPlaylist">播放全部</Button>
-            <Button type="button" variant="outline" :disabled="busy || player.queue.length === 0" @click="handleAppendQueue">追加当前队列</Button>
+            <Button type="submit" :disabled="busy || !editName.trim()">{{ t('保存信息') }}</Button>
+            <Button type="button" variant="outline" :disabled="playlistQuery.data.value.tracks.length === 0" @click="playPlaylist">{{ t('播放全部') }}</Button>
+            <Button type="button" variant="outline" :disabled="busy || player.queue.length === 0" @click="handleAppendQueue">{{ t('追加当前队列') }}</Button>
             <Button
               type="button"
               variant="ghost"
               :disabled="busy"
               @click="handleDelete"
             >
-              删除歌单
+              {{ t('删除歌单') }}
             </Button>
           </div>
         </form>
 
-        <p v-if="playlistQuery.data.value.tracks.length === 0" class="mt-8 text-sonavi-muted">这个歌单还没有歌曲。</p>
+        <p v-if="playlistQuery.data.value.tracks.length === 0" class="mt-8 text-sonavi-muted">{{ t('这个歌单还没有歌曲。') }}</p>
         <ol v-else class="track-results mt-8">
           <li v-for="(track, index) in playlistQuery.data.value.tracks" :key="`${index}:${track.id}`">
             <span class="min-w-0">
               <strong>{{ track.title }}</strong>
               <small>{{ track.artist }} · {{ track.album }}</small>
             </span>
-            <Button variant="ghost" size="sm" :disabled="busy" @click="handleRemove(index)">移除</Button>
+            <Button variant="ghost" size="sm" :disabled="busy" @click="handleRemove(index)">{{ t('移除') }}</Button>
           </li>
         </ol>
       </template>
@@ -307,9 +308,9 @@ function refreshCurrentView(): void {
     <p v-if="mutationStatus" class="mutation-status" role="status">{{ mutationStatus }}</p>
     <ConfirmationDialog
       v-model:open="deleteConfirmationOpen"
-      :title="`删除歌单“${playlistQuery.data.value?.name ?? ''}”？`"
-      description="此操作会同步到服务器，删除后无法在 Sonavi 中撤销。"
-      confirm-label="删除歌单"
+      :title="t('删除歌单“{name}”？', { name: playlistQuery.data.value?.name ?? '' })"
+      :description="t('此操作会同步到服务器，删除后无法在 Sonavi 中撤销。')"
+      :confirm-label="t('删除歌单')"
       :busy="busy"
       @confirm="confirmDelete"
     />

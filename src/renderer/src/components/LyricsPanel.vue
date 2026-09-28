@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue
 } from './ui/select'
+import { t } from '../i18n'
 
 const emit = defineEmits<{ close: [] }>()
 const player = usePlayerStore()
@@ -84,9 +85,9 @@ watch(
 
 function variantLabel(index: number): string {
   const variant = variants.value[index]
-  if (!variant) return `歌词 ${index + 1}`
-  const language = variant.language ?? `版本 ${index + 1}`
-  return `${language} · ${variant.synced ? '同步' : '文本'}`
+  if (!variant) return t('歌词 {number}', { number: index + 1 })
+  const language = variant.language ?? t('版本 {number}', { number: index + 1 })
+  return `${language} · ${t(variant.synced ? '同步' : '文本')}`
 }
 </script>
 
@@ -94,28 +95,28 @@ function variantLabel(index: number): string {
   <section id="player-lyrics" class="lyrics-panel" aria-labelledby="lyrics-title">
     <header>
       <div class="min-w-0">
-        <h2 id="lyrics-title">歌词</h2>
-        <p class="truncate">{{ player.track?.title ?? '未选择歌曲' }} · {{ player.track?.artist }}</p>
+        <h2 id="lyrics-title">{{ t('歌词') }}</h2>
+        <p class="truncate">{{ player.track?.title ?? t('未选择歌曲') }} · {{ player.track?.artist }}</p>
       </div>
-      <Button variant="ghost" size="sm" @click="emit('close')">关闭</Button>
+      <Button variant="ghost" size="sm" @click="emit('close')">{{ t('关闭') }}</Button>
     </header>
 
     <div v-if="lyricsQuery.isPending.value" class="lyrics-message" role="status">
-      正在读取歌词…
+      {{ t('正在读取歌词…') }}
     </div>
     <div v-else-if="lyricsQuery.isError.value" class="lyrics-message" role="alert">
-      <p>{{ lyricsQuery.error.value?.message ?? '歌词加载失败。' }}</p>
-      <Button size="sm" variant="outline" @click="lyricsQuery.refetch()">重试</Button>
+      <p>{{ t(lyricsQuery.error.value?.message ?? '歌词加载失败。') }}</p>
+      <Button size="sm" variant="outline" @click="lyricsQuery.refetch()">{{ t('重试') }}</Button>
     </div>
     <div v-else-if="variants.length === 0" class="lyrics-message">
-      服务器没有返回这首歌的歌词。
+      {{ t('服务器没有返回这首歌的歌词。') }}
     </div>
     <template v-else>
       <div v-if="variants.length > 1" class="lyrics-variant">
-        <span>歌词版本</span>
+        <span>{{ t('歌词版本') }}</span>
         <Select v-model="selectedVariantIndex">
-          <SelectTrigger class="max-w-[220px]" aria-label="歌词版本">
-            <SelectValue />
+          <SelectTrigger class="max-w-[220px]" :aria-label="t('歌词版本')">
+            <SelectValue>{{ variantLabel(selectedVariantIndex) }}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem v-for="(_, index) in variants" :key="index" :value="index">

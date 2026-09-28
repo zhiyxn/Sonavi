@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useQuery } from '@tanstack/vue-query'
 import { computed, nextTick, ref } from 'vue'
+import { Heart } from '@lucide/vue'
 import type { AlbumListType, AlbumSummary, TrackSummary } from '../../../shared/library'
 import { useStarredMutation } from '../composables/use-starred-mutation'
 import { useErrorToast } from '../lib/notifications'
@@ -17,6 +18,7 @@ import {
   PaginationNext,
   PaginationPrevious
 } from './ui/pagination'
+import { t } from '../i18n'
 
 const props = withDefaults(defineProps<{
   sessionId: string
@@ -26,11 +28,9 @@ const props = withDefaults(defineProps<{
   title: string
   selectedAlbumId: string | null
   page?: number
-  backLabel?: string
   albumListEnabled?: boolean
 }>(), {
   page: 1,
-  backLabel: '返回专辑',
   albumListEnabled: true
 })
 const emit = defineEmits<{
@@ -254,9 +254,9 @@ function appendTrack(track: TrackSummary): void {
       <div>
         <p class="eyebrow">LIBRARY</p>
         <h1 id="library-title" class="mt-4 text-4xl font-medium tracking-[-0.04em]">
-          {{ selectedAlbumId ? '专辑详情' : title }}
+          {{ selectedAlbumId ? t('专辑详情') : title }}
         </h1>
-        <p class="mt-2 text-sm text-sonavi-muted">{{ serverName }} · 真实 OpenSubsonic 数据</p>
+        <p class="mt-2 text-sm text-sonavi-muted">{{ serverName }} · {{ t('真实 OpenSubsonic 数据') }}</p>
       </div>
       <div class="flex gap-2">
         <Button
@@ -266,24 +266,26 @@ function appendTrack(track: TrackSummary): void {
         >
           {{
             (selectedAlbumId ? albumQuery.isFetching.value : listFetching)
-              ? '正在刷新…'
-              : '刷新'
+              ? t('正在刷新…')
+              : t('刷新')
           }}
         </Button>
         <Button
           v-if="selectedAlbumId && albumQuery.data.value"
           variant="outline"
           :disabled="pendingKey === `album:${albumQuery.data.value.id}`"
+          :aria-label="t(albumQuery.data.value.starred ? '取消收藏 {title}' : '收藏 {title}', { title: albumQuery.data.value.name })"
+          :aria-pressed="albumQuery.data.value.starred"
           @click="toggleStarred('album', albumQuery.data.value.id, !albumQuery.data.value.starred)"
         >
-          {{ albumQuery.data.value.starred ? '取消收藏专辑' : '收藏专辑' }}
+          {{ t(albumQuery.data.value.starred ? '取消收藏专辑' : '收藏专辑') }}
         </Button>
         <Button
           v-if="selectedAlbumId"
           variant="outline"
           @click="returnToAlbumList"
         >
-          {{ backLabel }}
+          {{ t('返回') }}
         </Button>
       </div>
     </div>
@@ -295,35 +297,35 @@ function appendTrack(track: TrackSummary): void {
       @submit.prevent="submitSearch"
     >
       <label class="search-field">
-        <span class="sr-only">搜索专辑</span>
+        <span class="sr-only">{{ t('搜索专辑') }}</span>
         <Input
           v-model="searchInput"
           type="search"
           maxlength="200"
           autocomplete="off"
-          placeholder="搜索专辑"
+          :placeholder="t('搜索专辑')"
           @keydown.enter="handleSearchEnter"
         />
       </label>
-      <Button type="submit">搜索</Button>
+      <Button type="submit">{{ t('搜索') }}</Button>
     </form>
 
     <template v-if="selectedAlbumId">
-      <p v-if="albumQuery.isPending.value" role="status">正在读取专辑…</p>
+      <p v-if="albumQuery.isPending.value" role="status">{{ t('正在读取专辑…') }}</p>
       <div
         v-else-if="albumQuery.isError.value"
         class="rounded-2xl border border-sonavi-border bg-sonavi-raised p-6"
         role="alert"
       >
-        <p>{{ albumQuery.error.value?.message ?? '专辑详情加载失败。' }}</p>
-        <Button class="mt-4" size="sm" @click="albumQuery.refetch()">重试</Button>
+        <p>{{ t(albumQuery.error.value?.message ?? '专辑详情加载失败。') }}</p>
+        <Button class="mt-4" size="sm" @click="albumQuery.refetch()">{{ t('重试') }}</Button>
       </div>
       <div v-else-if="albumQuery.data.value" class="album-detail-layout">
         <div class="album-detail-summary">
           <img
             v-if="albumQuery.data.value.coverUrl"
             :src="albumQuery.data.value.coverUrl"
-            :alt="`${albumQuery.data.value.name} 封面`"
+            :alt="t('{name} 封面', { name: albumQuery.data.value.name })"
             class="aspect-square w-full rounded-2xl bg-sonavi-border object-cover shadow-lg"
           />
           <div v-else class="aspect-square rounded-2xl bg-sonavi-border" aria-hidden="true" />
@@ -333,7 +335,7 @@ function appendTrack(track: TrackSummary): void {
 
         <ol
           class="album-track-list rounded-2xl border border-sonavi-border bg-sonavi-raised"
-          aria-label="歌曲列表"
+          :aria-label="t('歌曲列表')"
           tabindex="0"
         >
           <li
@@ -349,22 +351,29 @@ function appendTrack(track: TrackSummary): void {
             <span class="flex gap-2">
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon-sm"
                 :disabled="pendingKey === `track:${track.id}`"
+                :aria-label="t(track.starred ? '取消收藏 {title}' : '收藏 {title}', { title: track.title })"
+                :aria-pressed="track.starred"
                 @click="toggleStarred('track', track.id, !track.starred)"
               >
-                {{ track.starred ? '取消收藏' : '收藏' }}
+                <Heart
+                  :size="17"
+                  :fill="track.starred ? 'currentColor' : 'none'"
+                  :class="{ 'text-[var(--sonavi-accent)]': track.starred }"
+                  aria-hidden="true"
+                />
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                :aria-label="`加入队列 ${track.title}`"
+                :aria-label="t('加入队列 {title}', { title: track.title })"
                 @click="appendTrack(track)"
               >
-                加入队列
+                {{ t('加入队列') }}
               </Button>
-              <Button size="sm" :aria-label="`播放 ${track.title}`" @click="playTrack(track)">
-                播放
+              <Button size="sm" :aria-label="t('播放 {title}', { title: track.title })" @click="playTrack(track)">
+                {{ t('播放') }}
               </Button>
             </span>
           </li>
@@ -372,19 +381,19 @@ function appendTrack(track: TrackSummary): void {
       </div>
     </template>
 
-    <p v-else-if="listPending" role="status">正在读取音乐库…</p>
+    <p v-else-if="listPending" role="status">{{ t('正在读取音乐库…') }}</p>
     <div
       v-else-if="listIsError && albums.length === 0"
       class="rounded-2xl border border-sonavi-border bg-sonavi-raised p-6"
       role="alert"
     >
-      <p>{{ listError?.message ?? '音乐库加载失败。' }}</p>
-      <Button class="mt-4" size="sm" @click="retryAlbumList">重试</Button>
+      <p>{{ t(listError?.message ?? '音乐库加载失败。') }}</p>
+      <Button class="mt-4" size="sm" @click="retryAlbumList">{{ t('重试') }}</Button>
     </div>
 
     <template v-else>
       <p v-if="albums.length === 0" class="text-sm text-sonavi-muted">
-        {{ submittedQuery ? `没有找到“${submittedQuery}”的专辑。` : '音乐库中暂无专辑。' }}
+        {{ submittedQuery ? t('没有找到“{query}”的专辑。', { query: submittedQuery }) : t('音乐库中暂无专辑。') }}
       </p>
       <div v-else class="grid grid-cols-2 gap-5 md:grid-cols-3 xl:grid-cols-4">
         <button
@@ -397,7 +406,7 @@ function appendTrack(track: TrackSummary): void {
           <DeferredCoverImage
             v-if="album.coverUrl"
             :src="album.coverUrl"
-            :alt="`${album.name} 封面`"
+            :alt="t('{name} 封面', { name: album.name })"
             image-class="aspect-square w-full rounded-xl bg-sonavi-border object-cover"
             placeholder-class="aspect-square rounded-xl bg-sonavi-border"
           />
@@ -405,7 +414,7 @@ function appendTrack(track: TrackSummary): void {
           <strong class="mt-3 block truncate">{{ album.name }}</strong>
           <small class="album-card-meta">
             <span class="album-card-meta-name">{{ album.artist }}</span>
-            <span class="album-card-song-count">{{ album.songCount }} 首歌曲</span>
+            <span class="album-card-song-count">{{ t('{count} 首歌曲', { count: album.songCount }) }}</span>
           </small>
         </button>
       </div>
@@ -419,7 +428,7 @@ function appendTrack(track: TrackSummary): void {
           @update:page="updatePage"
         >
           <PaginationContent v-slot="{ items }">
-            <PaginationPrevious aria-label="上一页" />
+            <PaginationPrevious :aria-label="t('上一页')" />
             <template v-for="(item, index) in items" :key="index">
               <PaginationItem
                 v-if="item.type === 'page'"
@@ -430,11 +439,13 @@ function appendTrack(track: TrackSummary): void {
               </PaginationItem>
               <PaginationEllipsis v-else :index="index" />
             </template>
-            <PaginationNext aria-label="下一页" />
+            <PaginationNext :aria-label="t('下一页')" />
           </PaginationContent>
         </Pagination>
         <p class="text-center text-xs text-sonavi-muted">
-          {{ submittedQuery ? `“${submittedQuery}” · ` : '' }}第 {{ currentPage }} 页 · 本页 {{ albums.length }} 张专辑
+          {{ submittedQuery
+            ? t('“{query}” · 第 {page} 页 · 本页 {count} 张专辑', { query: submittedQuery, page: currentPage, count: albums.length })
+            : t('第 {page} 页 · 本页 {count} 张专辑', { page: currentPage, count: albums.length }) }}
         </p>
       </div>
     </template>

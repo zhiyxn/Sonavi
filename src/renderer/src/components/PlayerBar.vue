@@ -19,6 +19,7 @@ import { usePlayerStore } from '../stores/player'
 import { Button } from './ui/button'
 import { Slider } from './ui/slider'
 import LyricsPanel from './LyricsPanel.vue'
+import { t } from '../i18n'
 
 const player = usePlayerStore()
 const queueOpen = ref(false)
@@ -56,7 +57,7 @@ const audioFormatLabels: Readonly<Record<string, string>> = {
 
 function getSourceFormatLabel(contentType: string | undefined): string {
   const normalizedType = contentType?.split(';', 1)[0]?.trim().toLowerCase()
-  return normalizedType ? (audioFormatLabels[normalizedType] ?? '未知格式') : '未知格式'
+  return normalizedType ? (audioFormatLabels[normalizedType] ?? t('未知格式')) : t('未知格式')
 }
 
 const streamNote = computed(() => {
@@ -65,8 +66,8 @@ const streamNote = computed(() => {
 
   const sourceFormat = getSourceFormatLabel(track.contentType)
   return track.playback.streamMode === 'transcode'
-    ? `${sourceFormat} → MP3 · 兼容转码`
-    : `${sourceFormat} · 原始音频`
+    ? t('{format} → MP3 · 兼容转码', { format: sourceFormat })
+    : t('{format} · 原始音频', { format: sourceFormat })
 })
 
 function formatTime(seconds: number): string {
@@ -108,9 +109,9 @@ function onVolume(values: number[] | undefined): void {
 }
 
 const repeatLabel = computed(() => {
-  if (player.repeatMode === 'one') return '单曲循环'
-  if (player.repeatMode === 'all') return '列表循环'
-  return '不循环'
+  if (player.repeatMode === 'one') return t('单曲循环')
+  if (player.repeatMode === 'all') return t('列表循环')
+  return t('不循环')
 })
 
 watch(
@@ -145,7 +146,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeQueueFromDocume
 </script>
 
 <template>
-  <footer class="player-bar" aria-label="播放器" @click="closeQueueFromDocument">
+  <footer class="player-bar" :aria-label="t('播放器')" @click="closeQueueFromDocument">
     <section
       v-if="queueOpen"
       id="player-queue"
@@ -155,8 +156,8 @@ onBeforeUnmount(() => document.removeEventListener('click', closeQueueFromDocume
     >
       <header>
         <div>
-          <h2 id="queue-title">播放队列</h2>
-          <p>{{ player.queue.length }} 项 · {{ player.playbackOrder === 'shuffle' ? '随机' : '顺序' }}</p>
+          <h2 id="queue-title">{{ t('播放队列') }}</h2>
+          <p>{{ t('{count} 项 · {order}', { count: player.queue.length, order: t(player.playbackOrder === 'shuffle' ? '随机' : '顺序') }) }}</p>
         </div>
         <Button
           variant="ghost"
@@ -164,10 +165,10 @@ onBeforeUnmount(() => document.removeEventListener('click', closeQueueFromDocume
           :disabled="player.queue.length === 0"
           @click="player.clearQueue"
         >
-          清空
+          {{ t('清空') }}
         </Button>
       </header>
-      <p v-if="player.queue.length === 0" class="queue-empty">队列为空。</p>
+      <p v-if="player.queue.length === 0" class="queue-empty">{{ t('队列为空。') }}</p>
       <ol v-else ref="queueList">
         <li
           v-for="(entry, index) in player.queue"
@@ -178,7 +179,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeQueueFromDocume
           <button
             type="button"
             class="queue-track"
-            :aria-label="`播放队列中的 ${entry.track.title}`"
+            :aria-label="t('播放队列中的 {title}', { title: entry.track.title })"
             @click="player.playQueueEntry(entry.queueEntryId)"
           >
             <strong>{{ entry.track.title }}</strong>
@@ -189,7 +190,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeQueueFromDocume
               variant="ghost"
               size="icon"
               :disabled="index === 0"
-              :aria-label="`上移 ${entry.track.title}`"
+              :aria-label="t('上移 {title}', { title: entry.track.title })"
               @click="player.moveQueueEntry(entry.queueEntryId, index - 1)"
             >
               <ChevronUp :size="15" aria-hidden="true" />
@@ -198,7 +199,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeQueueFromDocume
               variant="ghost"
               size="icon"
               :disabled="index === player.queue.length - 1"
-              :aria-label="`下移 ${entry.track.title}`"
+              :aria-label="t('下移 {title}', { title: entry.track.title })"
               @click="player.moveQueueEntry(entry.queueEntryId, index + 1)"
             >
               <ChevronDown :size="15" aria-hidden="true" />
@@ -206,7 +207,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeQueueFromDocume
             <Button
               variant="ghost"
               size="icon"
-              :aria-label="`从队列移除 ${entry.track.title}`"
+              :aria-label="t('从队列移除 {title}', { title: entry.track.title })"
               @click="player.removeQueueEntry(entry.queueEntryId)"
             >
               <Trash2 :size="15" aria-hidden="true" />
@@ -227,16 +228,16 @@ onBeforeUnmount(() => document.removeEventListener('click', closeQueueFromDocume
         <span v-else aria-hidden="true">{{ player.track ? '♪' : 'S' }}</span>
       </div>
       <div class="player-track-details min-w-0">
-        <strong class="block truncate">{{ player.track?.title ?? '选择歌曲开始播放' }}</strong>
+        <strong class="block truncate">{{ player.track?.title ?? t('选择歌曲开始播放') }}</strong>
         <span class="block truncate">{{ player.track?.artist ?? 'Sonavi AudioEngine' }}</span>
         <div v-if="player.errorMessage" class="player-error-row" role="alert">
-          <span class="player-error">{{ player.errorMessage }}</span>
-          <Button variant="ghost" size="sm" @click="player.retry">重试播放</Button>
+          <span class="player-error">{{ t(player.errorMessage) }}</span>
+          <Button variant="ghost" size="sm" @click="player.retry">{{ t('重试播放') }}</Button>
         </div>
         <span
           v-else-if="player.track"
           class="player-stream-note"
-          :title="`${streamNote}。${player.track.playback.reason}`"
+          :title="t('{stream}。{reason}', { stream: streamNote, reason: t(player.track.playback.reason) })"
         >
           {{ streamNote }}
         </span>
@@ -247,7 +248,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeQueueFromDocume
         variant="ghost"
         size="icon"
         :class="{ 'control-active': player.playbackOrder === 'shuffle' }"
-        :aria-label="player.playbackOrder === 'shuffle' ? '关闭随机播放' : '开启随机播放'"
+        :aria-label="t(player.playbackOrder === 'shuffle' ? '关闭随机播放' : '开启随机播放')"
         :aria-pressed="player.playbackOrder === 'shuffle'"
         @click="player.togglePlaybackOrder"
       >
@@ -257,7 +258,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeQueueFromDocume
         variant="ghost"
         size="icon"
         :disabled="!player.canGoPrevious"
-        aria-label="上一首"
+        :aria-label="t('上一首')"
         @click="player.previous"
       >
         <SkipBack :size="18" aria-hidden="true" />
@@ -266,7 +267,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeQueueFromDocume
         class="transport-primary"
         size="icon"
         :disabled="!player.track"
-        :aria-label="player.isPlaying ? '暂停' : '继续播放'"
+        :aria-label="t(player.isPlaying ? '暂停' : '继续播放')"
         @click="player.toggle"
       >
         <Pause v-if="player.isPlaying" :size="18" aria-hidden="true" />
@@ -276,7 +277,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeQueueFromDocume
         variant="ghost"
         size="icon"
         :disabled="!player.canGoNext"
-        aria-label="下一首"
+        :aria-label="t('下一首')"
         @click="player.next"
       >
         <SkipForward :size="18" aria-hidden="true" />
@@ -285,7 +286,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeQueueFromDocume
         variant="ghost"
         size="icon"
         :class="{ 'control-active': player.repeatMode !== 'off' }"
-        :aria-label="`${repeatLabel}，点击切换循环模式`"
+        :aria-label="t('{mode}，点击切换循环模式', { mode: repeatLabel })"
         @click="player.cycleRepeatMode"
       >
         <Repeat1 v-if="player.repeatMode === 'one'" :size="17" aria-hidden="true" />
@@ -294,13 +295,13 @@ onBeforeUnmount(() => document.removeEventListener('click', closeQueueFromDocume
       <span>{{ formatTime(player.currentTime) }}</span>
       <Slider
         class="player-progress-slider"
-        aria-label="播放进度"
+        :aria-label="t('播放进度')"
         :min="0"
         :max="Math.max(player.duration, 1)"
         :step="0.1"
         :model-value="progressModelValue"
         :disabled="!player.track || !player.canSeek"
-        :title="player.track && !player.canSeek ? '当前播放策略无法安全跳转；可在设置中选择原始模式，或使用支持 transcodeOffset 的服务器。' : undefined"
+        :title="player.track && !player.canSeek ? t('当前播放策略无法安全跳转；可在设置中选择原始模式，或使用支持 transcodeOffset 的服务器。') : undefined"
         @update:model-value="onSeekPreview"
         @value-commit="onSeek"
       />
@@ -310,18 +311,18 @@ onBeforeUnmount(() => document.removeEventListener('click', closeQueueFromDocume
       <Volume2 :size="17" aria-hidden="true" />
       <Slider
         class="player-volume-slider"
-        aria-label="音量"
+        :aria-label="t('音量')"
         :min="0"
         :max="1"
         :step="0.01"
         :model-value="[player.volume]"
         @update:model-value="onVolume"
       />
-      <span class="phase-pill" role="status">{{ stateLabels[player.state] }}</span>
+      <span class="phase-pill" role="status">{{ t(stateLabels[player.state]) }}</span>
       <Button
         variant="ghost"
         size="icon"
-        aria-label="歌词"
+        :aria-label="t('歌词')"
         :disabled="!player.track"
         :aria-expanded="lyricsOpen"
         aria-controls="player-lyrics"
@@ -332,7 +333,7 @@ onBeforeUnmount(() => document.removeEventListener('click', closeQueueFromDocume
       <Button
         variant="ghost"
         size="icon"
-        aria-label="播放队列"
+        :aria-label="t('播放队列')"
         :aria-expanded="queueOpen"
         aria-controls="player-queue"
         @click="toggleQueue"

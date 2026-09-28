@@ -71,6 +71,7 @@ describe('音乐库内嵌搜索与服务端分页', () => {
     })
     await flushPromises()
     expect(wrapper.get('form').classes()).toContain('search-form-sticky')
+    expect(wrapper.get('button[aria-label="收藏 全部歌曲"]').find('svg').exists()).toBe(true)
 
     expect(searchLibrary).toHaveBeenLastCalledWith(expect.objectContaining({
       query: '',

@@ -11,6 +11,7 @@ import {
 import { showErrorToast } from '../lib/notifications'
 import ConfirmationDialog from './ConfirmationDialog.vue'
 import { Button } from './ui/button'
+import { t } from '../i18n'
 
 const props = withDefaults(defineProps<{
   connection: ConnectionSuccessResult
@@ -79,34 +80,34 @@ onMounted(() => { void refreshProfiles() })
     <header class="server-management-header">
       <div>
         <p class="eyebrow">SERVERS</p>
-        <h1 id="server-management-title">服务器管理</h1>
-        <p>保存最多 20 个系统加密账号，并在同一个播放宿主中安全切换。</p>
+        <h1 id="server-management-title">{{ t('服务器管理') }}</h1>
+        <p>{{ t('保存最多 20 个系统加密账号，并在同一个播放宿主中安全切换。') }}</p>
       </div>
-      <Button :disabled="props.busy" @click="emit('add')">添加服务器</Button>
+      <Button :disabled="props.busy" @click="emit('add')">{{ t('添加服务器') }}</Button>
     </header>
 
     <section class="current-server" aria-labelledby="current-server-title">
       <div>
-        <span class="server-status">当前连接</span>
+        <span class="server-status">{{ t('当前连接') }}</span>
         <h2 id="current-server-title">{{ props.connection.server.baseUrl }}</h2>
         <p>
-          {{ props.connection.server.serverType ?? 'Subsonic 服务器' }}
-          <template v-if="!props.connection.profileId"> · 本次会话未保存</template>
+          {{ props.connection.server.serverType ?? t('Subsonic 服务器') }}
+          <template v-if="!props.connection.profileId"> · {{ t('本次会话未保存') }}</template>
         </p>
       </div>
     </section>
 
-    <p v-if="loading" class="server-empty">正在读取已保存服务器…</p>
+    <p v-if="loading" class="server-empty">{{ t('正在读取已保存服务器…') }}</p>
     <p v-else-if="profiles.length === 0" class="server-empty">
-      尚未保存服务器。点击“添加服务器”并勾选“记住我”。
+      {{ t('尚未保存服务器。点击“添加服务器”并勾选“记住我”。') }}
     </p>
     <ul v-else class="server-list">
       <li v-for="profile in profiles" :key="profile.id">
         <div class="server-copy">
           <div class="server-title-row">
             <strong>{{ profile.serverUrl }}</strong>
-            <span v-if="profile.id === props.connection.profileId" class="server-status">当前</span>
-            <span v-else-if="profile.isDefault" class="server-status is-muted">默认</span>
+            <span v-if="profile.id === props.connection.profileId" class="server-status">{{ t('当前') }}</span>
+            <span v-else-if="profile.isDefault" class="server-status is-muted">{{ t('默认') }}</span>
           </div>
           <span>{{ profile.username }}</span>
         </div>
@@ -115,52 +116,52 @@ onMounted(() => { void refreshProfiles() })
             variant="outline"
             size="sm"
             :disabled="props.busy"
-            :aria-label="`编辑 ${profile.serverUrl} · ${profile.username}`"
+            :aria-label="t('编辑 {server} · {username}', { server: profile.serverUrl, username: profile.username })"
             @click="emit('edit', profile)"
           >
-            更新凭据
+            {{ t('更新凭据') }}
           </Button>
           <Button
             v-if="profile.id !== props.connection.profileId"
             size="sm"
             :disabled="props.busy"
-            :aria-label="`切换到 ${profile.serverUrl} · ${profile.username}`"
+            :aria-label="t('切换到 {server} · {username}', { server: profile.serverUrl, username: profile.username })"
             @click="switchCandidate = profile"
           >
-            切换
+            {{ t('切换') }}
           </Button>
           <Button
             v-if="profile.id !== props.connection.profileId"
             variant="ghost"
             size="sm"
             :disabled="props.busy || deletingId !== null"
-            :aria-label="`删除 ${profile.serverUrl} · ${profile.username}`"
+            :aria-label="t('删除 {server} · {username}', { server: profile.serverUrl, username: profile.username })"
             @click="deleteCandidate = profile"
           >
-            删除
+            {{ t('删除') }}
           </Button>
         </div>
       </li>
     </ul>
 
     <p class="server-note">
-      切换成功后旧连接、媒体句柄和查询缓存会失效；连接失败时仍保留当前会话。删除只作用于本机加密凭据，不修改服务器数据。
+      {{ t('切换成功后旧连接、媒体句柄和查询缓存会失效；连接失败时仍保留当前会话。删除只作用于本机加密凭据，不修改服务器数据。') }}
     </p>
 
     <ConfirmationDialog
       :open="switchCandidate !== null"
-      title="切换服务器？"
-      :description="switchCandidate ? `将切换到 ${switchCandidate.serverUrl}（${switchCandidate.username}）。成功后会停止当前播放并加载目标服务器；连接失败时保留当前会话。` : ''"
-      confirm-label="确认切换"
+      :title="t('切换服务器？')"
+      :description="switchCandidate ? t('将切换到 {server}（{username}）。成功后会停止当前播放并加载目标服务器；连接失败时保留当前会话。', { server: switchCandidate.serverUrl, username: switchCandidate.username }) : ''"
+      :confirm-label="t('确认切换')"
       :busy="props.busy"
       @update:open="(open) => { if (!open) switchCandidate = null }"
       @confirm="confirmSwitch"
     />
     <ConfirmationDialog
       :open="deleteCandidate !== null"
-      title="删除已保存服务器？"
-      :description="deleteCandidate ? `将删除 ${deleteCandidate.serverUrl} 的系统加密凭据，不会修改服务器数据。` : ''"
-      confirm-label="删除服务器"
+      :title="t('删除已保存服务器？')"
+      :description="deleteCandidate ? t('将删除 {server} 的系统加密凭据，不会修改服务器数据。', { server: deleteCandidate.serverUrl }) : ''"
+      :confirm-label="t('删除服务器')"
       :busy="deletingId !== null"
       @update:open="(open) => { if (!open) deleteCandidate = null }"
       @confirm="confirmDelete"

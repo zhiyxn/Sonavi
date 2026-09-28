@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -32,7 +32,12 @@ describe('P09 桌面状态', () => {
     temporaryDirectories.push(directory)
     const service = new DesktopStateService(directory)
     await service.initialize()
-    await service.updatePreferences({ closeAction: 'quit', theme: 'dark', volume: 0.42 })
+    await service.updatePreferences({
+      closeAction: 'quit',
+      theme: 'dark',
+      language: 'en-US',
+      volume: 0.42
+    })
     const session = connectedSession()
     await service.savePausedQueue(
       {
@@ -54,7 +59,12 @@ describe('P09 桌面状态', () => {
 
     const restoredService = new DesktopStateService(directory)
     await restoredService.initialize()
-    expect(restoredService.getPreferences()).toEqual({ closeAction: 'quit', theme: 'dark', volume: 0.42 })
+    expect(restoredService.getPreferences()).toEqual({
+      closeAction: 'quit',
+      theme: 'dark',
+      language: 'en-US',
+      volume: 0.42
+    })
     expect(restoredService.restorePausedQueue(session)).toMatchObject({
       currentIndex: 0,
       playbackOrder: 'shuffle',
@@ -74,6 +84,32 @@ describe('P09 桌面状态', () => {
     temporaryDirectories.push(directory)
     const service = new DesktopStateService(directory)
     await service.initialize()
-    expect(service.getPreferences()).toEqual({ closeAction: 'hide', theme: 'system', volume: 1 })
+    expect(service.getPreferences()).toEqual({
+      closeAction: 'hide',
+      theme: 'system',
+      language: 'zh-CN',
+      volume: 1
+    })
+  })
+
+  it('旧 v1 状态缺少语言时保留其他偏好并迁移为中文', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'sonavi-desktop-state-'))
+    temporaryDirectories.push(directory)
+    await writeFile(join(directory, 'desktop-state.v1.json'), JSON.stringify({
+      version: 1,
+      preferences: { closeAction: 'quit', theme: 'dark', volume: 0.35 },
+      window: { width: 1200, height: 760, maximized: false }
+    }))
+
+    const service = new DesktopStateService(directory)
+    await service.initialize()
+
+    expect(service.getPreferences()).toEqual({
+      closeAction: 'quit',
+      theme: 'dark',
+      language: 'zh-CN',
+      volume: 0.35
+    })
+    expect(service.getWindowState()).toEqual({ width: 1200, height: 760, maximized: false })
   })
 })

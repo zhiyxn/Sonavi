@@ -1,10 +1,13 @@
 import { createPinia } from 'pinia'
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import type { SonaviApi } from '../../src/shared/application'
 import SettingsPanel from '../../src/renderer/src/components/SettingsPanel.vue'
+import { setActiveLanguage } from '../../src/renderer/src/i18n'
 
 afterEach(() => {
+  setActiveLanguage('zh-CN')
   Reflect.deleteProperty(window, 'sonavi')
   document.body.innerHTML = ''
 })
@@ -15,7 +18,12 @@ describe('设置页安全重启', () => {
     Object.defineProperty(window, 'sonavi', {
       value: {
         desktop: {
-          getPreferences: async () => ({ closeAction: 'hide', theme: 'system', volume: 1 }),
+          getPreferences: async () => ({
+            closeAction: 'hide',
+            theme: 'system',
+            language: 'zh-CN',
+            volume: 1
+          }),
           updatePreferences: vi.fn(),
           restartApplication,
           getCoverCacheInfo: async () => ({
@@ -63,6 +71,21 @@ describe('设置页安全重启', () => {
       global: { plugins: [createPinia()] }
     })
     await flushPromises()
+
+    expect(wrapper.find('#interface-language').exists()).toBe(true)
+    expect(wrapper.text()).toContain('界面语言')
+    setActiveLanguage('en-US')
+    await nextTick()
+    expect(wrapper.get('#close-action').text()).toBe('Hide the window and keep playing (default)')
+    expect(wrapper.get('#appearance-theme').text()).toBe('Use system setting')
+    expect(wrapper.get('#interface-language').text()).toBe('Simplified Chinese')
+    expect(wrapper.get('#playback-mode').text()).toBe(
+      'Automatic (prefer original for known formats, otherwise transcode)'
+    )
+    expect(wrapper.get('#max-bitrate').text()).toBe('320 kbps')
+    expect(wrapper.get('#proxy-mode').text()).toBe('Use system proxy')
+    setActiveLanguage('zh-CN')
+    await nextTick()
 
     const restartButton = wrapper.findAll('button')
       .find((button) => button.text() === '重启 Sonavi')

@@ -1,18 +1,19 @@
 <script setup lang="ts">
 import type { ArtistSummary } from '../../../shared/library'
+import { t } from '../i18n'
 
 defineProps<{ artists: ArtistSummary[] }>()
 const emit = defineEmits<{ select: [artist: ArtistSummary] }>()
 </script>
 
 <template>
-  <ul class="artist-list" data-testid="artist-list" aria-label="艺术家列表">
+  <ul class="artist-list" data-testid="artist-list" :aria-label="t('艺术家列表')">
     <li v-for="artist in artists" :key="artist.id">
       <button type="button" class="artist-list-row" @click="emit('select', artist)">
         <img
           v-if="artist.coverUrl"
           :src="artist.coverUrl"
-          :alt="`${artist.name} 封面`"
+          :alt="t('{name} 封面', { name: artist.name })"
           loading="lazy"
           decoding="async"
           fetchpriority="low"
@@ -22,7 +23,7 @@ const emit = defineEmits<{ select: [artist: ArtistSummary] }>()
         </span>
         <span class="min-w-0">
           <strong class="block truncate">{{ artist.name }}</strong>
-          <small class="text-sonavi-muted">{{ artist.albumCount }} 张专辑</small>
+          <small class="text-sonavi-muted">{{ t('{count} 张专辑', { count: artist.albumCount }) }}</small>
         </span>
         <span aria-hidden="true">›</span>
       </button>

@@ -9,6 +9,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle
 } from './ui/alert-dialog'
+import { t } from '../i18n'
 
 const props = withDefaults(defineProps<{
   open: boolean
@@ -39,13 +40,13 @@ function updateOpen(open: boolean): void {
         <AlertDialogDescription>{{ description }}</AlertDialogDescription>
       </AlertDialogHeader>
       <AlertDialogFooter>
-        <AlertDialogCancel :disabled="busy">取消</AlertDialogCancel>
+        <AlertDialogCancel :disabled="busy">{{ t('取消') }}</AlertDialogCancel>
         <AlertDialogAction
           class="bg-[var(--sonavi-danger)] text-white hover:bg-[color-mix(in_srgb,var(--sonavi-danger)_86%,black)]"
           :disabled="busy"
           @click.capture="emit('confirm')"
         >
-          {{ busy ? '正在处理…' : confirmLabel }}
+          {{ busy ? t('正在处理…') : confirmLabel }}
         </AlertDialogAction>
       </AlertDialogFooter>
     </AlertDialogContent>

@@ -53,9 +53,17 @@ const DesktopStateSchema = z.object({
 
 type DesktopState = z.infer<typeof DesktopStateSchema>
 
+const LegacyDesktopStateSchema = z.object({
+  version: z.literal(1),
+  preferences: DesktopPreferencesSchema.omit({ language: true }),
+  window: WindowStateSchema.optional(),
+  pausedQueue: StoredPausedQueueSchema.optional()
+})
+
 const DEFAULT_PREFERENCES: DesktopPreferences = {
   closeAction: 'hide',
   theme: 'system',
+  language: 'zh-CN',
   volume: 1
 }
 
@@ -73,8 +81,19 @@ export class DesktopStateService {
 
   async initialize(): Promise<void> {
     try {
-      const parsed = DesktopStateSchema.safeParse(JSON.parse(await readFile(this.filePath, 'utf8')))
-      if (parsed.success) this.state = parsed.data
+      const rawState: unknown = JSON.parse(await readFile(this.filePath, 'utf8'))
+      const parsed = DesktopStateSchema.safeParse(rawState)
+      if (parsed.success) {
+        this.state = parsed.data
+        return
+      }
+      const legacy = LegacyDesktopStateSchema.safeParse(rawState)
+      if (legacy.success) {
+        this.state = {
+          ...legacy.data,
+          preferences: { ...legacy.data.preferences, language: 'zh-CN' }
+        }
+      }
     } catch {
       // Missing, unreadable, or invalid local state is treated as a clean first run.
     }

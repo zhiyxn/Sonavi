@@ -7,6 +7,7 @@ import { reactiveOmit } from "@vueuse/core"
 import { PaginationLast, useForwardProps } from "reka-ui"
 import { cn } from "@/lib/utils"
 import { buttonVariants } from '@/components/ui/button'
+import { t } from '@/i18n'
 
 const props = withDefaults(defineProps<PaginationLastProps & {
   size?: ButtonVariants["size"]
@@ -29,7 +30,7 @@ const forwarded = useForwardProps(delegatedProps)
     v-bind="forwarded"
   >
     <slot>
-      <span class="hidden sm:block">最后一页</span>
+      <span class="hidden sm:block">{{ t('最后一页') }}</span>
       <ChevronRight />
     </slot>
   </PaginationLast>

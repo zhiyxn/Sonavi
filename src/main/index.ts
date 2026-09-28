@@ -6,6 +6,7 @@ import {
   OPEN_PROJECT_HOMEPAGE_CHANNEL
 } from '../shared/application'
 import { ApplicationInfoSchema } from '../shared/application-schema'
+import { translate } from '../shared/localization'
 import {
   CONNECT_SAVED_CONNECTION_CHANNEL,
   DELETE_SAVED_CONNECTION_CHANNEL,
@@ -554,7 +555,8 @@ function registerNetworkIpc(
   connectionService: ConnectionService,
   mediaHandles: MediaHandleRegistry,
   mediaProtocol: MediaProtocolService,
-  libraryService: LibraryService
+  libraryService: LibraryService,
+  desktopState: DesktopStateService
 ): void {
   ipcMain.handle(GET_NETWORK_SETTINGS_CHANNEL, (event) => {
     assertTrustedIpcSender(event)
@@ -583,7 +585,7 @@ function registerNetworkIpc(
     assertTrustedIpcSender(event)
     const parent = BrowserWindow.fromWebContents(event.sender) ?? undefined
     const options = {
-      title: '导出 Sonavi 连接诊断',
+      title: translate(desktopState.getPreferences().language, '导出 Sonavi 连接诊断'),
       defaultPath: `sonavi-diagnostics-${new Date().toISOString().slice(0, 10)}.json`,
       filters: [{ name: 'JSON', extensions: ['json'] }]
     }
@@ -657,7 +659,12 @@ function registerDesktopIpc(
   ipcMain.handle(UPDATE_DESKTOP_PREFERENCES_CHANNEL, async (event, rawPreferences: unknown) => {
     assertTrustedIpcSender(event)
     const preferences = DesktopPreferencesSchema.parse(rawPreferences)
-    return DesktopPreferencesSchema.parse(await desktopState.updatePreferences(preferences))
+    const saved = DesktopPreferencesSchema.parse(await desktopState.updatePreferences(preferences))
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate(platformAdapter.createMenuTemplate(app.name, saved.language))
+    )
+    desktopIntegration.refreshLanguage()
+    return saved
   })
 
   ipcMain.handle(UPDATE_PLAYBACK_STATUS_CHANNEL, (event, rawStatus: unknown) => {
@@ -886,7 +893,8 @@ if (singleInstance.acquire()) {
       connectionService,
       mediaHandles,
       mediaProtocol,
-      libraryService
+      libraryService,
+      desktopState
     )
     registerDesktopIpc(
       desktopState,
@@ -895,7 +903,11 @@ if (singleInstance.acquire()) {
       libraryService,
       coverCache
     )
-    Menu.setApplicationMenu(Menu.buildFromTemplate(platformAdapter.createMenuTemplate(app.name)))
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate(
+        platformAdapter.createMenuTemplate(app.name, desktopState.getPreferences().language)
+      )
+    )
     desktopIntegration.initialize()
     createMainWindow(desktopState, desktopIntegration)
     singleInstance.setShowPrimaryWindow(() => desktopIntegration.showWindow())

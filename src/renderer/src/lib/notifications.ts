@@ -1,6 +1,7 @@
 import type { MaybeRefOrGetter } from 'vue'
 import { toValue, watch } from 'vue'
 import { toast } from 'vue-sonner'
+import { t } from '../i18n'
 
 interface ErrorToastOptions {
   title?: string
@@ -11,8 +12,8 @@ export function showErrorToast(
   message: string,
   { title = '操作失败', id }: ErrorToastOptions = {}
 ): void {
-  toast.error(title, {
-    description: message,
+  toast.error(t(title), {
+    description: t(message),
     ...(id ? { id } : {})
   })
 }

@@ -32,6 +32,7 @@ import { usePlaybackBufferDiagnostics } from './composables/use-playback-buffer-
 import { useDesktopIntegration } from './composables/use-desktop-integration'
 import { useErrorToast } from './lib/notifications'
 import { Toaster } from './components/ui/sonner'
+import { t } from './i18n'
 
 const applicationInfo = ref<ApplicationInfo | null>(null)
 const loadingError = ref('')
@@ -83,16 +84,6 @@ const activeAlbumPage = computed(() => {
   if (activeView.value === 'albums') return albumsAlbumPage.value
   return 1
 })
-const albumBackLabel = computed(() => {
-  if (selectedArtistId.value) return '返回艺术家专辑'
-  if (activeView.value === 'favorites') return '返回收藏'
-  return '返回专辑'
-})
-const artistBackLabel = computed(() => {
-  if (activeView.value === 'favorites') return '返回收藏'
-  return '返回艺术家'
-})
-
 useErrorToast(loadingError, { title: '应用启动失败', id: 'application-startup-error' })
 useErrorToast(projectHomepageError, { title: '无法打开项目主页', id: 'project-homepage-error' })
 useErrorToast(sessionActionError, { title: '账号操作失败', id: 'session-action-error' })
@@ -363,12 +354,12 @@ async function confirmForget(): Promise<void> {
 
 <template>
   <main class="application-shell">
-    <aside class="sidebar" aria-label="主导航">
+    <aside class="sidebar" :aria-label="t('主导航')">
       <div>
         <button
           type="button"
           class="brand"
-          aria-label="在浏览器中打开 Sonavi GitHub 仓库"
+          :aria-label="t('在浏览器中打开 Sonavi GitHub 仓库')"
           @click="openProjectHomepage"
         >
           <img class="brand-logo" :src="sonaviLogoUrl" alt="" aria-hidden="true" />
@@ -384,29 +375,29 @@ async function confirmForget(): Promise<void> {
           :class="{ active: !session.connection }"
           aria-current="page"
         >
-          连接服务器
+          {{ t('连接服务器') }}
         </span>
         <template v-else>
           <button class="nav-item" :class="{ active: activeView === 'music' }" @click="navigate('music')">
-            音乐
+            {{ t('音乐') }}
           </button>
           <button class="nav-item" :class="{ active: activeView === 'albums' }" @click="navigate('albums')">
-            专辑
+            {{ t('专辑') }}
           </button>
           <button class="nav-item" :class="{ active: activeView === 'artists' }" @click="navigate('artists')">
-            艺术家
+            {{ t('艺术家') }}
           </button>
           <button class="nav-item" :class="{ active: activeView === 'favorites' }" @click="navigate('favorites')">
-            收藏
+            {{ t('收藏') }}
           </button>
           <button class="nav-item" :class="{ active: activeView === 'playlists' }" @click="navigate('playlists')">
-            歌单
+            {{ t('歌单') }}
           </button>
           <button class="nav-item" :class="{ active: activeView === 'servers' || activeView === 'server-form' }" @click="navigate('servers')">
-            服务器
+            {{ t('服务器') }}
           </button>
           <button class="nav-item" :class="{ active: activeView === 'settings' }" @click="navigate('settings')">
-            设置
+            {{ t('设置') }}
           </button>
         </template>
       </nav>
@@ -415,7 +406,7 @@ async function confirmForget(): Promise<void> {
         <span v-if="applicationInfo" data-testid="platform-label">
           {{ applicationInfo.platformLabel }} · v{{ applicationInfo.version }}
         </span>
-        <span>设置快捷键 {{ shortcutHint }}</span>
+        <span>{{ t('设置快捷键 {shortcut}', { shortcut: shortcutHint }) }}</span>
       </div>
     </aside>
 
@@ -436,11 +427,10 @@ async function confirmForget(): Promise<void> {
               :key="`library:${activeView}`"
               :selected-album-id="selectedAlbumId"
               :session-id="session.connection.sessionId"
-              :server-name="session.connection.server.serverType ?? 'Subsonic 服务器'"
+              :server-name="session.connection.server.serverType ?? t('Subsonic 服务器')"
               :server-id="session.connection.server.baseUrl"
               list-type="alphabeticalByName"
-              title="全部专辑"
-              :back-label="albumBackLabel"
+              :title="t('全部专辑')"
               :album-list-enabled="activeView === 'albums'"
               :page="activeAlbumPage"
               @update:page="updateAlbumPage"
@@ -455,7 +445,6 @@ async function confirmForget(): Promise<void> {
               v-else-if="selectedArtistId || activeView === 'artists'"
               :key="`artists:${activeView}`"
               :artist-list-enabled="activeView === 'artists'"
-              :back-label="artistBackLabel"
               :selected-artist-id="selectedArtistId"
               :session-id="session.connection.sessionId"
               @update:selected-artist-id="updateSelectedArtistId"
@@ -506,17 +495,17 @@ async function confirmForget(): Promise<void> {
           :initial-profile="connectionDraft"
           @connected="handleConnected"
         />
-        <p v-else-if="loadingError" class="startup-error" role="alert">{{ loadingError }}</p>
-        <p v-else class="startup-status" role="status">正在读取应用信息…</p>
+        <p v-else-if="loadingError" class="startup-error" role="alert">{{ t(loadingError) }}</p>
+        <p v-else class="startup-status" role="status">{{ t('正在读取应用信息…') }}</p>
       </div>
     </section>
 
     <PlayerBar />
     <ConfirmationDialog
       v-model:open="forgetConfirmationOpen"
-      title="退出并忘记账号？"
-      description="将删除这台设备上保存的加密凭据、暂停队列和当前账号封面缓存。"
-      confirm-label="退出并删除"
+      :title="t('退出并忘记账号？')"
+      :description="t('将删除这台设备上保存的加密凭据、暂停队列和当前账号封面缓存。')"
+      :confirm-label="t('退出并删除')"
       :busy="forgetActionPending"
       @confirm="confirmForget"
     />
@@ -526,7 +515,7 @@ async function confirmForget(): Promise<void> {
       close-button
       close-button-position="top-right"
       :visible-toasts="4"
-      container-aria-label="Sonavi 通知"
+      :container-aria-label="t('Sonavi 通知')"
       :toast-options="{
         classes: {
           toast: 'sonavi-toast'

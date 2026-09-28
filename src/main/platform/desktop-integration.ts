@@ -13,6 +13,8 @@ import type {
   DesktopPlaybackStatus,
   DesktopPreferences
 } from '../../shared/desktop'
+import type { AppLanguage } from '../../shared/localization'
+import { translate } from '../../shared/localization'
 import type { PersistedWindowState } from '../services/desktop-state-service'
 
 export interface TrayActions {
@@ -24,29 +26,30 @@ export interface TrayActions {
 
 export function createTrayMenuTemplate(
   status: DesktopPlaybackStatus,
-  actions: TrayActions
+  actions: TrayActions,
+  language: AppLanguage
 ): MenuItemConstructorOptions[] {
   return [
-    { label: '显示 Sonavi', click: actions.showWindow },
+    { label: translate(language, '显示 Sonavi'), click: actions.showWindow },
     { type: 'separator' },
     {
-      label: status.isPlaying ? '暂停' : '播放',
+      label: translate(language, status.isPlaying ? '暂停' : '播放'),
       enabled: status.hasTrack,
       click: () => actions.sendCommand('toggle-playback')
     },
     {
-      label: '上一首',
+      label: translate(language, '上一首'),
       enabled: status.canGoPrevious,
       click: () => actions.sendCommand('previous')
     },
     {
-      label: '下一首',
+      label: translate(language, '下一首'),
       enabled: status.canGoNext,
       click: () => actions.sendCommand('next')
     },
     { type: 'separator' },
-    { label: '重启 Sonavi', click: actions.restart },
-    { label: '退出 Sonavi', click: actions.quit }
+    { label: translate(language, '重启 Sonavi'), click: actions.restart },
+    { label: translate(language, '退出 Sonavi'), click: actions.quit }
   ]
 }
 
@@ -135,6 +138,10 @@ export class DesktopIntegrationController {
     if (this.tray) this.tray.setContextMenu(this.buildTrayMenu())
   }
 
+  refreshLanguage(): void {
+    if (this.tray) this.tray.setContextMenu(this.buildTrayMenu())
+  }
+
   completeQuitPreparation(): void {
     if (this.quitPreparationPending) this.finishQuit()
   }
@@ -189,7 +196,7 @@ export class DesktopIntegrationController {
         sendCommand: (command) => this.options.sendCommand(command),
         restart: () => this.requestRestart(),
         quit: () => app.quit()
-      })
+      }, this.options.getPreferences().language)
     )
   }
 

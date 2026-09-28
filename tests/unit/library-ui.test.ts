@@ -205,8 +205,12 @@ describe('P05 音乐库界面', () => {
       'aria-label': '歌曲列表',
       tabindex: '0'
     })
+    const favoriteAlbum = wrapper.get('button[aria-label="收藏 恢复位置专辑"]')
+    expect(favoriteAlbum.text()).toBe('收藏专辑')
+    expect(favoriteAlbum.find('svg').exists()).toBe(false)
+    expect(wrapper.get('button[aria-label="收藏 内部滚动歌曲"]').find('svg').exists()).toBe(true)
 
-    const back = wrapper.findAll('button').find((button) => button.text() === '返回专辑')
+    const back = wrapper.findAll('button').find((button) => button.text() === '返回')
     await back?.trigger('click')
     await flushPromises()
     expect(workspace.scrollTop).toBe(640)

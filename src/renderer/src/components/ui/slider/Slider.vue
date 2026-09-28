@@ -2,6 +2,7 @@
 import type { HTMLAttributes } from "vue"
 import { SliderRange, SliderRoot, SliderThumb, SliderTrack } from "reka-ui"
 import { cn } from "@/lib/utils"
+import { t } from '@/i18n'
 
 const props = withDefaults(defineProps<{
   class?: HTMLAttributes["class"]
@@ -10,7 +11,7 @@ const props = withDefaults(defineProps<{
   min?: number
   max?: number
   step?: number
-  ariaLabel?: string
+  ariaLabel?: string | undefined
 }>(), {
   class: undefined,
   modelValue: () => [0],
@@ -18,7 +19,7 @@ const props = withDefaults(defineProps<{
   min: 0,
   max: 100,
   step: 1,
-  ariaLabel: '滑块'
+  ariaLabel: undefined
 })
 const emit = defineEmits<{
   'update:modelValue': [value: number[] | undefined]
@@ -56,7 +57,7 @@ const emit = defineEmits<{
       v-for="(_, key) in values"
       :key="key"
       data-slot="slider-thumb"
-      :aria-label="props.ariaLabel"
+      :aria-label="props.ariaLabel ?? t('滑块')"
       class="bg-white border-primary ring-ring/50 block size-4 shrink-0 rounded-full border shadow-sm transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50"
     />
   </SliderRoot>
