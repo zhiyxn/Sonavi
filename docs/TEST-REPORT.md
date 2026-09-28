@@ -1,7 +1,7 @@
 # P10 打包、兼容性与发布前审计报告
 
 日期：2026-09-28
-状态：P28～P30 已随提交 `cf25508` 进入 `main`，当前正在准备 `v0.1.0-rc.7` 三平台 GitHub Pre-release。macOS Intel 自动代码闸门、源码 Electron 冒烟与 locale 裁剪后的目录包冒烟已通过；真实大型服务边界、Windows 11 x64、macOS arm64 真机、正式签名/公证和各平台完整实机发布验收未完成
+状态：P28～P30 已随提交 `cf25508` 进入 `main`；最新候选 `v0.1.0-rc.7` 已通过三目标原生 release gate、安装包验证与发布 job，并发布为 GitHub Pre-release。macOS Intel 自动代码闸门、源码 Electron 冒烟与 locale 裁剪后的目录包冒烟已通过；真实大型服务边界、Windows 11 x64、macOS arm64 真机、正式签名/公证和各平台完整实机发布验收未完成
 
 ## 测试环境
 
@@ -773,3 +773,11 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - `npm run test:e2e`：首次运行暴露 E2E 仍定位旧“返回专辑/返回歌单”文字；第二次继续暴露收藏页歌曲仍定位旧可见“取消收藏”文字。测试分别更新为统一“返回”和带歌曲名称的心形按钮无障碍标签，未删除流程或放宽业务断言；最终完整通过。
 - 最终 Electron 冒烟启动样本 1,564 ms，覆盖多服务器、分页与搜索、收藏、歌单、播放与歌词、代理、生命周期、单实例、凭据、队列恢复及 safeStorage。20 轮快速切页内存样本增量 69,800 KiB、媒体请求增量 0；单次性能样本不是承诺。
 - 下一证据：发布准备提交的普通三平台 CI，以及标签触发的 Windows x64、macOS Intel x64、macOS arm64 原生 release gate、安装包验证、包内冒烟和发布 job。
+
+## v0.1.0-rc.7 远程发布验证（2026-09-28）
+
+- 普通 CI：run `36370263980` 成功，`06b6633101db43cd45ce8feed84c77ae0834e7ad` 的 Windows x64、macOS Intel x64、macOS Apple Silicon arm64 三个目标全部通过。
+- 发布 CI：run `36371164416` 成功；三个原生 release gate 分别重跑 lint、typecheck、214 项测试、依赖审计、源码 Electron 冒烟、安装包构建/验证与打包应用冒烟，`Create GitHub Pre-release` job 随后成功。
+- Release 核验：`v0.1.0-rc.7` 为非草稿 Pre-release、`prerelease=true`、`draft=false`，`/releases/latest` 返回 404；附件共七个 —— Windows x64 NSIS 104,159,547 字节、macOS Intel x64 DMG 122,848,377 字节、macOS Apple Silicon arm64 DMG 118,591,114 字节、三个 manifest 与 610 字节 `SHA256SUMS.txt`。
+- 校验和回读：`SHA256SUMS.txt` 为 6 行，三条安装包与三条 manifest 的校验值与对应 manifest 内 `sha256` 逐一一致；三个 manifest 的 `version` 均为 `0.1.0-rc.7`，`verificationHost` 分别为 win32 x64、darwin x64、darwin arm64。
+- Release 地址：`https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.7`。自动验证不替代新安装包的人工安装、升级、卸载、真实服务、物理听音与中文/英文桌面行为验收；Windows 11 x64 与 macOS arm64 真机仍为“未验证”。

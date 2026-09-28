@@ -4,7 +4,7 @@
 
 ## 当前目标与状态
 
-P01～P30 的当前代码已完成并随提交 `cf25508` 进入 `main`。P28 增加中英文界面、语言偏好迁移、原生菜单同步与 Electron locale 裁剪，P29/P30 完成收藏按钮和统一返回文案调整。用户已明确授权准备 `v0.1.0-rc.7` 三平台 GitHub Pre-release；当前正在执行版本升级、本地发布闸门与标签发布流程。候选仍不配置正式签名、公证或自动更新，Windows 与 macOS arm64 的本轮证据必须来自各自 GitHub 原生 runner；完整结论见 `docs/TEST-REPORT.md`、`docs/TEST-MATRIX.md` 与 `docs/KNOWN-ISSUES.md`。
+P01～P30 的当前代码已完成并随提交 `cf25508` 进入 `main`。P28 增加中英文界面、语言偏好迁移、原生菜单同步与 Electron locale 裁剪，P29/P30 完成收藏按钮和统一返回文案调整。最新候选 `v0.1.0-rc.7` 已通过普通三平台 CI、三目标原生 release gate 与发布 job，并发布为非草稿 GitHub Pre-release。候选仍不配置正式签名、公证或自动更新，Windows 与 macOS arm64 的本轮证据必须来自各自 GitHub 原生 runner；完整结论见 `docs/TEST-REPORT.md`、`docs/TEST-MATRIX.md` 与 `docs/KNOWN-ISSUES.md`。
 
 P11 原 Critical 已修复：媒体句柄改为会话密钥加密、带 epoch 的无状态 token，不再因 2,000 项 FIFO 淘汰；10,000 个后续封面句柄回归测试通过。用户真实 Windows 记录 `docs/Existing issues.md` 中的艺术家大响应、后续播放、scrobble 和 UI 问题均有针对性代码修复，但艺术家/scrobble 必须回到原服务器复验，不能仅凭 fixture 宣称关闭。
 
@@ -355,3 +355,11 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 - 本地 Node.js 22.19.0 闸门已通过：标签校验、lint、三组 typecheck、36 文件/214 项测试、生产构建、0 漏洞依赖审计与源码 Electron 完整冒烟。
 - 冒烟首次发现统一返回文案后 E2E 仍定位“返回专辑/返回歌单”，第二次发现歌曲心形按钮后仍定位可见“取消收藏”；两处均改为新 UI 的精确角色/无障碍名称，最终完整冒烟通过，未放宽产品断言。
 - 下一入口：提交并推送发布准备，确认普通 CI 后创建并推送 `v0.1.0-rc.7` 标签；发布工作流必须在三个原生目标全部通过后才创建七附件 Pre-release。
+
+## v0.1.0-rc.7 发布结果（2026-09-28）
+
+- 发布提交：`06b6633 chore(release): prepare v0.1.0-rc.7`；注释标签 `v0.1.0-rc.7` 指向该提交并已推送。
+- 普通 CI run `36370263980` 成功；release run `36371164416` 的 Windows x64、macOS Intel x64、macOS arm64 release gate 与 `Create GitHub Pre-release` 全部成功。
+- Release 为非草稿 Pre-release 且不是 Latest（`/releases/latest` 返回 404）；三个安装包、三个 manifest 与 610 字节 `SHA256SUMS.txt` 共七个附件齐全。
+- 回读核验：`SHA256SUMS.txt` 6 行，与三个 manifest 内的 `sha256` 逐一一致；Windows x64 NSIS 104,159,547 字节、macOS Intel x64 DMG 122,848,377 字节、macOS arm64 DMG 118,591,114 字节（相对 rc.6 的 Windows 112,829,469 字节缩减与 P28 locale 裁剪一致）。
+- Release：`https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.7`。自动 runner 证据不外推为 Windows/macOS 新安装包的完整人工验收，arm64 真机仍未验证。

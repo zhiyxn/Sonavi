@@ -465,11 +465,11 @@ P01 已达到验收条件，P02～P10 已按序达到当时可用环境的代码
 - [x] failure-first 先确认旧“返回专辑”无法满足统一断言；实现后相关 7 文件/42 项测试、三组 typecheck 与 lint 通过。
 - [x] 与 P29 合并后在 Node.js 22.19.0 下执行 36 文件/214 项全量测试、生产构建和 `git diff --check`，全部通过。
 
-## v0.1.0-rc.7 候选发布（进行中，2026-09-28）
+## v0.1.0-rc.7 候选发布（完成，2026-09-28）
 
 - [x] 用户明确授权发布 `v0.1.0-rc.7` 三平台 GitHub Pre-release。
 - [x] 版本号推进到 `0.1.0-rc.7`，README 下载入口与候选说明同步更新；明确未签名、未公证、非 Latest 和 arm64 无实机限制。
 - [x] Node.js 22.19.0 下完成标签校验、lint、三组 typecheck、36 文件/214 项测试、0 漏洞依赖审计、生产构建与源码 Electron 冒烟。
-- [ ] 发布准备提交推送到 `main`，并确认普通 CI 三平台通过。
-- [ ] 创建并推送 `v0.1.0-rc.7` 标签；等待三个原生 release gate 与发布 job 全部通过。
-- [ ] 核验 GitHub Release 为非草稿 Pre-release、不是 Latest，且三个安装包、三个 manifest 与 `SHA256SUMS.txt` 共七个附件齐全。
+- [x] 发布准备提交 `06b6633` 已推送到 `main`，普通 CI run `36370263980` 的 Windows x64、macOS Intel x64、macOS arm64 全部通过。
+- [x] 已创建并推送 `v0.1.0-rc.7` 标签；release run `36371164416` 的三个原生 release gate 与发布 job 全部通过。
+- [x] GitHub Release 已核验为非草稿 Pre-release、不是 Latest；三个安装包、三个 manifest 与 610 字节 `SHA256SUMS.txt` 共七个附件齐全，校验和与 manifest 一致。
