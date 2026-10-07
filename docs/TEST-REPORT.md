@@ -1,7 +1,7 @@
 # P10 打包、兼容性与发布前审计报告
 
-日期：2026-09-28
-状态：P28～P30 已随提交 `cf25508` 进入 `main`；最新候选 `v0.1.0-rc.7` 已通过三目标原生 release gate、安装包验证与发布 job，并发布为 GitHub Pre-release。macOS Intel 自动代码闸门、源码 Electron 冒烟与 locale 裁剪后的目录包冒烟已通过；真实大型服务边界、Windows 11 x64、macOS arm64 真机、正式签名/公证和各平台完整实机发布验收未完成
+日期：2026-10-07
+状态：P31 检查更新已完成本地代码闸门与 macOS Intel 源码冒烟，待跨平台人工复验；最新候选 `v0.1.0-rc.7` 已通过三目标原生 release gate、安装包验证与发布 job，并发布为 GitHub Pre-release。真实大型服务边界、Windows 11 x64、macOS arm64 真机、正式签名/公证和各平台完整实机发布验收未完成
 
 ## 测试环境
 
@@ -781,3 +781,29 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - Release 核验：`v0.1.0-rc.7` 为非草稿 Pre-release、`prerelease=true`、`draft=false`，`/releases/latest` 返回 404；附件共七个 —— Windows x64 NSIS 104,159,547 字节、macOS Intel x64 DMG 122,848,377 字节、macOS Apple Silicon arm64 DMG 118,591,114 字节、三个 manifest 与 610 字节 `SHA256SUMS.txt`。
 - 校验和回读：`SHA256SUMS.txt` 为 6 行，三条安装包与三条 manifest 的校验值与对应 manifest 内 `sha256` 逐一一致；三个 manifest 的 `version` 均为 `0.1.0-rc.7`，`verificationHost` 分别为 win32 x64、darwin x64、darwin arm64。
 - Release 地址：`https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.7`。自动验证不替代新安装包的人工安装、升级、卸载、真实服务、物理听音与中文/英文桌面行为验收；Windows 11 x64 与 macOS arm64 真机仍为“未验证”。
+
+## P31 检查更新与启动开关（2026-10-07）
+
+- 环境：macOS Intel x64（Darwin x86_64），NVM Node.js 22.19.0、npm 10.9.3；当前源码版本 `0.1.0-rc.7`。
+- 行为：固定 GitHub Releases API、受限候选/正式版比较、草稿/无效标签排除、10 秒超时、1 MiB 正文上限、手动状态和固定发布页入口；偏好默认启用并支持旧状态迁移。单元与组件测试覆盖升级规则、HTTP 错误/超限、开关持久化、开关关闭时不请求及手动发现新版本。
+- `npm run lint`：通过；`npm run typecheck`：通过（首次发现重复翻译键，删除重复项后在构建中复跑通过）；`npm run test`：37 文件/219 项通过；`npm run build`：通过，只有既有 Zod PURE 注释位置提示；`git diff --check`：通过。
+- `node tests/e2e/electron-smoke.mjs`：受限沙箱内 Electron 无法启动；获准在 macOS 桌面会话重跑后完整通过，包含连接、音乐库、播放、桌面生命周期和凭据恢复。此冒烟不模拟新的更新结果，也不证明 GitHub 网络可达或用户目视 UI。
+- 未验证：Windows 11 x64、macOS arm64 运行与新安装包；真实 GitHub API 成功应答、发现更新提示、默认浏览器发布页跳转和人工设置界面验收。未执行下载或安装更新。
+
+## P32 设置页分组标题布局统一（2026-10-07）
+
+- 用户截图显示原有桌面行为/播放策略/网络代理是压在边框上的 `legend`，新增检查更新是卡片内 `h2`；全设置页共七个分组，四个后加区域使用后一种布局。全 renderer 其余组件未发现同类 `fieldset/legend` 混用。
+- 按用户指定的 `fieldset/legend` 方式统一七个分组；沿用同一边框、内边距、字号和字重规则。Electron 冒烟读取真实 DOM 几何，确认七个 legend 的顶部和左侧相对边框偏移差均不超过 4px；设置保存、网络策略和现有流程继续通过。
+- 环境：macOS Intel x64，NVM Node.js 22.19.0。`npm run lint`、`npm run typecheck`、`npm run test`（37 文件/219 项）、`npm run build`、`git diff --check` 均通过；`node tests/e2e/electron-smoke.mjs` 在本机桌面会话通过。构建仅有既有 Zod PURE 注释位置提示。
+- 未验证：用户当前开发版目视复验、Windows 11 x64、macOS arm64 和三目标新安装包；macOS 几何结果不外推其他平台。
+
+## P31 检查更新说明文案精简（2026-10-07）
+
+- 本次先将设置页文案改为“当前版本：v{version}。发现新版本后，可前往发布页下载安装。”；P33 新增直接下载后，当前界面只显示“当前版本：v{version}”，下载与发布页动作由检查结果按钮表达。英文词条同步。
+- macOS Intel、Node.js 22.19.0：`npm run lint` 通过；`npm run test -- tests/unit/localization.test.ts tests/unit/settings-restart.test.ts` 为 2 文件/7 项通过；`npm run build` 包含三组 typecheck 并通过，只有既有 Zod PURE 注释提示。开发版使用 Vite 热更新；本轮未重复 Electron 全流程冒烟。
+
+## P33 对应系统安装包直接下载入口（2026-10-07）
+
+- main 从固定 GitHub Releases API 验证当前 Windows x64、macOS x64、macOS arm64 的目标安装包名称和 `uploaded` 状态；只在匹配时向 renderer 返回 `downloadAvailable`。点击按钮后 main 构造固定仓库的下载 URL 并由默认浏览器打开，不使用 API 返回的 `browser_download_url`，renderer 不传 URL、版本或路径。
+- 测试覆盖三种安装包命名、缺少/未上传附件和不支持平台的发布页回退、固定 URL 构造、远端伪造 URL 忽略、设置页下载按钮与失败状态。`npm run lint`、三组 `typecheck`、37 文件/220 项 `npm run test`、`npm run build` 通过；macOS Intel 源码 `node tests/e2e/electron-smoke.mjs` 完整通过，确认新增 preload 方法存在，未触发真实安装包下载。
+- 未验证：当前 `v0.1.0-rc.7` 运行时没有可用的更高版本，因此真实下载完成、文件哈希和升级安装尚未测试；Windows 11 x64、macOS arm64 与新安装包仍未验证。系统默认浏览器或操作系统可能继续要求用户确认。

@@ -55,15 +55,20 @@ type DesktopState = z.infer<typeof DesktopStateSchema>
 
 const LegacyDesktopStateSchema = z.object({
   version: z.literal(1),
-  preferences: DesktopPreferencesSchema.omit({ language: true }),
+  preferences: DesktopPreferencesSchema.omit({ checkUpdatesOnStartup: true }),
   window: WindowStateSchema.optional(),
   pausedQueue: StoredPausedQueueSchema.optional()
+})
+
+const OriginalDesktopStateSchema = LegacyDesktopStateSchema.extend({
+  preferences: LegacyDesktopStateSchema.shape.preferences.omit({ language: true })
 })
 
 const DEFAULT_PREFERENCES: DesktopPreferences = {
   closeAction: 'hide',
   theme: 'system',
   language: 'zh-CN',
+  checkUpdatesOnStartup: true,
   volume: 1
 }
 
@@ -91,7 +96,15 @@ export class DesktopStateService {
       if (legacy.success) {
         this.state = {
           ...legacy.data,
-          preferences: { ...legacy.data.preferences, language: 'zh-CN' }
+          preferences: { ...legacy.data.preferences, checkUpdatesOnStartup: true }
+        }
+        return
+      }
+      const original = OriginalDesktopStateSchema.safeParse(rawState)
+      if (original.success) {
+        this.state = {
+          ...original.data,
+          preferences: { ...original.data.preferences, language: 'zh-CN', checkUpdatesOnStartup: true }
         }
       }
     } catch {

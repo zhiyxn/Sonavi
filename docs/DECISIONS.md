@@ -446,3 +446,21 @@ Sonavi 只提供简体中文 `zh-CN` 与英文 `en-US`。语言进入 main 管�
 Windows/macOS 原生应用菜单、托盘/菜单栏和 main 原生保存对话框读取同一偏好；保存语言后 main 重建菜单，renderer 同步更新 `<html lang>` 与可见/可访问文案。preload API 仍只传递严格 schema 的完整桌面偏好，没有新增文件、进程、URL 或原始 IPC 能力。
 
 构建只保留这两种 Electron locale，但使用各平台实际目录名：Windows 为 `zh-CN` / `en-US`，macOS 为 `zh_CN` / `en-US`。不能为了体积继续删除 Chromium、FFmpeg、GPU 回退或许可文件。locale 裁剪降低的是运行时资源和后续压缩包输入体积；DMG/NSIS 的真实下载收益必须在三个原生目标分别测量，不能由单个 macOS 解包样本外推。
+
+## D040：仅查询公开 Release 的受限更新检查
+
+- 日期：2026-10-07
+- 状态：已接受
+
+当前候选版以 GitHub Pre-release 发布，因此 `/releases/latest` 会漏掉候选版本。版本检查读取固定仓库的公开 Releases 列表，并在 main 内比较项目支持的 `major.minor.patch` 和 `-rc.N` 标签。正式版不提示候选版；候选版可提示更高候选版或正式版。草稿、标签不符和发布类型不一致的记录被忽略。
+
+网络请求使用应用默认 Electron Session，继承既有代理与 TLS 策略，固定 HTTPS 端点，禁用凭据与自动重定向，并限制 10 秒和 1 MiB。preload 仅返回 `{status, version?, downloadAvailable?}`，打开页面只允许固定发布列表 URL；不向 renderer 暴露下载 URL、任意 URL 或系统安装能力。启动检查开关存在非敏感桌面偏好中，旧状态补默认启用值并保留现有数据。当前未签名/未公证候选包不引入自动下载、安装或静默重启；用户主动下载入口见 D041。
+
+## D041：只对已发布的当前目标安装包提供直接下载
+
+- 日期：2026-10-07
+- 状态：已接受；扩展 D040 的发布页提示能力
+
+用户可以在发现新版本后直接下载当前平台安装包。main 只接受公开 Release 中与 `Sonavi-${version}-${os}-${arch}.${ext}` 完全匹配且状态为 `uploaded` 的附件；支持 Windows x64、macOS Intel x64 和 macOS Apple Silicon arm64。下载地址由固定仓库、经版本规则验证的标签和确定的附件名在 main 中构造，不使用远端 `browser_download_url`，也不接受 renderer 提供的 URL、路径、版本或文件名。没有匹配附件时只显示发布页入口。
+
+点击下载由 main 调用系统默认浏览器打开该附件的 GitHub 下载地址。此能力不会在应用中执行、安装或静默替换安装包；未签名候选版仍需用户按照操作系统提示完成安装。D040 关于不提供自动下载/安装的决定保持有效，直接下载是用户主动点击的动作。

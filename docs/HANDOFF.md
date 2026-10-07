@@ -1,10 +1,10 @@
 # 项目交接
 
-更新日期：2026-09-28
+更新日期：2026-10-07
 
 ## 当前目标与状态
 
-P01～P30 的当前代码已完成并随提交 `cf25508` 进入 `main`。P28 增加中英文界面、语言偏好迁移、原生菜单同步与 Electron locale 裁剪，P29/P30 完成收藏按钮和统一返回文案调整。最新候选 `v0.1.0-rc.7` 已通过普通三平台 CI、三目标原生 release gate 与发布 job，并发布为非草稿 GitHub Pre-release。候选仍不配置正式签名、公证或自动更新，Windows 与 macOS arm64 的本轮证据必须来自各自 GitHub 原生 runner；完整结论见 `docs/TEST-REPORT.md`、`docs/TEST-MATRIX.md` 与 `docs/KNOWN-ISSUES.md`。
+P01～P30 的当前代码已完成并随提交 `cf25508` 进入 `main`。P31 检查更新、P32 设置分组标题统一和 P33 对应安装包直接下载入口已完成本地代码及 macOS Intel 源码闸门，尚未进入安装包。最新候选 `v0.1.0-rc.7` 已通过普通三平台 CI、三目标原生 release gate 与发布 job，并发布为非草稿 GitHub Pre-release。候选仍不配置正式签名、公证或自动安装更新，Windows 与 macOS arm64 的本轮证据必须来自各自 GitHub 原生 runner；完整结论见 `docs/TEST-REPORT.md`、`docs/TEST-MATRIX.md` 与 `docs/KNOWN-ISSUES.md`。
 
 P11 原 Critical 已修复：媒体句柄改为会话密钥加密、带 epoch 的无状态 token，不再因 2,000 项 FIFO 淘汰；10,000 个后续封面句柄回归测试通过。用户真实 Windows 记录 `docs/Existing issues.md` 中的艺术家大响应、后续播放、scrobble 和 UI 问题均有针对性代码修复，但艺术家/scrobble 必须回到原服务器复验，不能仅凭 fixture 宣称关闭。
 
@@ -363,3 +363,27 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 - Release 为非草稿 Pre-release 且不是 Latest（`/releases/latest` 返回 404）；三个安装包、三个 manifest 与 610 字节 `SHA256SUMS.txt` 共七个附件齐全。
 - 回读核验：`SHA256SUMS.txt` 6 行，与三个 manifest 内的 `sha256` 逐一一致；Windows x64 NSIS 104,159,547 字节、macOS Intel x64 DMG 122,848,377 字节、macOS arm64 DMG 118,591,114 字节（相对 rc.6 的 Windows 112,829,469 字节缩减与 P28 locale 裁剪一致）。
 - Release：`https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.7`。自动 runner 证据不外推为 Windows/macOS 新安装包的完整人工验收，arm64 真机仍未验证。
+
+## P31 检查更新与启动开关（2026-10-07）
+
+- 设置页新增当前版本、手动检查按钮和启动时检查开关。开关与桌面偏好一起保存，默认启用；旧 v1 状态无此字段时补默认值，窗口、语言、音量和暂停队列保留。启动后台检查失败静默，手动检查显示失败状态。
+- main 通过默认 Electron Session 的固定 Sonavi GitHub Releases 端点查询，候选版比较候选/正式版、正式版只比较正式版。IPC 仅返回受校验的状态/版本；发布页入口是 main 固定 URL。未新增自动下载、安装或运行远端文件能力。
+- Node.js 22.19.0 下 lint、typecheck、37 文件/219 项测试、生产构建和 macOS Intel 源码 Electron 冒烟通过。沙箱内 Electron 启动失败，桌面会话重跑通过。构建只有既有 Zod 注释提示。
+- 下一入口：在联网的后续安装包人工检查“已是最新/发现新版本/网络失败/关闭启动检查”和发布页跳转；分别在 Windows 11 x64、macOS Intel x64、macOS arm64 原生包复验。真实 GitHub 请求成功与三目标新包均未验证；未推送或发布。
+
+## P32 设置页七个分组标题统一（2026-10-07）
+
+- 用户指定全部使用 `fieldset/legend`。已将检查更新、连接诊断、封面缓存、应用恢复四个区域改成与桌面行为、播放策略、网络代理相同的边框标题方式，表单与按钮行为未变。
+- Electron 冒烟新增七个分组的结构和几何检查：每组直接含 `legend`，标题相对边框的顶部、左侧偏移差均不超过 4px；本机 macOS Intel 完整冒烟通过。lint、typecheck、37 文件/219 项测试和生产构建通过。
+- 下一入口：用户在重新启动的开发版目视复验设置页七个分组；Windows 11 x64、macOS arm64 及新安装包未验证。当前改动未推送或发布。
+
+## P31 检查更新说明文案精简（2026-10-07）
+
+- 此步曾将说明精简为“当前版本：v{version}。发现新版本后，可前往发布页下载安装。”；P33 加入直接下载按钮后，当前界面改为只显示“当前版本：v{version}”，英文词条同步。
+- Node.js 22.19.0 下 lint、2 文件/7 项定向测试和包含三组 typecheck 的生产构建通过；开发版热更新可直接复看。未推送或发布。
+
+## P33 对应系统安装包直接下载入口（2026-10-07）
+
+- 有新版本且公开 Release 已上传当前系统安装包时，设置页显示“下载当前系统安装包”；点击后默认浏览器打开 main 构造的固定 GitHub 附件 URL。对应附件缺失/未上传时保留“查看发布页”。不自动安装或执行下载文件。
+- main 只根据 Windows x64、macOS Intel x64、macOS arm64 固定命名与附件状态开放无参数下载 IPC；renderer 不接收远端 URL。启动提示按附件是否可下载分支展示。
+- lint、typecheck、37 文件/220 项测试、生产构建和 macOS Intel 源码 Electron 冒烟通过。当前 rc.7 没有可触发的新版本，未执行真实安装包下载/哈希/升级；下一入口是在后续候选版分别进行三个原生目标的下载与安装实测。未推送或发布。

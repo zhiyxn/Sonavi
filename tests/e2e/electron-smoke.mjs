@@ -651,6 +651,8 @@ try {
 
   const bridgeShape = await window.evaluate(() => ({
     getInfo: typeof window.sonavi?.application?.getInfo,
+    checkForUpdates: typeof window.sonavi?.application?.checkForUpdates,
+    downloadUpdate: typeof window.sonavi?.application?.downloadUpdate,
     testConnection: typeof window.sonavi?.connection?.test,
     restoreConnection: typeof window.sonavi?.connection?.restore,
     listSavedConnections: typeof window.sonavi?.connection?.listSaved,
@@ -685,6 +687,8 @@ try {
   }))
   if (
     bridgeShape.getInfo !== 'function' ||
+    bridgeShape.checkForUpdates !== 'function' ||
+    bridgeShape.downloadUpdate !== 'function' ||
     bridgeShape.testConnection !== 'function' ||
     bridgeShape.restoreConnection !== 'function' ||
     bridgeShape.listSavedConnections !== 'function' ||
@@ -1004,6 +1008,32 @@ try {
 
   await window.getByRole('button', { name: '设置', exact: true }).click()
   await window.getByRole('heading', { name: '设置', exact: true }).waitFor()
+  await window.getByText('桌面行为', { exact: true }).waitFor()
+  await window.getByText('播放策略', { exact: true }).waitFor()
+  const settingsTitleInsets = await window.evaluate(() => {
+    const expected = ['桌面行为', '检查更新', '播放策略', '网络代理', '连接诊断', '封面缓存', '应用恢复']
+    const cards = [...globalThis.document.querySelectorAll('.settings-form fieldset, fieldset.diagnostics-card')]
+    if (cards.length !== expected.length) throw new Error(`设置分组数量错误：${cards.length}`)
+    return cards.map((card, index) => {
+      const legend = card.querySelector(':scope > legend')
+      if (legend?.textContent?.trim() !== expected[index]) {
+        throw new Error(`设置分组未使用预期 legend：${expected[index]}`)
+      }
+      const title = legend.getBoundingClientRect()
+      const bounds = card.getBoundingClientRect()
+      if (title.top >= bounds.top + 8 || title.bottom <= bounds.top - 8 || title.left <= bounds.left + 8) {
+        throw new Error(`设置分组 legend 未与边框对齐：${expected[index]}`)
+      }
+      return { title: expected[index], top: title.top - bounds.top, left: title.left - bounds.left }
+    })
+  })
+  const topInsets = settingsTitleInsets.map(({ top }) => top)
+  const leftInsets = settingsTitleInsets.map(({ left }) => left)
+  if (Math.max(...topInsets) - Math.min(...topInsets) > 4 ||
+      Math.max(...leftInsets) - Math.min(...leftInsets) > 4) {
+    throw new Error(`设置分组 legend 未对齐：${JSON.stringify(settingsTitleInsets)}`)
+  }
+  console.log('Settings cards passed: all seven legends align with their borders')
   await window.getByRole('button', { name: '重启 Sonavi', exact: true }).click()
   await window.getByText('重启 Sonavi？', { exact: true }).waitFor()
   await window.getByRole('button', { name: '取消', exact: true }).click()

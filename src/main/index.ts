@@ -3,9 +3,12 @@ import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   APPLICATION_INFO_CHANNEL,
+  CHECK_FOR_UPDATES_CHANNEL,
+  DOWNLOAD_UPDATE_CHANNEL,
+  OPEN_RELEASES_PAGE_CHANNEL,
   OPEN_PROJECT_HOMEPAGE_CHANNEL
 } from '../shared/application'
-import { ApplicationInfoSchema } from '../shared/application-schema'
+import { ApplicationInfoSchema, UpdateCheckResultSchema } from '../shared/application-schema'
 import { translate } from '../shared/localization'
 import {
   CONNECT_SAVED_CONNECTION_CHANNEL,
@@ -150,6 +153,7 @@ import {
 } from './services/desktop-state-service'
 import { DesktopIntegrationController } from './platform/desktop-integration'
 import { SingleInstanceController } from './platform/single-instance'
+import { RELEASES_PAGE_URL, UpdateCheckService } from './services/update-check-service'
 
 const platformAdapter = getPlatformAdapter(process.platform)
 let mainWindow: BrowserWindow | null = null
@@ -160,7 +164,7 @@ const singleInstance = new SingleInstanceController({
   removeSecondInstanceListener: (listener) => app.removeListener('second-instance', listener)
 })
 
-function registerApplicationIpc(): void {
+function registerApplicationIpc(updateCheck: UpdateCheckService): void {
   ipcMain.handle(APPLICATION_INFO_CHANNEL, (event) => {
     assertTrustedIpcSender(event)
 
@@ -174,6 +178,25 @@ function registerApplicationIpc(): void {
   ipcMain.handle(OPEN_PROJECT_HOMEPAGE_CHANNEL, async (event) => {
     assertTrustedIpcSender(event)
     await shell.openExternal('https://github.com/zhiyxn/Sonavi')
+    return true
+  })
+
+  ipcMain.handle(CHECK_FOR_UPDATES_CHANNEL, async (event) => {
+    assertTrustedIpcSender(event)
+    return UpdateCheckResultSchema.parse(await updateCheck.check(app.getVersion()))
+  })
+
+  ipcMain.handle(OPEN_RELEASES_PAGE_CHANNEL, async (event) => {
+    assertTrustedIpcSender(event)
+    await shell.openExternal(RELEASES_PAGE_URL)
+    return true
+  })
+
+  ipcMain.handle(DOWNLOAD_UPDATE_CHANNEL, async (event) => {
+    assertTrustedIpcSender(event)
+    const url = updateCheck.getDownloadUrl()
+    if (!url) throw new Error('当前没有可下载的对应系统安装包。')
+    await shell.openExternal(url)
     return true
   })
 }
@@ -825,13 +848,17 @@ if (singleInstance.acquire()) {
     }
   ])
 
-  registerApplicationIpc()
-
   void app.whenReady().then(async () => {
     installSecurityPolicies()
     const diagnostics = new NetworkDiagnosticRecorder()
     const networkPolicy = new NetworkPolicyService(app.getPath('userData'), session.defaultSession)
     await networkPolicy.initialize()
+    const updateCheck = new UpdateCheckService(
+      (url, init) => session.defaultSession.fetch(url, init),
+      process.platform,
+      process.arch
+    )
+    registerApplicationIpc(updateCheck)
     const desktopState = new DesktopStateService(app.getPath('userData'))
     await desktopState.initialize()
     const client = new OpenSubsonicClient(

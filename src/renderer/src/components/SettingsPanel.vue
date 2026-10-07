@@ -4,6 +4,7 @@ import type { ApplicationInfo } from '../../../shared/application'
 import type { ConnectionSuccessResult } from '../../../shared/connection'
 import type { NetworkDiagnosticEntry, NetworkSettings } from '../../../shared/network'
 import type { CoverCacheInfo, DesktopPreferences } from '../../../shared/desktop'
+import { checkForUpdates, downloadUpdate, openReleasesPage } from '../services/application-info'
 import { showErrorToast } from '../lib/notifications'
 import {
   exportNetworkDiagnostics,
@@ -12,6 +13,7 @@ import {
   saveNetworkSettings
 } from '../services/network'
 import { Button } from './ui/button'
+import { Checkbox } from './ui/checkbox'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import {
@@ -47,6 +49,11 @@ const disconnectConfirmationOpen = ref(false)
 const restartConfirmationOpen = ref(false)
 const restarting = ref(false)
 const desktopSettings = ref<DesktopPreferences | null>(null)
+const updateStatus = ref<'idle' | 'checking' | 'available' | 'up-to-date' | 'error'>('idle')
+const availableVersion = ref('')
+const downloadAvailable = ref(false)
+const openingDownload = ref(false)
+const downloadMessage = ref('')
 const cacheInfo = ref<CoverCacheInfo | null>(null)
 const desktop = useDesktopStore()
 const supportsTranscodeOffset = computed(() =>
@@ -136,6 +143,51 @@ async function saveDesktopSettings(): Promise<void> {
     })
   } finally {
     savingDesktop.value = false
+  }
+}
+
+async function checkUpdates(): Promise<void> {
+  if (updateStatus.value === 'checking') return
+  updateStatus.value = 'checking'
+  availableVersion.value = ''
+  downloadAvailable.value = false
+  downloadMessage.value = ''
+  try {
+    const result = await checkForUpdates()
+    updateStatus.value = result.status
+    if (result.status === 'available') {
+      availableVersion.value = result.version
+      downloadAvailable.value = result.downloadAvailable
+    }
+  } catch {
+    updateStatus.value = 'error'
+  }
+}
+
+async function downloadInstaller(): Promise<void> {
+  if (openingDownload.value) return
+  openingDownload.value = true
+  try {
+    await downloadUpdate()
+    downloadMessage.value = t('已在默认浏览器中打开下载链接。')
+  } catch {
+    showErrorToast('无法打开安装包下载链接，请稍后重试或查看发布页。', {
+      title: '下载入口打开失败',
+      id: 'download-update-error'
+    })
+  } finally {
+    openingDownload.value = false
+  }
+}
+
+async function openReleaseListing(): Promise<void> {
+  try {
+    await openReleasesPage()
+  } catch {
+    showErrorToast('无法调用系统默认浏览器，请稍后重试。', {
+      title: '无法打开发布页',
+      id: 'open-releases-error'
+    })
   }
 }
 
@@ -291,6 +343,10 @@ async function exportDiagnostics(): Promise<void> {
             </SelectContent>
           </Select>
         </div>
+        <div class="settings-control-row">
+          <Label for="check-updates-on-startup">{{ t('启动时检查更新') }}</Label>
+          <Checkbox id="check-updates-on-startup" v-model="desktopSettings.checkUpdatesOnStartup" />
+        </div>
         <p class="settings-help">
           {{ t('最小化始终保留播放。隐藏后可从 Windows 托盘或 macOS 菜单栏重新显示；托盘菜单中的“退出 Sonavi”会停止播放并退出进程。') }}
         </p>
@@ -299,6 +355,31 @@ async function exportDiagnostics(): Promise<void> {
         {{ t(savingDesktop ? '正在保存…' : '保存桌面设置') }}
       </Button>
     </form>
+
+    <fieldset class="diagnostics-card">
+      <legend>{{ t('检查更新') }}</legend>
+      <header>
+        <div>
+          <p>{{ t('当前版本：v{version}', { version: applicationInfo.version }) }}</p>
+        </div>
+        <Button variant="outline" :disabled="updateStatus === 'checking'" @click="checkUpdates">
+          {{ t(updateStatus === 'checking' ? '正在检查…' : '检查更新') }}
+        </Button>
+      </header>
+      <p v-if="updateStatus !== 'idle'" class="settings-help" role="status">
+        <template v-if="updateStatus === 'checking'">{{ t('正在查询公开发布版本…') }}</template>
+        <template v-else-if="updateStatus === 'available'">{{ t('发现新版本：{version}', { version: availableVersion }) }}</template>
+        <template v-else-if="updateStatus === 'up-to-date'">{{ t('当前已是最新版本。') }}</template>
+        <template v-else>{{ t('检查更新失败，请检查网络或稍后重试。') }}</template>
+      </p>
+      <div v-if="updateStatus === 'available'" class="flex flex-wrap gap-2">
+        <Button v-if="downloadAvailable" :disabled="openingDownload" @click="downloadInstaller">
+          {{ t('下载当前系统安装包') }}
+        </Button>
+        <Button variant="ghost" size="sm" @click="openReleaseListing">{{ t('查看发布页') }}</Button>
+      </div>
+      <p v-if="downloadMessage" class="settings-help" role="status">{{ downloadMessage }}</p>
+    </fieldset>
 
     <form v-if="settings" class="settings-form" @submit.prevent="saveSettings">
       <fieldset>
@@ -370,10 +451,10 @@ async function exportDiagnostics(): Promise<void> {
       <Button type="submit" :disabled="saving">{{ t(saving ? '正在保存…' : '保存播放与网络设置') }}</Button>
     </form>
 
-    <section class="diagnostics-card" aria-labelledby="diagnostics-title">
+    <fieldset class="diagnostics-card">
+      <legend>{{ t('连接诊断') }}</legend>
       <header>
         <div>
-          <h2 id="diagnostics-title">{{ t('连接诊断') }}</h2>
           <p>{{ t('仅记录阶段、端点名、状态、类型、分类、耗时与脱敏后的错误文本，不记录 URL、账号、token、资源 ID 或响应正文。') }}</p>
         </div>
         <div class="flex flex-wrap gap-2">
@@ -392,12 +473,12 @@ async function exportDiagnostics(): Promise<void> {
           <span v-if="entry.errorDetail">{{ entry.errorName || 'Error' }}: {{ t(entry.errorDetail) }}</span>
         </li>
       </ol>
-    </section>
+    </fieldset>
 
-    <section class="diagnostics-card" aria-labelledby="cache-title">
+    <fieldset class="diagnostics-card">
+      <legend>{{ t('封面缓存') }}</legend>
       <header>
         <div>
-          <h2 id="cache-title">{{ t('封面缓存') }}</h2>
           <p>{{ t('按账号隔离、最近最少使用淘汰，单账号上限 128 MiB；不缓存音频，不提供离线下载。') }}</p>
         </div>
         <Button variant="outline" size="sm" :disabled="clearingCache" @click="requestClearCache">
@@ -407,19 +488,19 @@ async function exportDiagnostics(): Promise<void> {
       <p v-if="cacheInfo" class="settings-help">
         {{ t('{count} 项', { count: cacheInfo.itemCount }) }} · {{ formatBytes(cacheInfo.totalBytes) }} / {{ formatBytes(cacheInfo.maxBytes) }}
       </p>
-    </section>
+    </fieldset>
 
-    <section class="diagnostics-card" aria-labelledby="restart-title">
+    <fieldset class="diagnostics-card">
+      <legend>{{ t('应用恢复') }}</legend>
       <header>
         <div>
-          <h2 id="restart-title">{{ t('应用恢复') }}</h2>
           <p>{{ t('界面或播放状态异常时，可关闭当前进程并重新打开 Sonavi。当前队列会按既有退出流程保存，并在重启后以暂停状态恢复；若整个应用已无法响应，仍需使用系统强制退出。') }}</p>
         </div>
         <Button variant="outline" :disabled="restarting" @click="restartConfirmationOpen = true">
           {{ t(restarting ? '正在重启…' : '重启 Sonavi') }}
         </Button>
       </header>
-    </section>
+    </fieldset>
 
     <p v-if="statusMessage" class="settings-status" role="status">{{ statusMessage }}</p>
     <div class="mt-6 flex flex-wrap gap-3">

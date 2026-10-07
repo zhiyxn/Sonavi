@@ -1,6 +1,6 @@
 # Sonavi 架构
 
-更新日期：2026-09-25
+更新日期：2026-10-07
 
 ## 单工程与共享边界
 
@@ -76,6 +76,8 @@ TanStack Query 为每次 `search3` 提供 AbortSignal 并设置 `retry: false`�
 音乐、专辑、艺术家、收藏与歌单组件由 `KeepAlive` 保留已访问实例，避免栏目切换重建搜索条件、详情来源链、歌单详情和查询观察器；设置页不缓存。服务器读取按 session 与资源键在当前连接会话内保持新鲜，禁用挂载和窗口聚焦自动重取，各页刷新按钮只 `refetch` 当前列表、分页或详情。工作区是音乐、专辑和艺术家列表的唯一纵向滚动容器，已有栏目/详情键继续保存其滚动位置；三页搜索表单统一使用 `position: sticky; top: 12px`，并以 32px 下间距分隔结果。收藏/歌单写入仍按资源失效并重读服务器事实；代理变更、恢复/解锁、断开和忘记账号继续清除查询缓存，其中网络设置变更同时轮换页面缓存实例，确保不会复用旧网络上下文。
 
 设置页在同一共享组件中呈现平台、服务器、协议、播放/网络策略、关闭动作、主题、当前账号封面缓存与安全退出；平台行为由 preload/main 适配，不在 Vue 组件读取 `process`。
+
+P31/P33 的版本检查由共享 main 通过 `session.defaultSession.fetch` 读取固定的 Sonavi GitHub Releases API，沿用系统/直连/手动代理策略；只接收受限版本标签、有限响应体和公开发布元数据。main 按 Windows x64、macOS x64、macOS arm64 的固定命名核对 Release 附件，只有对应附件状态为 `uploaded` 才允许直接下载。preload 仅提供无参数检查、打开固定发布页和下载对应安装包方法；main 自行构造固定仓库下载地址，renderer 不接收或打开远端 URL。桌面偏好 `checkUpdatesOnStartup` 控制启动后一次后台检查；旧 v1 状态缺少该字段时补默认值并保留原窗口、语言和队列。网络失败不阻断启动，手动检查显示错误；浏览器下载后仍由用户手动安装。
 
 renderer 根节点只挂载一个项目持有的 shadcn-vue Sonner `Toaster`。连接、设置、收藏/歌单 mutation、查询、播放和上报错误通过统一通知工具调用 `toast.error`，稳定 ID 避免同一错误重复堆叠；阻断当前页面的加载错误仍保留带重试按钮的状态卡。删除歌单与退出并忘记账号不再调用原生 `window.confirm`，而使用项目持有的 shadcn-vue AlertDialog；取消或关闭不执行操作，确认后才进入既有受限 IPC/服务调用，组件同时阻止重复确认。Input、Checkbox、Label、Select 与 Slider 同样由官方 shadcn-vue 源码引入并按 Sonavi tokens 和严格 TypeScript 规则适配；业务导航、实体卡片和虚拟列表继续保留语义化按钮。
 

@@ -21,7 +21,10 @@ function installPlatformApi(platform: 'windows' | 'macos'): SonaviApi {
         closeBehavior: 'hide-window',
         canHideToBackground: true
       }),
-      openProjectHomepage: vi.fn(async () => true)
+      openProjectHomepage: vi.fn(async () => true),
+      checkForUpdates: vi.fn(async () => ({ status: 'up-to-date' as const })),
+      openReleasesPage: vi.fn(async () => true),
+      downloadUpdate: vi.fn(async () => true)
     },
     connection: {
       test: async () => ({
@@ -113,6 +116,7 @@ function installPlatformApi(platform: 'windows' | 'macos'): SonaviApi {
         closeAction: 'hide',
         theme: 'system',
         language: 'zh-CN',
+        checkUpdatesOnStartup: true,
         volume: 1
       }),
       updatePreferences: async (preferences) => preferences,
@@ -149,6 +153,7 @@ describe('共享应用外壳', () => {
       closeAction: 'hide',
       theme: 'system',
       language: 'en-US',
+      checkUpdatesOnStartup: true,
       volume: 1
     })
     const wrapper = mount(App, { global: { plugins: [createPinia(), VueQueryPlugin] } })
@@ -157,6 +162,17 @@ describe('共享应用外壳', () => {
     expect(document.documentElement.lang).toBe('en-US')
     expect(wrapper.text()).toContain('Connect to server')
     expect(wrapper.text()).toContain('Settings shortcut Ctrl+,')
+    expect(api.application.checkForUpdates).toHaveBeenCalledOnce()
+  })
+
+  it('关闭启动检查后不发出版本请求', async () => {
+    const api = installPlatformApi('windows')
+    api.desktop.getPreferences = async () => ({
+      closeAction: 'hide', theme: 'system', language: 'zh-CN', checkUpdatesOnStartup: false, volume: 1
+    })
+    mount(App, { global: { plugins: [createPinia(), VueQueryPlugin] } })
+    await flushPromises()
+    expect(api.application.checkForUpdates).not.toHaveBeenCalled()
   })
 
   it('连接后默认展示专辑，并使用音乐/专辑/艺术家导航而不保留首页和独立搜索', async () => {

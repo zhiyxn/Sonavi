@@ -36,6 +36,7 @@ describe('P09 桌面状态', () => {
       closeAction: 'quit',
       theme: 'dark',
       language: 'en-US',
+      checkUpdatesOnStartup: false,
       volume: 0.42
     })
     const session = connectedSession()
@@ -63,6 +64,7 @@ describe('P09 桌面状态', () => {
       closeAction: 'quit',
       theme: 'dark',
       language: 'en-US',
+      checkUpdatesOnStartup: false,
       volume: 0.42
     })
     expect(restoredService.restorePausedQueue(session)).toMatchObject({
@@ -88,6 +90,7 @@ describe('P09 桌面状态', () => {
       closeAction: 'hide',
       theme: 'system',
       language: 'zh-CN',
+      checkUpdatesOnStartup: true,
       volume: 1
     })
   })
@@ -108,8 +111,25 @@ describe('P09 桌面状态', () => {
       closeAction: 'quit',
       theme: 'dark',
       language: 'zh-CN',
+      checkUpdatesOnStartup: true,
       volume: 0.35
     })
     expect(service.getWindowState()).toEqual({ width: 1200, height: 760, maximized: false })
+  })
+
+  it('旧版有语言但没有更新开关时默认启用并保留语言', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'sonavi-desktop-state-'))
+    temporaryDirectories.push(directory)
+    await writeFile(join(directory, 'desktop-state.v1.json'), JSON.stringify({
+      version: 1,
+      preferences: { closeAction: 'quit', theme: 'dark', language: 'en-US', volume: 0.4 },
+      window: { width: 1100, height: 700, maximized: false }
+    }))
+    const service = new DesktopStateService(directory)
+    await service.initialize()
+    expect(service.getPreferences()).toEqual({
+      closeAction: 'quit', theme: 'dark', language: 'en-US', checkUpdatesOnStartup: true, volume: 0.4
+    })
+    expect(service.getWindowState()).toEqual({ width: 1100, height: 700, maximized: false })
   })
 })

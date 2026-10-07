@@ -24,7 +24,7 @@ describe('P09 桌面集成', () => {
     const quitApplication = vi.fn()
     const controller = new DesktopIntegrationController({
       getWindow: () => null,
-      getPreferences: () => ({ closeAction: 'hide', theme: 'system', language: 'zh-CN', volume: 1 }),
+      getPreferences: () => ({ closeAction: 'hide', theme: 'system', language: 'zh-CN', checkUpdatesOnStartup: true, volume: 1 }),
       saveWindowState: async () => undefined,
       sendCommand: vi.fn(),
       recoverNetwork: async () => undefined,

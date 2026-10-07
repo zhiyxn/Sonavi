@@ -8,7 +8,7 @@ import { getActiveLanguage, setActiveLanguage, t } from '../../src/renderer/src/
 
 describe('P28 双语与安装包 locale', () => {
   it('桌面偏好只接受简体中文和英文', () => {
-    const base = { closeAction: 'hide', theme: 'system', volume: 1 }
+    const base = { closeAction: 'hide', theme: 'system', checkUpdatesOnStartup: true, volume: 1 }
     expect(DesktopPreferencesSchema.parse({ ...base, language: 'zh-CN' }).language).toBe('zh-CN')
     expect(DesktopPreferencesSchema.parse({ ...base, language: 'en-US' }).language).toBe('en-US')
     expect(() => DesktopPreferencesSchema.parse({ ...base, language: 'fr-FR' })).toThrow()

@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import type { SonaviApi } from '../../src/shared/application'
+import type { DesktopPreferences } from '../../src/shared/desktop'
 import SettingsPanel from '../../src/renderer/src/components/SettingsPanel.vue'
 import { setActiveLanguage } from '../../src/renderer/src/i18n'
 
@@ -15,16 +16,22 @@ afterEach(() => {
 describe('设置页安全重启', () => {
   it('取消不调用 IPC，确认后只请求一次重启', async () => {
     const restartApplication = vi.fn(async () => true)
+    const updatePreferences = vi.fn(async (preferences: DesktopPreferences) => preferences)
+    const checkForUpdates = vi.fn(async () => ({ status: 'available', version: '0.1.0-rc.8', downloadAvailable: true }))
+    const openReleasesPage = vi.fn(async () => true)
+    const downloadUpdate = vi.fn(async () => true)
     Object.defineProperty(window, 'sonavi', {
       value: {
+        application: { checkForUpdates, openReleasesPage, downloadUpdate },
         desktop: {
           getPreferences: async () => ({
             closeAction: 'hide',
             theme: 'system',
             language: 'zh-CN',
+            checkUpdatesOnStartup: true,
             volume: 1
           }),
-          updatePreferences: vi.fn(),
+          updatePreferences,
           restartApplication,
           getCoverCacheInfo: async () => ({
             itemCount: 0,
@@ -73,6 +80,35 @@ describe('设置页安全重启', () => {
     await flushPromises()
 
     expect(wrapper.find('#interface-language').exists()).toBe(true)
+    expect(wrapper.find('#check-updates-on-startup').attributes('data-state')).toBe('checked')
+    await wrapper.get('#check-updates-on-startup').trigger('click')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+    expect(updatePreferences).toHaveBeenCalledWith(expect.objectContaining({ checkUpdatesOnStartup: false }))
+    const updateButton = wrapper.findAll('button').find((button) => button.text() === '检查更新')
+    await updateButton?.trigger('click')
+    await flushPromises()
+    expect(checkForUpdates).toHaveBeenCalledOnce()
+    expect(wrapper.text()).toContain('发现新版本：0.1.0-rc.8')
+    const downloadButton = wrapper.findAll('button').find((button) => button.text() === '下载当前系统安装包')
+    await downloadButton?.trigger('click')
+    await flushPromises()
+    expect(downloadUpdate).toHaveBeenCalledOnce()
+    expect(wrapper.text()).toContain('已在默认浏览器中打开下载链接。')
+    const releasesButton = wrapper.findAll('button').find((button) => button.text() === '查看发布页')
+    await releasesButton?.trigger('click')
+    expect(openReleasesPage).toHaveBeenCalledOnce()
+    checkForUpdates.mockResolvedValueOnce({
+      status: 'available', version: '0.1.0-rc.8', downloadAvailable: false
+    })
+    await updateButton?.trigger('click')
+    await flushPromises()
+    expect(wrapper.findAll('button').some((button) => button.text() === '下载当前系统安装包')).toBe(false)
+    expect(wrapper.findAll('button').some((button) => button.text() === '查看发布页')).toBe(true)
+    checkForUpdates.mockRejectedValueOnce(new Error('offline'))
+    await updateButton?.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('检查更新失败，请检查网络或稍后重试。')
     expect(wrapper.text()).toContain('界面语言')
     setActiveLanguage('en-US')
     await nextTick()

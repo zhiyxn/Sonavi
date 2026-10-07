@@ -13,7 +13,7 @@ import PlaylistsPanel from './components/PlaylistsPanel.vue'
 import ServerManagementPanel from './components/ServerManagementPanel.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
 import ConfirmationDialog from './components/ConfirmationDialog.vue'
-import { loadApplicationInfo } from './services/application-info'
+import { checkForUpdates, loadApplicationInfo } from './services/application-info'
 import {
   connectSavedConnection,
   disconnectConnection,
@@ -27,12 +27,14 @@ import type {
 } from '../../shared/connection'
 import { useSessionStore } from './stores/session'
 import { usePlayerStore } from './stores/player'
+import { useDesktopStore } from './stores/desktop'
 import { usePlaybackReporting } from './composables/use-playback-reporting'
 import { usePlaybackBufferDiagnostics } from './composables/use-playback-buffer-diagnostics'
 import { useDesktopIntegration } from './composables/use-desktop-integration'
 import { useErrorToast } from './lib/notifications'
 import { Toaster } from './components/ui/sonner'
 import { t } from './i18n'
+import { toast } from 'vue-sonner'
 
 const applicationInfo = ref<ApplicationInfo | null>(null)
 const loadingError = ref('')
@@ -43,6 +45,7 @@ const connectionDraft = ref<SavedConnectionProfile | null>(null)
 const serverActionPending = ref(false)
 const session = useSessionStore()
 const player = usePlayerStore()
+const desktop = useDesktopStore()
 const { errorMessage: playbackReportError } = usePlaybackReporting()
 usePlaybackBufferDiagnostics()
 const queryClient = useQueryClient()
@@ -93,6 +96,7 @@ useErrorToast(() => player.errorMessage, { title: '播放失败', id: 'player-er
 onMounted(async () => {
   try {
     applicationInfo.value = await loadApplicationInfo()
+    void checkUpdatesOnStartup()
     const restored = await restoreConnection()
     if (restored) {
       session.establish(restored)
@@ -103,6 +107,25 @@ onMounted(async () => {
     startupPending.value = false
   }
 })
+
+async function checkUpdatesOnStartup(): Promise<void> {
+  try {
+    await desktop.initialize()
+    if (!desktop.preferences.checkUpdatesOnStartup) return
+    const result = await checkForUpdates()
+    if (result.status === 'available') {
+      toast.info(t('发现新版本：{version}', { version: result.version }), {
+        description: result.downloadAvailable
+          ? t('可在设置中下载当前系统安装包。')
+          : t('可在设置中查看发布页。'),
+        id: 'application-update-available',
+        duration: 10_000
+      })
+    }
+  } catch {
+    // Automatic checks are best effort; manual checks show an explicit error.
+  }
+}
 
 async function openProjectHomepage(): Promise<void> {
   projectHomepageError.value = ''

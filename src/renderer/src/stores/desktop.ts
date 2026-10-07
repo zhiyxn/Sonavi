@@ -9,6 +9,7 @@ export const useDesktopStore = defineStore('desktop', () => {
     closeAction: 'hide',
     theme: 'system',
     language: 'zh-CN',
+    checkUpdatesOnStartup: true,
     volume: 1
   })
   const initialized = ref(false)

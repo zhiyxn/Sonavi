@@ -27,6 +27,7 @@ export interface DesktopPreferences {
   closeAction: CloseAction
   theme: ThemePreference
   language: AppLanguage
+  checkUpdatesOnStartup: boolean
   volume: number
 }
 
