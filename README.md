@@ -25,8 +25,8 @@ Project documentation is currently written in Chinese; an English translation is
 
 以下截图使用本地测试数据，不包含真实账号或服务器信息。
 
-| 浅色歌单 | 深色专辑详情 |
-| --- | --- |
+| 浅色歌单                                                        | 深色专辑详情                                                   |
+| --------------------------------------------------------------- | -------------------------------------------------------------- |
 | ![Sonavi 浅色模式歌单页面](docs/images/app-playlists-light.png) | ![Sonavi 深色模式专辑详情页面](docs/images/app-album-dark.png) |
 
 ## 下载
@@ -88,9 +88,9 @@ Sonavi 仍处于 Pre-release 阶段，不代表正式稳定版。
 
 Sonavi 使用 [MIT License](LICENSE)。
 
-## 友链
+## 感谢
 
-[LINUX DO](https://linux.do/) — 真诚、友善、团结、专业的技术社区。Sonavi 认可并支持 LINUX DO 社区。
+[LINUX DO](https://linux.do/) 社区提供真诚、友善、团结、专业的交流平台。
 
 ## 文档
 
