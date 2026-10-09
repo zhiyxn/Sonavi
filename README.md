@@ -88,6 +88,10 @@ Sonavi 仍处于 Pre-release 阶段，不代表正式稳定版。
 
 Sonavi 使用 [MIT License](LICENSE)。
 
+## 友链
+
+[LINUX DO](https://linux.do/) — 真诚、友善、团结、专业的技术社区。Sonavi 认可并支持 LINUX DO 社区。
+
 ## 文档
 
 开发、架构、安全、测试与发布说明位于 [`docs/`](docs/)，包括 [测试报告](docs/TEST-REPORT.md)、[已知问题](docs/KNOWN-ISSUES.md) 和 [发布检查清单](docs/RELEASE-CHECKLIST.md)。
