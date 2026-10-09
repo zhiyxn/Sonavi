@@ -427,3 +427,12 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 - 发布前审计新增 3 项高危，通过兼容范围更新传递依赖修复；余 8 项中危构建工具链依赖。Electron 44.3.0 从干净依赖首次加载时发生并发安装冲突，两套 CI 均加串行安装步骤，见 D045。
 - 最终本地锁文件重装、标签校验、lint、三组 typecheck、37 文件/221 项测试、生产构建和源码 Electron 冒烟通过；启动样本 2,106 ms，20 轮切页内存增量 53,720 KiB、媒体请求增量 1。
 - 下一入口：提交并推送 `main`，等待普通三目标 CI 成功，再推送候选标签；release gate 全部通过后核验 Pre-release、三个安装包、三个 manifest 与 SHA-256 清单并补记发布结果。正式签名、公证与本轮三目标人工升级验收仍未验证。
+
+## v0.1.0-rc.8 发布结果（2026-10-09）
+
+- 发布准备提交 `51741ff305d1801d77acdb0f54939b2fda71c289` 已推送到 `main`；注释标签 `v0.1.0-rc.8` 指向该提交，远端回读一致，未改写旧标签。
+- 普通 CI run `37945719441` 三目标全部成功；release run `37946663432` 的 Windows x64、macOS Intel x64、macOS arm64 release gate 与 `Create GitHub Pre-release` 全部成功。
+- Release 于 2026-10-09 22:53:43（Asia/Shanghai）发布，为非草稿 Pre-release，非 Latest（`/releases/latest` 返回 404）：[v0.1.0-rc.8](https://github.com/zhiyxn/Sonavi/releases/tag/v0.1.0-rc.8)。
+- 七附件齐全：三个安装包、三个 manifest 与 610 字节 `SHA256SUMS.txt`。回读校验清单 6 行、manifest 内容及 GitHub 附件 digest 全部一致；Windows EXE 104,162,073 字节、Intel DMG 122,848,181 字节、arm64 DMG 118,598,015 字节。
+- Windows 与 Intel 包签名状态为 `unsigned`，arm64 为 `ad-hoc`；macOS 未公证。自动 runner 证据不外推为人工安装或升级完成。
+- 下一入口：先从 Release 手动将已发布 rc.7 升到 rc.8，再在后续更高版本上分别验证三目标的启动提示、浏览器下载、人工升级及凭据/设置/暂停队列恢复。Windows/macOS arm64 本轮实机、arm64 物理听音、正式签名/公证仍未验证。

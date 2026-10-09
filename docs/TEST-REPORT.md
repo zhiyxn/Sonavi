@@ -855,3 +855,19 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - 桌面会话 `node tests/e2e/electron-smoke.mjs`：完整通过，包含七个设置 legend 几何、服务器管理、播放、歌词、收藏/歌单、网络、单实例、队列与凭据恢复/删除。启动样本 2,106 ms；20 轮切页内存增量 53,720 KiB，媒体请求增量 1。
 - `SONAVI_RELEASE_TAG=v0.1.0-rc.8 node scripts/prepare-release.mjs validate-tag`、临时 Node 文档校验（8 个本地链接、版本/锁文件一致及三目标文件名/Release notes）与 `git diff --check`：通过。
 - 待远端原生 runner 重跑普通 CI 和三目标 release gate；本轮未在本机重复打包。真实下载、跨版本安装及数据恢复、Windows/macOS arm64 实机与正式签名/公证未验证。
+
+## v0.1.0-rc.8 远端发布与附件核验（2026-10-09）
+
+- 发布源码 `51741ff305d1801d77acdb0f54939b2fda71c289`；普通 CI [run 37945719441](https://github.com/zhiyxn/Sonavi/actions/runs/37945719441) 的 Windows x64、macOS Intel x64、macOS arm64 全部成功，均完成源码与打包应用 Electron 冒烟。
+- 候选发布 [run 37946663432](https://github.com/zhiyxn/Sonavi/actions/runs/37946663432) 的三目标 release gate 与发布 job 全部成功，包括锁文件安装、串行 Electron 安装、lint、typecheck、全量测试、高危依赖审计、源码冒烟、包构建、包验证和包内冒烟。
+- 本机 NVM Node.js 22.19.0 执行临时 `/private/tmp/sonavi-rc8-verify-release.mjs`：通过；回读公开 Release 与七附件，核验非草稿 Pre-release、发布说明与源码一致、准确附件名和 uploaded 状态。`/releases/latest` 返回 404，rc.8 未设为 Latest。
+- 下载 610 字节/6 行 `SHA256SUMS.txt` 与三个 JSON manifest，核验大小、文件 SHA-256、GitHub 附件 digest 和 manifest 内安装包 SHA-256 一致；未重复下载百 MiB 安装包，安装包摘要通过 GitHub 上传 digest 和原生包验证清单交叉核对。各 manifest 的目标宿主/架构、版本、应用 ID、macOS 最低版本及 ASAR 上限均通过。
+
+| 目标 | 安装包字节数 | SHA-256 | ASAR 字节数 | 签名 |
+| --- | ---: | --- | ---: | --- |
+| Windows x64 | 104,162,073 | `a3913bb2508aad4c4c7fa7e956ed3afacc4c8c30c16988e6f785b95837676da8` | 2,271,917 | unsigned |
+| macOS Intel x64 | 122,848,181 | `d667bdaa6c0b91863c78882899744d3959b1695bc8b66ef24dec5fd26a5d7a28` | 2,270,374 | unsigned |
+| macOS arm64 | 118,598,015 | `30e5676db1a4238e5e348510c498219d55421d3122c81a2b88be3781ea6e17dc` | 2,270,374 | ad-hoc |
+
+- `git ls-remote` 回读 `main`、注释标签及标签解引用，确认均对应发布准备提交。`git diff --check` 通过。
+- 未验证：对应系统人工浏览器下载/跨版本安装/升级后数据恢复、真实服务完整验收、arm64 物理听音、正式签名与 macOS 公证。以上 CI 与附件证据不替代这些人工验证。
