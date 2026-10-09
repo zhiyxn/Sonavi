@@ -55,6 +55,9 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Install Electron runtime before parallel tests
+        run: node node_modules/electron/install.js
+
       - name: Lint
         run: npm run lint
 

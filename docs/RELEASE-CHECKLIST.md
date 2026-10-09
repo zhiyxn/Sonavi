@@ -1,6 +1,6 @@
 # Sonavi 发布前清单
 
-更新日期：2026-09-16
+更新日期：2026-10-09
 
 本清单用于 P10 候选包验证，不代表已经授权公开发布。Windows 11 x64、macOS 13+ Intel x64 与 macOS 13+ Apple Silicon arm64 必须在各自目标系统构建和运行；在一台主机生成另一架构文件不能替代对应实机验收。
 
@@ -14,7 +14,7 @@
 
 ## 候选包命令
 
-先在目标系统执行 `nvm use` 与 `npm ci`，再使用对应一组命令：
+先在目标系统执行 `nvm use`、`npm ci` 和 `node node_modules/electron/install.js`，串行准备锁定的 Electron 运行时，再使用对应一组命令：
 
 ```sh
 # Windows 11 x64
@@ -38,6 +38,8 @@ npm run test:e2e:package -- mac-arm64
 测试候选 `v0.1.0-rc.1` 与 `v0.1.0-rc.2` 均因 Electron release gate 失败而没有创建 Release，远端标签保留且不改写。`v0.1.0-rc.3` 至 `v0.1.0-rc.6` 已完成三个原生目标门禁并发布为 Pre-release；`v0.1.0-rc.7` 用于交付中英文界面、语言偏好迁移、Electron locale 裁剪及收藏/返回控件调整。发布 job 按标签名读取 `docs/RELEASE-NOTES-${GITHUB_REF_NAME}.md`，文件缺失时直接失败；任何候选都不得标为 Latest 或正式稳定版。
 
 ## 签名与公证接口
+
+`v0.1.0-rc.8` 交付启动/手动检查更新、对应平台浏览器下载入口和设置页分组统一，并修复发布前审计发现的高危传递依赖及 Electron 首次并发安装问题。已发布 rc.7 包没有检查更新功能，首次升级到 rc.8 需手动下载；rc.8 用于检查后续更高版本。当前候选继续如实标注正式签名、公证与实机验收缺口，不作为稳定版发布。
 
 仓库不保存证书、私钥、密码、API key 或示例秘密值。实际发布时由受保护的 CI secret 或本机密钥链提供：
 

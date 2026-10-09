@@ -838,3 +838,20 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - `npm run test:e2e`：构建通过，受限沙箱中 Electron 启动失败；改在本机桌面会话运行 `node tests/e2e/electron-smoke.mjs`，完整通过，包含 sandbox preload 方法、设置页与既有业务/生命周期流程。
 - 单元测试以仅含 macOS x64 DMG 的模拟公开 `v0.1.0-rc.8` 验证 `rc.7 → rc.8` 可检测且允许打开对应附件；另覆盖正式版筛选、附件缺失/未上传、固定 URL 构造、启动检查结果共享与设置页按钮。签名、ZIP 和更新清单均不是版本检测条件。
 - 未验证：尚无更高公开 RC 供本机真实请求、浏览器下载与人工安装；Windows 11 x64、macOS arm64 实机和新的三目标安装包。没有提交、推送或发布。
+
+## 下一 RC README 文档校验（2026-10-09）
+
+- 范围：仅更新 README 与任务/交接/验证记录，无产品代码、依赖或版本变更。环境：macOS Intel x64，先加载 NVM 并执行 `nvm use`，Node.js 22.19.0、npm 10.9.3。
+- `node --input-type=module` 临时校验脚本：通过；README 的 7 个本地文档/图片链接均存在，三个安装包名称与 `scripts/prepare-release.mjs` 及 `package.json` 的 `0.1.0-rc.7` 一致，下载标签与版本一致，并明确标出下一 RC 尚未发布的功能。
+- `git diff --check`：通过。人工核对 README 与 PRD、P36 交接及更新服务实现，确认 RC/正式版筛选、默认启动检查和浏览器下载说明一致。
+- 文档变更未重跑 lint/typecheck/test/build、Electron 冒烟或实机测试；既有 P36 产品验证结果保留，未扩展为新安装包证据。本次未提交、推送或发布。
+
+## v0.1.0-rc.8 发布准备验证（2026-10-09）
+
+- 环境：macOS 13.7.8 Intel x64、NVM Node.js 22.19.0、npm 10.9.3、Electron 44.3.0；应用版本 `0.1.0-rc.8`。
+- 首轮 `npm ci` 后全量测试 35 文件/209 项通过、2 文件因 Electron 首次并发解压失败。读取锁定 Electron 的 `index.js/install.js` 后确认 lazy install 竞态；两套 CI 增加 `node node_modules/electron/install.js`，未关闭测试并行或降低断言。
+- 首轮 `npm audit --audit-level=high --registry=https://registry.npmjs.org` 发现 3 高危/9 中危；`npm audit fix --package-lock-only --registry=https://registry.npmjs.org` 更新 brace-expansion、http-cache-semantics、source-map-js 和 fast-uri 等兼容传递版本，因剩余中危返回非零。随后重新 `npm ci`、串行安装 Electron 并执行高危级别审计，成功：0 高危/8 中危。未使用 `--force`。
+- 最终 `npm run lint`、`npm run typecheck`、`npm test`（37 文件/221 项）、`npm run build`：通过；构建只有既有 Zod PURE 注释位置提示。
+- 桌面会话 `node tests/e2e/electron-smoke.mjs`：完整通过，包含七个设置 legend 几何、服务器管理、播放、歌词、收藏/歌单、网络、单实例、队列与凭据恢复/删除。启动样本 2,106 ms；20 轮切页内存增量 53,720 KiB，媒体请求增量 1。
+- `SONAVI_RELEASE_TAG=v0.1.0-rc.8 node scripts/prepare-release.mjs validate-tag`、临时 Node 文档校验（8 个本地链接、版本/锁文件一致及三目标文件名/Release notes）与 `git diff --check`：通过。
+- 待远端原生 runner 重跑普通 CI 和三目标 release gate；本轮未在本机重复打包。真实下载、跨版本安装及数据恢复、Windows/macOS arm64 实机与正式签名/公证未验证。
