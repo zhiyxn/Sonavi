@@ -17,6 +17,9 @@ const release = (tag_name: string, prerelease = false, draft = false, names?: st
 
 describe('公开版本检查', () => {
   it('候选版可升级到更高候选或正式版，忽略草稿和不支持的标签', () => {
+    expect(findNewerRelease('0.1.0-rc.7', [release('v0.1.0-rc.8', true, false, [
+      'Sonavi-0.1.0-rc.8-mac-x64.dmg'
+    ])], 'darwin', 'x64')).toEqual({ status: 'available', version: '0.1.0-rc.8', downloadAvailable: true })
     expect(findNewerRelease('0.1.0-rc.7', [
       release('v0.1.0-rc.8', true),
       release('v0.1.0'),

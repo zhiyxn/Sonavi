@@ -6,6 +6,7 @@ import App from '../../src/renderer/src/App.vue'
 import type { SonaviApi } from '../../src/shared/application'
 import { usePlayerStore } from '../../src/renderer/src/stores/player'
 import { useSessionStore } from '../../src/renderer/src/stores/session'
+import { useUpdateStore } from '../../src/renderer/src/stores/update'
 import { setActiveLanguage } from '../../src/renderer/src/i18n'
 
 function installPlatformApi(platform: 'windows' | 'macos'): SonaviApi {
@@ -24,7 +25,7 @@ function installPlatformApi(platform: 'windows' | 'macos'): SonaviApi {
       openProjectHomepage: vi.fn(async () => true),
       checkForUpdates: vi.fn(async () => ({ status: 'up-to-date' as const })),
       openReleasesPage: vi.fn(async () => true),
-      downloadUpdate: vi.fn(async () => true)
+      openUpdateDownload: vi.fn(async () => true)
     },
     connection: {
       test: async () => ({
@@ -173,6 +174,20 @@ describe('共享应用外壳', () => {
     mount(App, { global: { plugins: [createPinia(), VueQueryPlugin] } })
     await flushPromises()
     expect(api.application.checkForUpdates).not.toHaveBeenCalled()
+  })
+
+  it('启动时检测到新 RC 后保留设置页可用的结果', async () => {
+    const api = installPlatformApi('macos')
+    api.application.checkForUpdates = vi.fn(async () => ({
+      status: 'available' as const, version: '0.1.0-rc.8', downloadAvailable: true
+    }))
+    const pinia = createPinia()
+    mount(App, { global: { plugins: [pinia, VueQueryPlugin] } })
+    await flushPromises()
+    expect(api.application.checkForUpdates).toHaveBeenCalledOnce()
+    expect(useUpdateStore(pinia).status).toBe('available')
+    expect(useUpdateStore(pinia).availableVersion).toBe('0.1.0-rc.8')
+    expect(useUpdateStore(pinia).downloadAvailable).toBe(true)
   })
 
   it('连接后默认展示专辑，并使用音乐/专辑/艺术家导航而不保留首页和独立搜索', async () => {

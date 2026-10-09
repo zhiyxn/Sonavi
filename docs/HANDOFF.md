@@ -1,10 +1,10 @@
 # 项目交接
 
-更新日期：2026-10-07
+更新日期：2026-10-09
 
 ## 当前目标与状态
 
-P01～P30 的当前代码已完成并随提交 `cf25508` 进入 `main`。P31 检查更新、P32 设置分组标题统一和 P33 对应安装包直接下载入口已完成本地代码及 macOS Intel 源码闸门，尚未进入安装包。最新候选 `v0.1.0-rc.7` 已通过普通三平台 CI、三目标原生 release gate 与发布 job，并发布为非草稿 GitHub Pre-release。候选仍不配置正式签名、公证或自动安装更新，Windows 与 macOS arm64 的本轮证据必须来自各自 GitHub 原生 runner；完整结论见 `docs/TEST-REPORT.md`、`docs/TEST-MATRIX.md` 与 `docs/KNOWN-ISSUES.md`。
+P01～P30 的当前代码已完成并随提交 `cf25508` 进入 `main`。P31/P32 已完成；P33 的系统浏览器下载方式由 P36 恢复，P34/P35 的应用内下载和自动安装方案已废止。启动时自动检查默认开启，当前 RC 可检测更高 RC 或正式版；用户点击按钮后在系统浏览器下载对应 EXE/DMG，再自行安装。签名不是检测前提，现有未签名 `v0.1.0-rc.7` 可参与检查。真实跨版本升级、Windows/macOS arm64 本轮运行均未验证；完整证据见 `docs/TEST-REPORT.md`。
 
 P11 原 Critical 已修复：媒体句柄改为会话密钥加密、带 epoch 的无状态 token，不再因 2,000 项 FIFO 淘汰；10,000 个后续封面句柄回归测试通过。用户真实 Windows 记录 `docs/Existing issues.md` 中的艺术家大响应、后续播放、scrobble 和 UI 问题均有针对性代码修复，但艺术家/scrobble 必须回到原服务器复验，不能仅凭 fixture 宣称关闭。
 
@@ -387,3 +387,28 @@ run `34934352140` 已确认 `1f23427` 的两处修复在 Windows x64、macOS Int
 - 有新版本且公开 Release 已上传当前系统安装包时，设置页显示“下载当前系统安装包”；点击后默认浏览器打开 main 构造的固定 GitHub 附件 URL。对应附件缺失/未上传时保留“查看发布页”。不自动安装或执行下载文件。
 - main 只根据 Windows x64、macOS Intel x64、macOS arm64 固定命名与附件状态开放无参数下载 IPC；renderer 不接收远端 URL。启动提示按附件是否可下载分支展示。
 - lint、typecheck、37 文件/220 项测试、生产构建和 macOS Intel 源码 Electron 冒烟通过。当前 rc.7 没有可触发的新版本，未执行真实安装包下载/哈希/升级；下一入口是在后续候选版分别进行三个原生目标的下载与安装实测。未推送或发布。
+
+## P34 更新安装包下载进度（历史方案，已由 P36 取代，2026-10-07）
+
+- P33 的系统浏览器下载已改为系统保存对话框加应用内流式下载。main 沿用已验证的固定仓库与平台附件选择，通过默认 Electron Session 下载到同目录临时文件，完整结束后改名；拒绝非 HTTPS GitHub 附件响应、超过 4 GiB 或内容长度不符的文件。renderer 经受限 preload 只接收字节进度，已知总大小显示百分比，否则显示已接收 MB；完成显示保存位置，取消和失败有明确状态，不执行安装包。
+- macOS Intel x64、NVM Node.js 22.19.0：`npm run lint`、`npm run typecheck`、`npm run test`（38 文件/225 项）、`npm run build`、`git diff --check` 均通过；`node tests/e2e/electron-smoke.mjs` 在桌面会话完整通过，确认 sandbox preload 可加载且新订阅方法存在。构建仅有既有 Zod PURE 注释提示。
+- 当前 rc.7 无更高版本可触发真实下载，实际 GitHub 文件传输、哈希与安装未验证；Windows 11 x64、macOS arm64 和三目标新安装包未验证。下一入口是在后续候选版逐个平台检查进度、完整文件和人工升级。未提交、推送或发布。
+
+## P35 自动下载安装与重启（历史方案，已由 P36 取代，2026-10-07）
+
+- P33/P34 的手动保存能力已被用户的新要求替换。当前检查流程选定固定 GitHub 标签后，已签名包由 `electron-updater` 自动下载，设置页订阅字节进度；完成后先保存暂停队列，再安装并重启。更新器缓存路径受 `sonavi-updater/pending` 限制，目标版本成功启动后仅清理对应载荷和 `update-info.json`。
+- `electron-builder.yml` 新增 GitHub 更新配置与 macOS ZIP；发布工作流分别上传两个 macOS 清单，发布 job 验证附件大小/SHA-512 后合并 `latest-mac.yml`。三个原生 package gate 已改为要求正式签名，因此缺少受保护证书配置时后续标签发布会停在验证阶段。Windows 包还必须含 `publisherName` 供下载后签名验证。
+- 本机 macOS Intel 已通过 lint、typecheck、38 文件/223 项测试、源码 Electron 冒烟、未签名 DMG+ZIP 构建、包验证与包内冒烟。ASAR 4,462,673 字节；包内自动更新器依赖可加载。依赖审计高危 0 项，中危 8 项。具体命令和文件哈希见 `docs/TEST-REPORT.md`。
+- 下一入口：在正式签名/公证的后续候选上，分别于 Windows 11 x64、macOS Intel x64、macOS arm64 原生目标验证实际检查、下载进度、完整安装、自动重启、队列/凭据恢复和更新缓存清理。现有公开 rc.7 未签名且无元数据，不能自举为自动更新；本轮未提交、推送或发布。
+
+### 2026-10-09 复核
+
+- 运行时增加更新清单固定文件名、大小和 SHA-512 字段校验；macOS 仅在双架构 ZIP/DMG 均已上传时报告可自动安装。成功路径测试覆盖自动下载、清理标记和队列准备后调用安装；恶意 URL、缺失架构和错误校验字段会拒绝。
+- macOS 更新器会另存 `sonavi-updater/update.zip` 副本；新版本启动时与 `pending` 中本次载荷一起定向清理。全量测试 38 文件/225 项通过；重新打出的 macOS x64 未签名 DMG+ZIP 包验证及包内 Electron 冒烟通过。DMG SHA-256、ASAR 等最终证据见 `docs/TEST-REPORT.md`。
+
+## P36 恢复浏览器下载与 RC 检测（2026-10-09，当前方案）
+
+- 用户取消了 P34/P35 的应用内下载和自动安装要求。当前版本在启动自动检查开关启用时读取公开 Releases 列表；`0.1.0-rc.7` 可发现更高 RC 或正式版，不因本机未签名而跳过。正式版不提示 RC。检查结果留在共享 Pinia 状态，打开设置页即可操作。
+- 设置页显示可用新版本；仅当当前系统的 EXE/DMG 已上传时显示“下载当前系统安装包”。点击后 main 以固定仓库、校验过的标签和固定文件名构造 GitHub URL，由系统浏览器负责下载；否则提供发布页。应用不保存或执行下载文件。
+- 本机 NVM Node.js 22.19.0 的 lint、typecheck、37 文件/221 项测试和生产构建通过。Electron 冒烟与最终差异检查结果见 `docs/TEST-REPORT.md` 的 P36 记录。
+- 下一入口：发布下一 RC 后在三个目标的原生包中分别验证启动提示、浏览器下载、安装及升级后数据恢复。Windows 11 x64、macOS arm64 实机和真实新版本下载本轮未验证。未提交、推送或发布。

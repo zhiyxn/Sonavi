@@ -5,6 +5,7 @@ import { nextTick } from 'vue'
 import type { SonaviApi } from '../../src/shared/application'
 import type { DesktopPreferences } from '../../src/shared/desktop'
 import SettingsPanel from '../../src/renderer/src/components/SettingsPanel.vue'
+import { useUpdateStore } from '../../src/renderer/src/stores/update'
 import { setActiveLanguage } from '../../src/renderer/src/i18n'
 
 afterEach(() => {
@@ -19,10 +20,10 @@ describe('设置页安全重启', () => {
     const updatePreferences = vi.fn(async (preferences: DesktopPreferences) => preferences)
     const checkForUpdates = vi.fn(async () => ({ status: 'available', version: '0.1.0-rc.8', downloadAvailable: true }))
     const openReleasesPage = vi.fn(async () => true)
-    const downloadUpdate = vi.fn(async () => true)
+    const openUpdateDownload = vi.fn(async () => true)
     Object.defineProperty(window, 'sonavi', {
       value: {
-        application: { checkForUpdates, openReleasesPage, downloadUpdate },
+        application: { checkForUpdates, openReleasesPage, openUpdateDownload },
         desktop: {
           getPreferences: async () => ({
             closeAction: 'hide',
@@ -50,6 +51,8 @@ describe('设置页安全重启', () => {
       configurable: true
     })
 
+    const pinia = createPinia()
+    await useUpdateStore(pinia).check()
     const wrapper = mount(SettingsPanel, {
       props: {
         applicationInfo: {
@@ -75,11 +78,13 @@ describe('设置页安全重启', () => {
           credentialPersistence: 'encrypted'
         }
       },
-      global: { plugins: [createPinia()] }
+      global: { plugins: [pinia] }
     })
     await flushPromises()
 
     expect(wrapper.find('#interface-language').exists()).toBe(true)
+    expect(wrapper.text()).toContain('发现新版本：0.1.0-rc.8')
+    expect(wrapper.findAll('button').some((button) => button.text() === '下载当前系统安装包')).toBe(true)
     expect(wrapper.find('#check-updates-on-startup').attributes('data-state')).toBe('checked')
     await wrapper.get('#check-updates-on-startup').trigger('click')
     await wrapper.get('form').trigger('submit')
@@ -88,13 +93,12 @@ describe('设置页安全重启', () => {
     const updateButton = wrapper.findAll('button').find((button) => button.text() === '检查更新')
     await updateButton?.trigger('click')
     await flushPromises()
-    expect(checkForUpdates).toHaveBeenCalledOnce()
+    expect(checkForUpdates).toHaveBeenCalledTimes(2)
     expect(wrapper.text()).toContain('发现新版本：0.1.0-rc.8')
     const downloadButton = wrapper.findAll('button').find((button) => button.text() === '下载当前系统安装包')
     await downloadButton?.trigger('click')
     await flushPromises()
-    expect(downloadUpdate).toHaveBeenCalledOnce()
-    expect(wrapper.text()).toContain('已在默认浏览器中打开下载链接。')
+    expect(openUpdateDownload).toHaveBeenCalledOnce()
     const releasesButton = wrapper.findAll('button').find((button) => button.text() === '查看发布页')
     await releasesButton?.trigger('click')
     expect(openReleasesPage).toHaveBeenCalledOnce()

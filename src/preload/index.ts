@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import {
   APPLICATION_INFO_CHANNEL,
   CHECK_FOR_UPDATES_CHANNEL,
-  DOWNLOAD_UPDATE_CHANNEL,
+  OPEN_UPDATE_DOWNLOAD_CHANNEL,
   OPEN_RELEASES_PAGE_CHANNEL,
   OPEN_PROJECT_HOMEPAGE_CHANNEL,
   type SonaviApi
@@ -90,7 +90,7 @@ const sonaviApi: SonaviApi = Object.freeze({
     getInfo: () => ipcRenderer.invoke(APPLICATION_INFO_CHANNEL),
     openProjectHomepage: () => ipcRenderer.invoke(OPEN_PROJECT_HOMEPAGE_CHANNEL),
     checkForUpdates: () => ipcRenderer.invoke(CHECK_FOR_UPDATES_CHANNEL),
-    downloadUpdate: () => ipcRenderer.invoke(DOWNLOAD_UPDATE_CHANNEL),
+    openUpdateDownload: () => ipcRenderer.invoke(OPEN_UPDATE_DOWNLOAD_CHANNEL),
     openReleasesPage: () => ipcRenderer.invoke(OPEN_RELEASES_PAGE_CHANNEL)
   }),
   connection: Object.freeze({

@@ -13,7 +13,7 @@ import PlaylistsPanel from './components/PlaylistsPanel.vue'
 import ServerManagementPanel from './components/ServerManagementPanel.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
 import ConfirmationDialog from './components/ConfirmationDialog.vue'
-import { checkForUpdates, loadApplicationInfo } from './services/application-info'
+import { loadApplicationInfo } from './services/application-info'
 import {
   connectSavedConnection,
   disconnectConnection,
@@ -28,6 +28,7 @@ import type {
 import { useSessionStore } from './stores/session'
 import { usePlayerStore } from './stores/player'
 import { useDesktopStore } from './stores/desktop'
+import { useUpdateStore } from './stores/update'
 import { usePlaybackReporting } from './composables/use-playback-reporting'
 import { usePlaybackBufferDiagnostics } from './composables/use-playback-buffer-diagnostics'
 import { useDesktopIntegration } from './composables/use-desktop-integration'
@@ -46,6 +47,7 @@ const serverActionPending = ref(false)
 const session = useSessionStore()
 const player = usePlayerStore()
 const desktop = useDesktopStore()
+const updates = useUpdateStore()
 const { errorMessage: playbackReportError } = usePlaybackReporting()
 usePlaybackBufferDiagnostics()
 const queryClient = useQueryClient()
@@ -112,7 +114,7 @@ async function checkUpdatesOnStartup(): Promise<void> {
   try {
     await desktop.initialize()
     if (!desktop.preferences.checkUpdatesOnStartup) return
-    const result = await checkForUpdates()
+    const result = await updates.check()
     if (result.status === 'available') {
       toast.info(t('发现新版本：{version}', { version: result.version }), {
         description: result.downloadAvailable

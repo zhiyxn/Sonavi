@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import {
   APPLICATION_INFO_CHANNEL,
   CHECK_FOR_UPDATES_CHANNEL,
-  DOWNLOAD_UPDATE_CHANNEL,
+  OPEN_UPDATE_DOWNLOAD_CHANNEL,
   OPEN_RELEASES_PAGE_CHANNEL,
   OPEN_PROJECT_HOMEPAGE_CHANNEL
 } from '../shared/application'
@@ -192,7 +192,7 @@ function registerApplicationIpc(updateCheck: UpdateCheckService): void {
     return true
   })
 
-  ipcMain.handle(DOWNLOAD_UPDATE_CHANNEL, async (event) => {
+  ipcMain.handle(OPEN_UPDATE_DOWNLOAD_CHANNEL, async (event) => {
     assertTrustedIpcSender(event)
     const url = updateCheck.getDownloadUrl()
     if (!url) throw new Error('当前没有可下载的对应系统安装包。')

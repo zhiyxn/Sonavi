@@ -1,7 +1,7 @@
 # P10 打包、兼容性与发布前审计报告
 
-日期：2026-10-07
-状态：P31 检查更新已完成本地代码闸门与 macOS Intel 源码冒烟，待跨平台人工复验；最新候选 `v0.1.0-rc.7` 已通过三目标原生 release gate、安装包验证与发布 job，并发布为 GitHub Pre-release。真实大型服务边界、Windows 11 x64、macOS arm64 真机、正式签名/公证和各平台完整实机发布验收未完成
+日期：2026-10-09
+状态：P36 已恢复浏览器下载并保留启动时 RC 自动检测；本机单元测试、类型检查与静态检查通过，构建及 Electron 冒烟结果见下文。最新公开候选 `v0.1.0-rc.7` 未签名，仍可检测后续 RC；真实跨版本下载、Windows 11 x64、macOS arm64 真机与各平台安装验收未完成。
 
 ## 测试环境
 
@@ -807,3 +807,34 @@ P11 修复前审查结论：可以进入真机测试；Blocker 0，Critical 1。
 - main 从固定 GitHub Releases API 验证当前 Windows x64、macOS x64、macOS arm64 的目标安装包名称和 `uploaded` 状态；只在匹配时向 renderer 返回 `downloadAvailable`。点击按钮后 main 构造固定仓库的下载 URL 并由默认浏览器打开，不使用 API 返回的 `browser_download_url`，renderer 不传 URL、版本或路径。
 - 测试覆盖三种安装包命名、缺少/未上传附件和不支持平台的发布页回退、固定 URL 构造、远端伪造 URL 忽略、设置页下载按钮与失败状态。`npm run lint`、三组 `typecheck`、37 文件/220 项 `npm run test`、`npm run build` 通过；macOS Intel 源码 `node tests/e2e/electron-smoke.mjs` 完整通过，确认新增 preload 方法存在，未触发真实安装包下载。
 - 未验证：当前 `v0.1.0-rc.7` 运行时没有可用的更高版本，因此真实下载完成、文件哈希和升级安装尚未测试；Windows 11 x64、macOS arm64 与新安装包仍未验证。系统默认浏览器或操作系统可能继续要求用户确认。
+
+## P34 更新安装包下载进度（历史方案，已由 P36 取代，2026-10-07）
+
+- 环境：macOS Intel x64、NVM Node.js 22.19.0、npm 10.9.3、Electron 44.3.0，当前源码版本 `0.1.0-rc.7`。
+- 服务测试覆盖流式字节进度、完整后保存、用户取消不请求网络、内容长度不符时清理临时文件、非 GitHub 响应及 GitHub 文本错误页拒绝；preload 进度数据仅接受严格字节对象。设置页测试覆盖未知总大小的已接收容量、已知总大小的 50% 进度条和完成路径。
+- `npm run lint`、`npm run typecheck`、`npm run test`（38 文件/225 项）、`npm run build`、`git diff --check`：通过。构建只有既有 Zod PURE 注释位置提示。
+- `node tests/e2e/electron-smoke.mjs`：受限沙箱无法启动 Electron；桌面会话首次运行发现 preload 引入 Zod 后无法加载，已改为无依赖的严格字节对象校验。修复后一次运行在既有收藏点击处遇到底栏遮挡超时，随后两次完整运行通过，确认 sandbox preload、新进度订阅方法及既有桌面流程。冒烟未模拟更新附件传输。
+- 未验证：真实 GitHub 附件下载、哈希与安装升级（当前 rc.7 无更高版本）；Windows 11 x64、macOS arm64 和三目标新安装包的进度及保存行为。
+
+## P35 自动下载安装、重启与清理（历史方案，已由 P36 取代，2026-10-07）
+
+- 环境：macOS Intel x64、NVM Node.js 22.19.0、npm 10.9.3、Electron 44.3.0；代码基于未提交工作区，当前应用版本 `0.1.0-rc.7`。
+- `npm run lint`、`npm run typecheck`、`npm test`：通过，38 文件/223 项。测试覆盖已签名门槛导致的未签名回退、更新状态与设置页进度、退出前队列确认、版本匹配后定向缓存清理、双架构元数据合并及 SHA-512 验证。
+- `npm run build:mac:x64`：本地构建未签名 x64 DMG 与 ZIP，并生成 `latest-mac.yml` 和包内 `app-update.yml`；包内 ASAR 4,462,673 字节，小于既有 16 MiB 上限。沙箱 GitHub DNS 失败，获准联网后成功。
+- `npm run verify:package -- mac-x64`：受限沙箱内 `hdiutil` 报设备未配置；本机桌面权限下通过，x64、`com.sonavi.desktop`、最低 macOS 13.0、签名 `unsigned`，DMG 123,344,388 字节，SHA-256 `06ce39c49db3709e629a5f68c13a318825c5eb6adaf78220507f7f01e9c88b74`。严格签名发布闸门不会接受该包。
+- `npm run test:e2e`：受限沙箱 Electron 无法启动，本机桌面权限下完整通过；`npm run test:e2e:package -- mac-x64` 完整通过，启动样本 1,908 ms，包含受限 preload 桥、凭据和播放队列恢复。冒烟不模拟真实远端更新。
+- `npm audit fix --package-lock-only` 修复可兼容的传递依赖后，审计余 8 项中危、0 项高危；未做 `--force` 降级。发布工作流现在要求三目标正式签名，尚无签名/公证凭据和新版本升级样本，真实自动更新、Windows 11 x64、macOS arm64 与升级后缓存清理均为“未验证”。没有提交、推送或发布。
+
+### 2026-10-09 复核
+
+- 运行时拒绝清单中非固定附件名、缺失架构、错误版本、无效大小或 SHA-512 字段；补充 Windows 正常与异常清单、macOS 双架构、自动下载后进入安装准备及缓存副本清理测试。`npm run lint`、`npm run typecheck`、`npm test`（38 文件/225 项）通过。
+- `npm run build:mac:x64` 重新生成当前代码的未签名 DMG、ZIP 与 `latest-mac.yml`。`npm run verify:package -- mac-x64` 通过：DMG 123,343,431 字节，SHA-256 `01db6c8b87396f279d80ebabbec6507b56a1a042268ea2fb661b9c10b1e0ee9e`；ASAR 4,463,251 字节，x64、最低 macOS 13.0、签名 `unsigned`。`npm run test:e2e:package -- mac-x64` 完整通过，启动样本 1,878 ms。此包无法开启自动更新，真实签名升级流程仍未验证。
+- `npm audit --audit-level=high --registry=https://registry.npmjs.org` 于 2026-10-09 再次通过：高危 0，中危 8。`git diff --check` 通过；没有提交、推送或发布。
+
+## P36 浏览器下载与 RC 自动检测（当前方案，2026-10-09）
+
+- 环境：macOS 13.7.8 Intel x64、NVM Node.js 22.19.0、npm 10.9.3、Electron 44.3.0；应用版本 `0.1.0-rc.7`，当前 `main` 工作区。
+- `npm run lint`、`npm run typecheck`、`npm test`（37 文件/221 项）、`npm run build`、`git diff --check`：通过。生产构建仅有既有 Zod PURE 注释位置提示。
+- `npm run test:e2e`：构建通过，受限沙箱中 Electron 启动失败；改在本机桌面会话运行 `node tests/e2e/electron-smoke.mjs`，完整通过，包含 sandbox preload 方法、设置页与既有业务/生命周期流程。
+- 单元测试以仅含 macOS x64 DMG 的模拟公开 `v0.1.0-rc.8` 验证 `rc.7 → rc.8` 可检测且允许打开对应附件；另覆盖正式版筛选、附件缺失/未上传、固定 URL 构造、启动检查结果共享与设置页按钮。签名、ZIP 和更新清单均不是版本检测条件。
+- 未验证：尚无更高公开 RC 供本机真实请求、浏览器下载与人工安装；Windows 11 x64、macOS arm64 实机和新的三目标安装包。没有提交、推送或发布。

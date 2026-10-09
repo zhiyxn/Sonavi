@@ -1,6 +1,6 @@
 # Sonavi 架构
 
-更新日期：2026-10-07
+更新日期：2026-10-09
 
 ## 单工程与共享边界
 
@@ -37,9 +37,9 @@
 
 ## P10 打包边界
 
-electron-vite 将 main、sandbox preload 与 renderer 分别构建到 `out/`。main 的 Zod 运行时 schema 被内联，因此 electron-builder 的 ASAR 只包含 `out/` 与最小 `package.json`，不携带构建期 `node_modules`、测试或源码。`extraResources` 只加入共享品牌图标。包验证器在目标系统读取应用可执行文件与系统元数据：Windows 检查 PE x64 和 Authenticode，macOS 检查单架构 Mach-O、Info.plist、DMG 与 codesign；两端共同检查应用资源、版本、包大小和 SHA-256。
+electron-vite 将 main、sandbox preload 与 renderer 分别构建到 `out/`。main 的 Zod 运行时 schema 被内联；ASAR 只包含 `out/` 与最小 `package.json`，不携带构建期 `node_modules`、测试或源码。`extraResources` 只加入共享品牌图标。包验证器在目标系统检查架构、签名、资源、版本、包大小和 SHA-256，ASAR 仍受 16 MiB 上限约束。
 
-macOS Developer ID 签名使用 `build/entitlements.mac*.plist` 的最小 JIT/可执行内存能力；不声明相机、麦克风、蓝牙或音频采集，也不加入 `disable-library-validation`。无 Developer ID 时，Intel 可执行文件记录 `unsigned`，Apple Silicon Mach-O 自带的 linker ad-hoc seal 记录 `ad-hoc`；两者都不能通过 `SONAVI_REQUIRE_SIGNING=1`。只有 Developer ID 候选执行完整 bundle 严格校验并进入后续公证，仓库不保存秘密。Windows 先解析 PE Certificate Table，无表时直接记录 `unsigned`，存在签名数据时才由目标系统验证 Authenticode。`publish: null` 与所有构建命令的 `--publish never` 保证普通构建和验证不会创建 Release；只有匹配 `v*-rc.*`、通过版本校验和三个原生目标完整闸门的 `.github/workflows/release.yml` 可使用最小 `contents: write` 权限创建 Pre-release。
+macOS Developer ID 签名使用 `build/entitlements.mac*.plist` 的最小 JIT/可执行内存能力；不声明未使用的隐私权限。无 Developer ID 时，Intel 包记录 `unsigned`、Apple Silicon 包记录 `ad-hoc`，均不能通过 `SONAVI_REQUIRE_SIGNING=1`。Windows 验证 Authenticode 状态。普通构建使用 `--publish never`；标签驱动的发布 workflow 仍按 `docs/RELEASE-CHECKLIST.md` 进行原生构建与附件校验。签名不作为公开 Release 版本检测的前提；实际安装由用户和操作系统完成。
 
 ## 安全模型
 
@@ -77,7 +77,7 @@ TanStack Query 为每次 `search3` 提供 AbortSignal 并设置 `retry: false`�
 
 设置页在同一共享组件中呈现平台、服务器、协议、播放/网络策略、关闭动作、主题、当前账号封面缓存与安全退出；平台行为由 preload/main 适配，不在 Vue 组件读取 `process`。
 
-P31/P33 的版本检查由共享 main 通过 `session.defaultSession.fetch` 读取固定的 Sonavi GitHub Releases API，沿用系统/直连/手动代理策略；只接收受限版本标签、有限响应体和公开发布元数据。main 按 Windows x64、macOS x64、macOS arm64 的固定命名核对 Release 附件，只有对应附件状态为 `uploaded` 才允许直接下载。preload 仅提供无参数检查、打开固定发布页和下载对应安装包方法；main 自行构造固定仓库下载地址，renderer 不接收或打开远端 URL。桌面偏好 `checkUpdatesOnStartup` 控制启动后一次后台检查；旧 v1 状态缺少该字段时补默认值并保留原窗口、语言和队列。网络失败不阻断启动，手动检查显示错误；浏览器下载后仍由用户手动安装。
+版本检查由共享 main 通过 `session.defaultSession.fetch` 读取固定的 Sonavi GitHub Releases API，沿用既有代理和 TLS 策略；只接收受限版本标签、有限响应体和公开发布元数据。候选版可检测更高 RC 或正式版，正式版只检测更高正式版。main 仅核对当前平台安装包的固定名称与 `uploaded` 状态，并构造固定仓库下载地址；不信任远端附件 URL。受限 preload 只暴露无参数检查、打开当前安装包链接和固定发布页方法；renderer 不传 URL、路径或安装命令。`checkUpdatesOnStartup` 默认开启并控制启动后台检查；结果保存在共享 Pinia 更新状态中，设置页无需再次检查即可显示下载入口。失败不阻断启动。下载进度由系统浏览器显示，安装由用户完成。
 
 renderer 根节点只挂载一个项目持有的 shadcn-vue Sonner `Toaster`。连接、设置、收藏/歌单 mutation、查询、播放和上报错误通过统一通知工具调用 `toast.error`，稳定 ID 避免同一错误重复堆叠；阻断当前页面的加载错误仍保留带重试按钮的状态卡。删除歌单与退出并忘记账号不再调用原生 `window.confirm`，而使用项目持有的 shadcn-vue AlertDialog；取消或关闭不执行操作，确认后才进入既有受限 IPC/服务调用，组件同时阻止重复确认。Input、Checkbox、Label、Select 与 Slider 同样由官方 shadcn-vue 源码引入并按 Sonavi tokens 和严格 TypeScript 规则适配；业务导航、实体卡片和虚拟列表继续保留语义化按钮。
 

@@ -8,7 +8,7 @@ export const APPLICATION_INFO_CHANNEL = 'sonavi:application:get-info' as const
 export const OPEN_PROJECT_HOMEPAGE_CHANNEL = 'sonavi:application:open-project-homepage' as const
 export const CHECK_FOR_UPDATES_CHANNEL = 'sonavi:application:check-for-updates' as const
 export const OPEN_RELEASES_PAGE_CHANNEL = 'sonavi:application:open-releases-page' as const
-export const DOWNLOAD_UPDATE_CHANNEL = 'sonavi:application:download-update' as const
+export const OPEN_UPDATE_DOWNLOAD_CHANNEL = 'sonavi:application:open-update-download' as const
 
 export type UpdateCheckResult =
   | { status: 'available'; version: string; downloadAvailable: boolean }
@@ -32,7 +32,7 @@ export interface SonaviApi {
     openProjectHomepage: () => Promise<boolean>
     checkForUpdates: () => Promise<UpdateCheckResult>
     openReleasesPage: () => Promise<boolean>
-    downloadUpdate: () => Promise<boolean>
+    openUpdateDownload: () => Promise<boolean>
   }
   connection: ConnectionApi
   library: LibraryApi

@@ -4,7 +4,7 @@ import type { ApplicationInfo } from '../../../shared/application'
 import type { ConnectionSuccessResult } from '../../../shared/connection'
 import type { NetworkDiagnosticEntry, NetworkSettings } from '../../../shared/network'
 import type { CoverCacheInfo, DesktopPreferences } from '../../../shared/desktop'
-import { checkForUpdates, downloadUpdate, openReleasesPage } from '../services/application-info'
+import { openReleasesPage, openUpdateDownload } from '../services/application-info'
 import { showErrorToast } from '../lib/notifications'
 import {
   exportNetworkDiagnostics,
@@ -25,6 +25,7 @@ import {
 } from './ui/select'
 import { clearCoverCache, loadCoverCacheInfo, restartApplication } from '../services/desktop'
 import { useDesktopStore } from '../stores/desktop'
+import { useUpdateStore } from '../stores/update'
 import ConfirmationDialog from './ConfirmationDialog.vue'
 import { t } from '../i18n'
 
@@ -49,13 +50,10 @@ const disconnectConfirmationOpen = ref(false)
 const restartConfirmationOpen = ref(false)
 const restarting = ref(false)
 const desktopSettings = ref<DesktopPreferences | null>(null)
-const updateStatus = ref<'idle' | 'checking' | 'available' | 'up-to-date' | 'error'>('idle')
-const availableVersion = ref('')
-const downloadAvailable = ref(false)
 const openingDownload = ref(false)
-const downloadMessage = ref('')
 const cacheInfo = ref<CoverCacheInfo | null>(null)
 const desktop = useDesktopStore()
+const updates = useUpdateStore()
 const supportsTranscodeOffset = computed(() =>
   props.connection.server.extensions.some((name) => name.toLowerCase() === 'transcodeoffset')
 )
@@ -147,33 +145,23 @@ async function saveDesktopSettings(): Promise<void> {
 }
 
 async function checkUpdates(): Promise<void> {
-  if (updateStatus.value === 'checking') return
-  updateStatus.value = 'checking'
-  availableVersion.value = ''
-  downloadAvailable.value = false
-  downloadMessage.value = ''
+  if (updates.status === 'checking' || openingDownload.value) return
   try {
-    const result = await checkForUpdates()
-    updateStatus.value = result.status
-    if (result.status === 'available') {
-      availableVersion.value = result.version
-      downloadAvailable.value = result.downloadAvailable
-    }
+    await updates.check()
   } catch {
-    updateStatus.value = 'error'
+    // The shared store records the visible error state.
   }
 }
 
-async function downloadInstaller(): Promise<void> {
+async function openInstallerDownload(): Promise<void> {
   if (openingDownload.value) return
   openingDownload.value = true
   try {
-    await downloadUpdate()
-    downloadMessage.value = t('已在默认浏览器中打开下载链接。')
+    await openUpdateDownload()
   } catch {
     showErrorToast('无法打开安装包下载链接，请稍后重试或查看发布页。', {
-      title: '下载入口打开失败',
-      id: 'download-update-error'
+      title: '无法打开下载链接',
+      id: 'open-update-download-error'
     })
   } finally {
     openingDownload.value = false
@@ -362,23 +350,22 @@ async function exportDiagnostics(): Promise<void> {
         <div>
           <p>{{ t('当前版本：v{version}', { version: applicationInfo.version }) }}</p>
         </div>
-        <Button variant="outline" :disabled="updateStatus === 'checking'" @click="checkUpdates">
-          {{ t(updateStatus === 'checking' ? '正在检查…' : '检查更新') }}
+        <Button variant="outline" :disabled="updates.status === 'checking' || openingDownload" @click="checkUpdates">
+          {{ t(updates.status === 'checking' ? '正在检查…' : '检查更新') }}
         </Button>
       </header>
-      <p v-if="updateStatus !== 'idle'" class="settings-help" role="status">
-        <template v-if="updateStatus === 'checking'">{{ t('正在查询公开发布版本…') }}</template>
-        <template v-else-if="updateStatus === 'available'">{{ t('发现新版本：{version}', { version: availableVersion }) }}</template>
-        <template v-else-if="updateStatus === 'up-to-date'">{{ t('当前已是最新版本。') }}</template>
+      <p v-if="updates.status !== 'idle'" class="settings-help" role="status">
+        <template v-if="updates.status === 'checking'">{{ t('正在查询公开发布版本…') }}</template>
+        <template v-else-if="updates.status === 'available'">{{ t('发现新版本：{version}', { version: updates.availableVersion }) }}</template>
+        <template v-else-if="updates.status === 'up-to-date'">{{ t('当前已是最新版本。') }}</template>
         <template v-else>{{ t('检查更新失败，请检查网络或稍后重试。') }}</template>
       </p>
-      <div v-if="updateStatus === 'available'" class="flex flex-wrap gap-2">
-        <Button v-if="downloadAvailable" :disabled="openingDownload" @click="downloadInstaller">
-          {{ t('下载当前系统安装包') }}
+      <div v-if="updates.status === 'available'" class="flex flex-wrap gap-2">
+        <Button v-if="updates.downloadAvailable" :disabled="openingDownload" @click="openInstallerDownload">
+          {{ t(openingDownload ? '正在打开下载链接…' : '下载当前系统安装包') }}
         </Button>
         <Button variant="ghost" size="sm" @click="openReleaseListing">{{ t('查看发布页') }}</Button>
       </div>
-      <p v-if="downloadMessage" class="settings-help" role="status">{{ downloadMessage }}</p>
     </fieldset>
 
     <form v-if="settings" class="settings-form" @submit.prevent="saveSettings">

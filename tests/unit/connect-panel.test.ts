@@ -73,7 +73,7 @@ describe('ConnectPanel', () => {
     })
     Object.defineProperty(window, 'sonavi', {
       value: {
-        application: { getInfo: vi.fn(), openProjectHomepage: vi.fn(), checkForUpdates: vi.fn(), openReleasesPage: vi.fn(), downloadUpdate: vi.fn() },
+        application: { getInfo: vi.fn(), openProjectHomepage: vi.fn(), checkForUpdates: vi.fn(), openReleasesPage: vi.fn(), openUpdateDownload: vi.fn() },
         connection: {
           test,
           restore,

@@ -652,7 +652,7 @@ try {
   const bridgeShape = await window.evaluate(() => ({
     getInfo: typeof window.sonavi?.application?.getInfo,
     checkForUpdates: typeof window.sonavi?.application?.checkForUpdates,
-    downloadUpdate: typeof window.sonavi?.application?.downloadUpdate,
+    openUpdateDownload: typeof window.sonavi?.application?.openUpdateDownload,
     testConnection: typeof window.sonavi?.connection?.test,
     restoreConnection: typeof window.sonavi?.connection?.restore,
     listSavedConnections: typeof window.sonavi?.connection?.listSaved,
@@ -688,7 +688,7 @@ try {
   if (
     bridgeShape.getInfo !== 'function' ||
     bridgeShape.checkForUpdates !== 'function' ||
-    bridgeShape.downloadUpdate !== 'function' ||
+    bridgeShape.openUpdateDownload !== 'function' ||
     bridgeShape.testConnection !== 'function' ||
     bridgeShape.restoreConnection !== 'function' ||
     bridgeShape.listSavedConnections !== 'function' ||

@@ -72,13 +72,13 @@ function selectNewerRelease(
     if (!newest || compareVersions(version, newest.version) > 0) {
       const label = release.tag_name.replace(/^v/, '')
       const artifactName = getUpdateArtifactName(label, platform, arch)
+      const uploaded = new Set(release.assets.filter((asset) => asset.state === 'uploaded')
+        .map((asset) => asset.name))
       newest = {
         version,
         label,
         tag: release.tag_name,
-        downloadAvailable: artifactName !== null && release.assets.some(
-          (asset) => asset.name === artifactName && asset.state === 'uploaded'
-        )
+        downloadAvailable: artifactName !== null && uploaded.has(artifactName)
       }
     }
   }

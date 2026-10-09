@@ -14,6 +14,6 @@ export function openReleasesPage(): Promise<boolean> {
   return window.sonavi.application.openReleasesPage()
 }
 
-export function downloadUpdate(): Promise<boolean> {
-  return window.sonavi.application.downloadUpdate()
+export function openUpdateDownload(): Promise<boolean> {
+  return window.sonavi.application.openUpdateDownload()
 }
